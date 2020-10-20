@@ -115,10 +115,6 @@ func encodeToken(alg Alg, secret interface{}, claims interface{}) ([]byte, error
 	return token, nil
 }
 
-func joinParts(parts ...[]byte) []byte {
-	return bytes.Join(parts, sep)
-}
-
 // We could omit the "alg" because the token contains it
 // BUT, for security reason the algorithm MUST explicitly match
 // (even if we perform hash comparison later on).
@@ -155,6 +151,10 @@ var (
 	sep = []byte(".")
 	pad = []byte("=")
 )
+
+func joinParts(parts ...[]byte) []byte {
+	return bytes.Join(parts, sep)
+}
 
 func createHeader(alg string) []byte {
 	header := []byte(`{"alg":"` + alg + `","typ":"JWT"}`)

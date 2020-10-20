@@ -89,42 +89,36 @@ func loadPublicKeyRSA(filename string) (*rsa.PublicKey, error) {
 }
 
 func parsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error) {
-	var err error
-
-	// Parse PEM block
-	var block *pem.Block
-	if block, _ = pem.Decode(key); block == nil {
+	block, _ := pem.Decode(key)
+	if block == nil {
 		return nil, fmt.Errorf("pem format missing")
 	}
 
-	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(block.Bytes); err != nil {
-		if parsedKey, err = x509.ParsePKCS8PrivateKey(block.Bytes); err != nil {
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+			pKey, ok := key.(*rsa.PrivateKey)
+			if !ok {
+				return nil, fmt.Errorf("not a type of rsa private key")
+			}
+
+			privateKey = pKey
+		} else {
 			return nil, err
 		}
 	}
 
-	var pkey *rsa.PrivateKey
-	var ok bool
-	if pkey, ok = parsedKey.(*rsa.PrivateKey); !ok {
-		return nil, fmt.Errorf("not a type of rsa private key")
-	}
-
-	return pkey, nil
+	return privateKey, nil
 }
 
 func parsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
-	var err error
-
-	// Parse PEM block
-	var block *pem.Block
-	if block, _ = pem.Decode(key); block == nil {
+	block, _ := pem.Decode(key)
+	if block == nil {
 		return nil, fmt.Errorf("pem format missing")
 	}
 
-	// Parse the key
-	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+	parsedKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
 		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
 			parsedKey = cert.PublicKey
 		} else {
@@ -132,9 +126,8 @@ func parsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
 		}
 	}
 
-	var pkey *rsa.PublicKey
-	var ok bool
-	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
+	pkey, ok := parsedKey.(*rsa.PublicKey)
+	if !ok {
 		return nil, fmt.Errorf("not a type of rsa public key")
 	}
 
