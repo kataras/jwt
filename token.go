@@ -9,6 +9,25 @@ import (
 	"time"
 )
 
+// A builtin list of fixed headers for builtin algorithms (to boost the performance a bit).
+// key = alg, value = the base64encoded full header
+// (when kid or any other extra headers are not required to be inside).
+var fixedHeaders = map[string][]byte{
+	NONE.Name():  nil,
+	HS256.Name(): nil,
+	HS384.Name(): nil,
+	HS512.Name(): nil,
+	RS256.Name(): nil,
+	RS384.Name(): nil,
+	RS512.Name(): nil,
+}
+
+func init() {
+	for k := range fixedHeaders {
+		fixedHeaders[k] = createHeader(k)
+	}
+}
+
 var (
 	// ErrTokenForm indicates that the extracted token has not the expected form (it's not a JWT).
 	ErrTokenForm = errors.New("invalid token form")
@@ -157,6 +176,10 @@ func joinParts(parts ...[]byte) []byte {
 }
 
 func createHeader(alg string) []byte {
+	if header, ok := fixedHeaders[alg]; ok && len(header) > 0 {
+		return header
+	}
+
 	header := []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
 	return Base64Encode(header)
 }

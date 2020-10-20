@@ -33,9 +33,22 @@ var (
 	// RSA signing algorithms.
 	// Sign   key: *rsa.PublicKey (or *rsa.PrivateKey with its PublicKey filled)
 	// Verify key: *rsa.PrivateKey
+	//
+	// 	Signing and verifying RS256 signed tokens is just as easy.
+	// The only difference lies in the use of a private/public key pair rather than a shared secret.
+	// There are many ways to create RSA keys.
+	// OpenSSL is one of the most popular libraries for key creation and management:
+	// Generate a private key:
+	// $ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+	// Derive the public key from the private key:
+	// $ openssl rsa -pubout -in private_key.pem -out public_key.pem
 	RS256 Alg = &algRSA{"RS256", crypto.SHA256}
 	RS384 Alg = &algRSA{"RS384", crypto.SHA384}
 	RS512 Alg = &algRSA{"RS512", crypto.SHA512}
+	/* TODO:
+	• ES384, ES512: SHA-384 and SHA-512 variations of the ES256 algorithm.
+	• PS256, PS384, PS512: RSASSA-PSS + MGF1 with SHA256/384/512 variants.
+	*/
 )
 
 var (
