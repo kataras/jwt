@@ -1,25 +1,32 @@
 package jwt
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 )
 
 var testAlg, testSecret = "HS256", []byte("secret")
 
-func TestGenerateAndVerifyToken(t *testing.T) {
-	var claims = map[string]interface{}{
-		"username": "kataras",
-	}
+func TestEncodeDecodeToken(t *testing.T) {
+	var (
+		claims = map[string]interface{}{
+			"username": "kataras",
+		}
 
-	token, err := generateToken(claims, testAlg, testSecret)
+		expectedToken = []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.3VOM5969RLbycM0p8SrQLpugfExEWk-TAv6Du7BWUXg")
+	)
+
+	token, err := encodeToken(testAlg, testSecret, claims)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log(string(token))
+	if !bytes.Equal(token, expectedToken) {
+		t.Fatalf("expected token not match, got: %s", string(token))
+	}
 
-	payload, err := verifyToken(token, testAlg, testSecret)
+	payload, err := decodeToken(testAlg, testSecret, token)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,6 +38,21 @@ func TestGenerateAndVerifyToken(t *testing.T) {
 
 	if !compareMap(claims, got) {
 		t.Fatalf("payload didn't match, expected: %#+v but got: %#+v", claims, got)
+	}
+}
+
+func BenchmarkEncodeToken(b *testing.B) {
+	var claims = map[string]interface{}{
+		"username": "kataras",
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := encodeToken(testAlg, testSecret, claims)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

@@ -16,13 +16,13 @@ var algorithms = map[string]func() hash.Hash{
 }
 
 var (
-	errAlgorithmUnsporrted = errors.New("algorithm unsupported")
-	errTokenForm           = errors.New("invalid token form")
-	errTokenAlg            = errors.New("unexpected token algorithm")
-	errTokenSignature      = errors.New("invalid token signature")
+	errAlgorithmUnsupported = errors.New("algorithm unsupported")
+	errTokenForm            = errors.New("invalid token form")
+	errTokenAlg             = errors.New("unexpected token algorithm")
+	errTokenSignature       = errors.New("invalid token signature")
 )
 
-func generateToken(claims interface{}, alg string, secret []byte) ([]byte, error) {
+func encodeToken(alg string, secret []byte, claims interface{}) ([]byte, error) {
 	header := createHeader(alg)
 
 	payload, err := createPayload(claims)
@@ -51,7 +51,7 @@ func generateToken(claims interface{}, alg string, secret []byte) ([]byte, error
 //
 // Decodes and verifies the given "token".
 // It returns the payload/body/data part.
-func verifyToken(token []byte, alg string, secret []byte) ([]byte, error) {
+func decodeToken(alg string, secret []byte, token []byte) ([]byte, error) {
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
 		return nil, errTokenForm
@@ -71,7 +71,7 @@ func verifyToken(token []byte, alg string, secret []byte) ([]byte, error) {
 	}
 
 	// The important stuff:
-	if !bytes.Equal(signature, expectedSignature) {
+	if !hmac.Equal(signature, expectedSignature) {
 		return nil, errTokenSignature
 	}
 
@@ -80,7 +80,7 @@ func verifyToken(token []byte, alg string, secret []byte) ([]byte, error) {
 
 var (
 	sep = []byte(".")
-	eq  = []byte("=")
+	pad = []byte("=")
 )
 
 func createHeader(alg string) []byte {
@@ -100,9 +100,11 @@ func createPayload(claims interface{}) ([]byte, error) {
 func createSignature(alg string, secret []byte, header, payload []byte) ([]byte, error) {
 	hasher, ok := algorithms[alg]
 	if !ok {
-		return nil, errAlgorithmUnsporrted
+		return nil, errAlgorithmUnsupported
 	}
 
+	// We can improve its performance (if we store the secret on the same structure)
+	// by using a pool and its Reset method.
 	h := hmac.New(hasher, secret)
 	// header.payload
 	headerPayload := append(header, append(sep, payload...)...)
@@ -119,14 +121,14 @@ func base64Encode(src []byte) []byte {
 	buf := make([]byte, base64.URLEncoding.EncodedLen(len(src)))
 	base64.URLEncoding.Encode(buf, src)
 
-	return bytes.TrimRight(buf, string(eq)) // JWT: no trailing '='.
+	return bytes.TrimRight(buf, string(pad)) // JWT: no trailing '='.
 }
 
 func base64Decode(src []byte) ([]byte, error) {
 	if n := len(src) % 4; n > 0 {
 		// JWT: Because of no trailing '=' let's suffix it
 		// with the correct number of those '=' before decoding.
-		src = append(src, bytes.Repeat(eq, 4-n)...)
+		src = append(src, bytes.Repeat(pad, 4-n)...)
 	}
 
 	buf := make([]byte, base64.URLEncoding.DecodedLen(len(src)))
