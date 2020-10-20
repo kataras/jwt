@@ -7,6 +7,24 @@ import (
 
 // The builtin signing available algorithms.
 var (
+	// None for unsecured JWTs.
+	// An unsecured JWT may be fit for client-side use.
+	// For instance, if the session ID is a hard-to-guess number, and
+	// the rest of the data is only used by the client for constructing a
+	// view, the use of a signature is superfluous.
+	// This data can be used by a single-page web application
+	// to construct a view with the "pretty" name for the user
+	// without hitting the backend while he gets
+	// redirected to his last visited page. Even if a malicious user
+	// were to modify this data he or she would gain nothing.
+	// Example payload:
+	//  {
+	//    "sub": "user123",
+	//    "session": "ch72gsb320000udocl363eofy",
+	//    "name": "Pretty Name",
+	//    "lastpage": "/views/settings"
+	//  }
+	NONE Alg = &algNONE{}
 	// HMAC-SHA signing algorithms.
 	// Keys should be type of []byte.
 	HS256 Alg = &algHMAC{"HS256", crypto.SHA256}
