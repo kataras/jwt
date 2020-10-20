@@ -6,27 +6,27 @@ import (
 	"testing"
 )
 
-var testAlg, testSecret = "HS256", []byte("secret")
+var testAlg, testSecret = HS256, []byte("secret")
 
-func TestEncodeDecodeToken(t *testing.T) {
-	var (
-		claims = map[string]interface{}{
-			"username": "kataras",
-		}
+func testEncodeDecodeToken(t *testing.T, alg Alg, signKey, verKey interface{}, expectedToken []byte) {
+	t.Helper()
 
-		expectedToken = []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.3VOM5969RLbycM0p8SrQLpugfExEWk-TAv6Du7BWUXg")
-	)
+	claims := map[string]interface{}{
+		"username": "kataras",
+	}
 
-	token, err := encodeToken(testAlg, testSecret, claims)
+	token, err := encodeToken(alg, signKey, claims)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	t.Logf("Alg: %s\n\t\t Token: %s", alg.Name(), string(token))
+
 	if !bytes.Equal(token, expectedToken) {
-		t.Fatalf("expected token not match, got: %s", string(token))
+		t.Fatalf("expected token:\n%s\n\nbut got:\n%s", string(expectedToken), string(token))
 	}
 
-	payload, err := decodeToken(testAlg, testSecret, token)
+	payload, err := decodeToken(alg, verKey, token)
 	if err != nil {
 		t.Fatal(err)
 	}

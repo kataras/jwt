@@ -2,47 +2,121 @@ package jwt
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
+	"time"
 )
-
-var algorithms = map[string]func() hash.Hash{
-	"HS256": sha256.New,
-}
 
 var (
-	errAlgorithmUnsupported = errors.New("algorithm unsupported")
-	errTokenForm            = errors.New("invalid token form")
-	errTokenAlg             = errors.New("unexpected token algorithm")
-	errTokenSignature       = errors.New("invalid token signature")
+	// ErrTokenForm indicates that the extracted token has not the expected form (it's not a JWT).
+	ErrTokenForm = errors.New("invalid token form")
+	// ErrTokenAlg indicates that the given algorithm does not match the extracted one.
+	ErrTokenAlg = errors.New("unexpected token algorithm")
 )
 
-func encodeToken(alg string, secret []byte, claims interface{}) ([]byte, error) {
-	header := createHeader(alg)
+// Token generates a new token based on the algorithm and a secret key.
+// The claims is the payload, the actual body of the token, should
+// contain information about a specific authorized client.
+// Note that the payload part is not encrypted
+// therefore, it should NOT contain any private information.
+//
+// Example Code:
+//
+//  token, err := jwt.Token(jwt.HS256, []byte("secret"), map[string]interface{}{
+//    "iat": now.Unix(),
+//    "exp": now.Add(15 * time.Minute).Unix(),
+//    "foo": "bar",
+//  })
+func Token(alg Alg, secret interface{}, claims interface{}) ([]byte, error) {
+	return encodeToken(alg, secret, claims)
+}
+
+// VerifiedToken holds the information about a verified token.
+// Look `VerifyToken` for more.
+type VerifiedToken struct {
+	// Note:
+	// We don't provide information for header and signature parts
+	// unless is requested.
+	Token   []byte
+	Payload []byte
+	Claims  Claims
+	Dest    interface{}
+}
+
+// VerifyToken decodes and verifies the given "token" based
+// on the algorithm and the secret key that this token was generated with.
+// It binds the payload part to the "dest" if not nil,
+// it can be a json.RawMessage to delay unmarshal for multiple destinations
+// or use the return VerifiedToken's Payload to unmarshal more custom data.
+// The last variadic input argument is optional, can be used
+// for further claims validations before exit.
+// Returns the verified token information.
+//
+// Example Code:
+//
+//  var claims map[string]interface{}
+//  verifiedToken, err := jwt.VerifyToken(jwt.HS256, []byte("secret"), time.Now(), token, &claims)
+func VerifyToken(
+	alg Alg,
+	secret interface{},
+	t time.Time,
+	token []byte,
+	dest interface{}, validators ...ClaimsValidator,
+) (*VerifiedToken, error) {
+	payload, err := decodeToken(alg, secret, token)
+	if err != nil {
+		return nil, err
+	}
+
+	var claims Claims
+	err = json.Unmarshal(payload, &claims)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validateClaims(t, claims, validators...)
+	if err != nil {
+		return nil, err
+	}
+
+	if dest != nil {
+		err = json.Unmarshal(payload, &dest)
+	}
+
+	verifiedTok := &VerifiedToken{
+		Token:   token,
+		Payload: payload,
+		Claims:  claims,
+		Dest:    dest,
+	}
+	return verifiedTok, nil
+}
+
+func encodeToken(alg Alg, secret interface{}, claims interface{}) ([]byte, error) {
+	header := createHeader(alg.Name())
 
 	payload, err := createPayload(claims)
 	if err != nil {
-		return nil, fmt.Errorf("generateToken: payload: %w", err)
+		return nil, fmt.Errorf("encodeToken: payload: %w", err)
 	}
 
-	signature, err := createSignature(alg, secret, header, payload)
+	headerPayload := joinParts(header, payload)
+
+	signature, err := createSignature(alg, secret, headerPayload)
 	if err != nil {
-		return nil, fmt.Errorf("generateToken: signature: %w", err)
+		return nil, fmt.Errorf("encodeToken: signature: %v", err)
 	}
 
 	// header.payload.signature
-	token := bytes.Join([][]byte{
-		header,
-		payload,
-		signature,
-	}, sep)
+	token := joinParts(headerPayload, signature)
 
 	return token, nil
+}
+
+func joinParts(parts ...[]byte) []byte {
+	return bytes.Join(parts, sep)
 }
 
 // We could omit the "alg" because the token contains it
@@ -51,31 +125,30 @@ func encodeToken(alg string, secret []byte, claims interface{}) ([]byte, error) 
 //
 // Decodes and verifies the given "token".
 // It returns the payload/body/data part.
-func decodeToken(alg string, secret []byte, token []byte) ([]byte, error) {
+func decodeToken(alg Alg, secret interface{}, token []byte) ([]byte, error) {
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
-		return nil, errTokenForm
+		return nil, ErrTokenForm
 	}
 
 	header := parts[0]
-	expectedHeader := createHeader(alg)
+	expectedHeader := createHeader(alg.Name())
 	if !bytes.Equal(header, expectedHeader) {
-		return nil, errTokenAlg
+		return nil, ErrTokenAlg
 	}
 
 	payload := parts[1]
 	signature := parts[2]
-	expectedSignature, err := createSignature(alg, secret, header, payload)
+	signatureDecoded, err := Base64Decode(signature)
 	if err != nil {
 		return nil, err
 	}
-
-	// The important stuff:
-	if !hmac.Equal(signature, expectedSignature) {
-		return nil, errTokenSignature
+	headerPayload := joinParts(header, payload)
+	if err := alg.Verify(headerPayload, signatureDecoded, secret); err != nil {
+		return nil, err
 	}
 
-	return base64Decode(payload)
+	return Base64Decode(payload)
 }
 
 var (
@@ -85,7 +158,7 @@ var (
 
 func createHeader(alg string) []byte {
 	header := []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
-	return base64Encode(header)
+	return Base64Encode(header)
 }
 
 func createPayload(claims interface{}) ([]byte, error) {
@@ -94,37 +167,27 @@ func createPayload(claims interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	return base64Encode(payload), nil
+	return Base64Encode(payload), nil
 }
 
-func createSignature(alg string, secret []byte, header, payload []byte) ([]byte, error) {
-	hasher, ok := algorithms[alg]
-	if !ok {
-		return nil, errAlgorithmUnsupported
-	}
-
-	// We can improve its performance (if we store the secret on the same structure)
-	// by using a pool and its Reset method.
-	h := hmac.New(hasher, secret)
-	// header.payload
-	headerPayload := append(header, append(sep, payload...)...)
-	_, err := h.Write(headerPayload)
+func createSignature(alg Alg, secret interface{}, headerAndPayload []byte) ([]byte, error) {
+	signature, err := alg.Sign(headerAndPayload, secret)
 	if err != nil {
-		return nil, err // this should never happen according to the internal docs.
+		return nil, err
 	}
-
-	signature := h.Sum(nil)
-	return base64Encode(signature), nil
+	return Base64Encode(signature), nil
 }
 
-func base64Encode(src []byte) []byte {
+// Base64Encode encodes "src" to jwt base64 url format.
+func Base64Encode(src []byte) []byte {
 	buf := make([]byte, base64.URLEncoding.EncodedLen(len(src)))
 	base64.URLEncoding.Encode(buf, src)
 
 	return bytes.TrimRight(buf, string(pad)) // JWT: no trailing '='.
 }
 
-func base64Decode(src []byte) ([]byte, error) {
+// Base64Decode decodes "src" to jwt base64 url format.
+func Base64Decode(src []byte) ([]byte, error) {
 	if n := len(src) % 4; n > 0 {
 		// JWT: Because of no trailing '=' let's suffix it
 		// with the correct number of those '=' before decoding.
