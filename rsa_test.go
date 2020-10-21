@@ -10,13 +10,30 @@ import (
 	"testing"
 )
 
+// Test keys generated through OpenSSL CLI.
 func TestEncodeDecodeTokenRSA(t *testing.T) {
-	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsa_private.key")
+	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsa_private_key.pem")
 	if err != nil {
 		t.Fatalf("rsa: private key: %v", err)
 	}
 
-	publicKey, err := loadPublicKeyRSA("./_testfiles/rsa_public.key")
+	publicKey, err := loadPublicKeyRSA("./_testfiles/rsa_public_key.pem")
+	if err != nil {
+		t.Fatalf("rsa: public key: %v", err)
+	}
+
+	expectedToken := []byte("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.g0cp5TqTxVA0w-xtt_tnR0LbyGbIiGqS_Kjbdh1HYu90gfcvFt5svZN4TA-TvO5wdFxflkeoGtX6iYMmIFnvaswPvxzHNso0nDWVStwkX5B0hu1CVqNvy_YGYO-RqMtVWbj5wjtbBnGdqDroWWAM2ynCnkRkl2kXHxlpNhZqkLNjz9yfLsYyzqj3h58hTo6BYCuh0jxtq7ihyxZfJQhFF41Wlmt0GqoYCKJ8vD2J8GjqhyDRanMEnz9KfYmhcLEoz1vNlo6ZYUqupRBRvAmJlujGuJntne-EJz7xkeH4dIpMSmlJeMSiZHEAKa-Q3YFvvK08Mi3DEEFGR9xgn0vOrQ")
+	testEncodeDecodeToken(t, RS256, privateKey, publicKey, expectedToken)
+}
+
+// Test generated RSA keys from Go.
+func TestEncodeDecodeTokenRSAGo(t *testing.T) {
+	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsa_private_key_go.pem")
+	if err != nil {
+		t.Fatalf("rsa: private key: %v", err)
+	}
+
+	publicKey, err := loadPublicKeyRSA("./_testfiles/rsa_public_key_go.pem")
 	if err != nil {
 		t.Fatalf("rsa: public key: %v", err)
 	}
@@ -54,10 +71,10 @@ func generateTestFilesRSA() error {
 	}
 	pubKeyPem := pem.EncodeToMemory(pubKeyBlock)
 
-	if err = ioutil.WriteFile("./_testfiles/rsa_private.key", privKeyPem, 0666); err != nil {
+	if err = ioutil.WriteFile("./_testfiles/rsa_private_key.pem", privKeyPem, 0666); err != nil {
 		return err
 	}
-	return ioutil.WriteFile("./_testfiles/rsa_public.key", pubKeyPem, 0666)
+	return ioutil.WriteFile("./_testfiles/rsa_public_key.pem", pubKeyPem, 0666)
 }
 
 func loadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error) {
@@ -126,10 +143,10 @@ func parsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
 		}
 	}
 
-	pkey, ok := parsedKey.(*rsa.PublicKey)
+	publicKey, ok := parsedKey.(*rsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("not a type of rsa public key")
 	}
 
-	return pkey, nil
+	return publicKey, nil
 }

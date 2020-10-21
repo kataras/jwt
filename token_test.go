@@ -22,8 +22,11 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey, verKey interface{}, e
 
 	t.Logf("Alg: %s\n\t\t Token: %s", alg.Name(), string(token))
 
-	if !bytes.Equal(token, expectedToken) {
-		t.Fatalf("expected token:\n%s\n\nbut got:\n%s", string(expectedToken), string(token))
+	if len(expectedToken) > 0 {
+		// ECDSA and EdDSA elliptics cannot produce the same token everytime.
+		if !bytes.Equal(token, expectedToken) {
+			t.Fatalf("expected token:\n%s\n\nbut got:\n%s", string(expectedToken), string(token))
+		}
 	}
 
 	payload, err := decodeToken(alg, verKey, token)

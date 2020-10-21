@@ -1,27 +1,26 @@
 package jwt
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 )
 
-type algRSA struct {
-	name   string
-	hasher crypto.Hash
+type algRSAPSS struct {
+	name string
+	opts *rsa.PSSOptions
 }
 
-func (a *algRSA) Name() string {
+func (a *algRSAPSS) Name() string {
 	return a.name
 }
 
-func (a *algRSA) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
+func (a *algRSAPSS) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
 	privateKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
 		return nil, ErrInvalidKey
 	}
 
-	h := a.hasher.New()
+	h := a.opts.Hash.New()
 	// header.payload
 	_, err := h.Write(headerAndPayload)
 	if err != nil {
@@ -29,10 +28,10 @@ func (a *algRSA) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) 
 	}
 
 	hashed := h.Sum(nil)
-	return rsa.SignPKCS1v15(rand.Reader, privateKey, a.hasher, hashed)
+	return rsa.SignPSS(rand.Reader, privateKey, a.opts.Hash, hashed, a.opts)
 }
 
-func (a *algRSA) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
+func (a *algRSAPSS) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
 	publicKey, ok := key.(*rsa.PublicKey)
 	if !ok {
 		if privateKey, ok := key.(*rsa.PrivateKey); ok {
@@ -42,7 +41,7 @@ func (a *algRSA) Verify(headerAndPayload []byte, signature []byte, key interface
 		}
 	}
 
-	h := a.hasher.New()
+	h := a.opts.Hash.New()
 	// header.payload
 	_, err := h.Write(headerAndPayload)
 	if err != nil {
@@ -50,5 +49,5 @@ func (a *algRSA) Verify(headerAndPayload []byte, signature []byte, key interface
 	}
 
 	hashed := h.Sum(nil)
-	return rsa.VerifyPKCS1v15(publicKey, a.hasher, hashed, signature)
+	return rsa.VerifyPSS(publicKey, a.opts.Hash, hashed, signature, a.opts)
 }
