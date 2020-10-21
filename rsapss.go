@@ -14,7 +14,7 @@ func (a *algRSAPSS) Name() string {
 	return a.name
 }
 
-func (a *algRSAPSS) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
+func (a *algRSAPSS) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
 		return nil, ErrInvalidKey
@@ -31,7 +31,7 @@ func (a *algRSAPSS) Sign(headerAndPayload []byte, key interface{}) ([]byte, erro
 	return rsa.SignPSS(rand.Reader, privateKey, a.opts.Hash, hashed, a.opts)
 }
 
-func (a *algRSAPSS) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
+func (a *algRSAPSS) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	publicKey, ok := key.(*rsa.PublicKey)
 	if !ok {
 		if privateKey, ok := key.(*rsa.PrivateKey); ok {

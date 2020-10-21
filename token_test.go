@@ -8,7 +8,7 @@ import (
 
 var testAlg, testSecret = HS256, []byte("secret")
 
-func testEncodeDecodeToken(t *testing.T, alg Alg, signKey, verKey interface{}, expectedToken []byte) {
+func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey PublicKey, expectedToken []byte) {
 	t.Helper()
 
 	claims := map[string]interface{}{

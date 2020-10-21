@@ -58,7 +58,7 @@ type Claims struct {
 type ClaimsValidator func(Claims) error
 
 func validateClaims(t time.Time, claims Claims, validators ...ClaimsValidator) error {
-	now := t.Unix()
+	now := t.Round(time.Second).Unix()
 
 	if claims.NotBefore > 0 {
 		if now < claims.NotBefore {

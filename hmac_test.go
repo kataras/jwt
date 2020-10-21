@@ -3,7 +3,7 @@ package jwt
 import "testing"
 
 func TestEncodeDecodeTokenHMAC(t *testing.T) {
-	key := []byte("secret")
-	expectedToken := []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.3VOM5969RLbycM0p8SrQLpugfExEWk-TAv6Du7BWUXg")
+	key := []byte("sercrethatmaycontainch@r$")
+	expectedToken := []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.HX22uANEy1qEG0m0utORW4YYfyNeuG9FzvRPMxpSaTc")
 	testEncodeDecodeToken(t, HS256, key, key, expectedToken)
 }

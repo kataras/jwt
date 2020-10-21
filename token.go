@@ -20,6 +20,10 @@ var fixedHeaders = map[string][]byte{
 	RS256.Name(): nil,
 	RS384.Name(): nil,
 	RS512.Name(): nil,
+	ES256.Name(): nil,
+	ES384.Name(): nil,
+	ES512.Name(): nil,
+	EdDSA.Name(): nil,
 }
 
 func init() {
@@ -35,6 +39,13 @@ var (
 	ErrTokenAlg = errors.New("unexpected token algorithm")
 )
 
+type (
+	// PrivateKey is a generic type, this key is responsible for signing the token.
+	PrivateKey interface{}
+	// PublicKey is a generic type, this key is responsible to verify the token.
+	PublicKey interface{}
+)
+
 // Token generates a new token based on the algorithm and a secret key.
 // The claims is the payload, the actual body of the token, should
 // contain information about a specific authorized client.
@@ -48,8 +59,8 @@ var (
 //    "exp": now.Add(15 * time.Minute).Unix(),
 //    "foo": "bar",
 //  })
-func Token(alg Alg, secret interface{}, claims interface{}) ([]byte, error) {
-	return encodeToken(alg, secret, claims)
+func Token(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
+	return encodeToken(alg, key, claims)
 }
 
 // VerifiedToken holds the information about a verified token.
@@ -79,12 +90,12 @@ type VerifiedToken struct {
 //  verifiedToken, err := jwt.VerifyToken(jwt.HS256, []byte("secret"), time.Now(), token, &claims)
 func VerifyToken(
 	alg Alg,
-	secret interface{},
+	key PublicKey,
 	t time.Time,
 	token []byte,
 	dest interface{}, validators ...ClaimsValidator,
 ) (*VerifiedToken, error) {
-	payload, err := decodeToken(alg, secret, token)
+	payload, err := decodeToken(alg, key, token)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +124,7 @@ func VerifyToken(
 	return verifiedTok, nil
 }
 
-func encodeToken(alg Alg, secret interface{}, claims interface{}) ([]byte, error) {
+func encodeToken(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
 	header := createHeader(alg.Name())
 
 	payload, err := createPayload(claims)
@@ -123,7 +134,7 @@ func encodeToken(alg Alg, secret interface{}, claims interface{}) ([]byte, error
 
 	headerPayload := joinParts(header, payload)
 
-	signature, err := createSignature(alg, secret, headerPayload)
+	signature, err := createSignature(alg, key, headerPayload)
 	if err != nil {
 		return nil, fmt.Errorf("encodeToken: signature: %v", err)
 	}
@@ -140,7 +151,7 @@ func encodeToken(alg Alg, secret interface{}, claims interface{}) ([]byte, error
 //
 // Decodes and verifies the given "token".
 // It returns the payload/body/data part.
-func decodeToken(alg Alg, secret interface{}, token []byte) ([]byte, error) {
+func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, error) {
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
 		return nil, ErrTokenForm
@@ -159,7 +170,7 @@ func decodeToken(alg Alg, secret interface{}, token []byte) ([]byte, error) {
 		return nil, err
 	}
 	headerPayload := joinParts(header, payload)
-	if err := alg.Verify(headerPayload, signatureDecoded, secret); err != nil {
+	if err := alg.Verify(key, headerPayload, signatureDecoded); err != nil {
 		return nil, err
 	}
 
@@ -167,8 +178,9 @@ func decodeToken(alg Alg, secret interface{}, token []byte) ([]byte, error) {
 }
 
 var (
-	sep = []byte(".")
-	pad = []byte("=")
+	sep    = []byte(".")
+	pad    = []byte("=")
+	padStr = string(pad)
 )
 
 func joinParts(parts ...[]byte) []byte {
@@ -193,8 +205,8 @@ func createPayload(claims interface{}) ([]byte, error) {
 	return Base64Encode(payload), nil
 }
 
-func createSignature(alg Alg, secret interface{}, headerAndPayload []byte) ([]byte, error) {
-	signature, err := alg.Sign(headerAndPayload, secret)
+func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {
+	signature, err := alg.Sign(key, headerAndPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -202,14 +214,16 @@ func createSignature(alg Alg, secret interface{}, headerAndPayload []byte) ([]by
 }
 
 // Base64Encode encodes "src" to jwt base64 url format.
+// We could use the base64.RawURLEncoding but the below is a bit faster.
 func Base64Encode(src []byte) []byte {
 	buf := make([]byte, base64.URLEncoding.EncodedLen(len(src)))
 	base64.URLEncoding.Encode(buf, src)
 
-	return bytes.TrimRight(buf, string(pad)) // JWT: no trailing '='.
+	return bytes.TrimRight(buf, padStr) // JWT: no trailing '='.
 }
 
 // Base64Decode decodes "src" to jwt base64 url format.
+// We could use the base64.RawURLEncoding but the below is a bit faster.
 func Base64Decode(src []byte) ([]byte, error) {
 	if n := len(src) % 4; n > 0 {
 		// JWT: Because of no trailing '=' let's suffix it
@@ -221,3 +235,31 @@ func Base64Decode(src []byte) ([]byte, error) {
 	n, err := base64.URLEncoding.Decode(buf, src)
 	return buf[:n], err
 }
+
+/* Good idea but costs in performance, it's better
+to load the original key before it's passed to the public token API.
+So instead of the below, it's better to export some helper functions,
+e.g. for loading key pairs from PEM files.
+Now, the question is to have all those helpers in the main package?
+Or:
+1) create different subpackages (e.g. jwt/rsa, jwt/ecdsa, jwt/eddsa)
+1.1) this introduce another question: maybe it's better to move the alg impl on their packages?
+2) have them inside the main package, in the alg's source file (so they're easier to lookup),
+and also have common prefix names so their API is easy visible to end-developers, e.g.
+LoadPrivateKeyRSA/ECDSA/EdDSA(filename) - ParsePrivateKeyRSA/ECDSA/EdDSA(keyBytes) and
+LoadPublicKeyRSA/ECDSA/EdDSA(filename)  - ParsePublicKeyRSA/ECDSA/EdDSA(keyBytes) and
+MustLoadRSA/ECDSA/EdDSA(privateFilename, publicFilename string) as a shortcut for the above.
+
+^ The 2nd option was choosen.
+
+func (key PrivateKey) parse(alg string) interface{} {
+	switch alg {
+	case HS256.Name(), HS384.Name(), HS512.Name(): // expect string or []byte
+	case RS256.Name(), RS384.Name(), RS512.Name(), PS256.Name(), PS384.Name(), PS512.Name():
+	case ES256.Name(), ES384.Name(), ES512.Name():
+	case EdDSA.Name():
+	default:
+		return key
+	}
+}
+*/

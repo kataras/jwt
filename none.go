@@ -8,11 +8,11 @@ func (a *algNONE) Name() string {
 	return "NONE"
 }
 
-func (a *algNONE) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
+func (a *algNONE) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (a *algNONE) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
+func (a *algNONE) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	if !bytes.Equal(signature, []byte{}) {
 		return ErrTokenSignature
 	}

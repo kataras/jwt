@@ -4,6 +4,9 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"math/big"
 )
 
@@ -18,7 +21,7 @@ func (a *algECDSA) Name() string {
 	return a.name
 }
 
-func (a *algECDSA) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
+func (a *algECDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, ErrInvalidKey
@@ -59,7 +62,7 @@ func (a *algECDSA) Sign(headerAndPayload []byte, key interface{}) ([]byte, error
 	return signature, nil
 }
 
-func (a *algECDSA) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
+func (a *algECDSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	publicKey, ok := key.(*ecdsa.PublicKey)
 	if !ok {
 		if privateKey, ok := key.(*ecdsa.PrivateKey); ok {
@@ -89,4 +92,95 @@ func (a *algECDSA) Verify(headerAndPayload []byte, signature []byte, key interfa
 	}
 
 	return nil
+}
+
+// Key Helpers.
+
+// MustLoadECDSA accepts private and public PEM filenames
+// and returns a pair of private and public ECDSA keys.
+// Pass the returned private key to the `Token` (signing) function
+// and the public key to the `VerifyToken` function.
+//
+// It panics on errors.
+func MustLoadECDSA(privateKeyFilename, publicKeyFilename string) (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
+	privateKey, err := LoadPrivateKeyECDSA(privateKeyFilename)
+	if err != nil {
+		panic(err)
+	}
+
+	publicKey, err := LoadPublicKeyECDSA(publicKeyFilename)
+	if err != nil {
+		panic(err)
+	}
+
+	return privateKey, publicKey
+}
+
+// LoadPrivateKeyECDSA accepts a file path of a PEM-encoded ECDSA private key
+// and returns the ECDSA private key Go value.
+// Pass the returned value to the `Token` (signing) function.
+func LoadPrivateKeyECDSA(filename string) (*ecdsa.PrivateKey, error) {
+	b, err := ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := ParsePrivateKeyECDSA(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// LoadPublicKeyECDSA accepts a file path of a PEM-encoded ECDSA public key
+// and returns the ECDSA public key Go value.
+// Pass the returned value to the `VerifyToken` function.
+func LoadPublicKeyECDSA(filename string) (*ecdsa.PublicKey, error) {
+	b, err := ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := ParsePublicKeyECDSA(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// ParsePrivateKeyECDSA decodes and parses the
+// PEM-encoded ECDSA private key's raw contents.
+// Pass the result to the `Token` (signing) function.
+func ParsePrivateKeyECDSA(key []byte) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode(key)
+	if block == nil {
+		return nil, fmt.Errorf("private key: malformed or missing PEM format (ECDSA)")
+	}
+
+	return x509.ParseECPrivateKey(block.Bytes)
+}
+
+// ParsePublicKeyECDSA decodes and parses the
+// PEM-encoded ECDSA public key's raw contents.
+// Pass the result to the `VerifyToken` function.
+func ParsePublicKeyECDSA(key []byte) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode(key)
+
+	parsedKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			parsedKey = cert.PublicKey
+		} else {
+			return nil, err
+		}
+	}
+
+	publicKey, ok := parsedKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("public key: malformed or missing PEM format (ECDSA)")
+	}
+
+	return publicKey, nil
 }

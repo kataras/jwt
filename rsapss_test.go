@@ -3,12 +3,12 @@ package jwt
 import "testing"
 
 func TestEncodeDecodeTokenRSAPSS(t *testing.T) {
-	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsapss_private_key.pem")
+	privateKey, err := LoadPrivateKeyRSA("./_testfiles/rsapss_private_key.pem")
 	if err != nil {
 		t.Fatalf("rsa-pss: private key: %v", err)
 	}
 
-	publicKey, err := loadPublicKeyRSA("./_testfiles/rsapss_public_key.pem")
+	publicKey, err := LoadPublicKeyRSA("./_testfiles/rsapss_public_key.pem")
 	if err != nil {
 		t.Fatalf("rsa-pss: public key: %v", err)
 	}

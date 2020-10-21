@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	_ "crypto/sha256" // ignore:lint
 	_ "crypto/sha512"
+	"os"
 )
 
 type algHMAC struct {
@@ -16,7 +17,7 @@ func (a *algHMAC) Name() string {
 	return a.name
 }
 
-func (a *algHMAC) Sign(headerAndPayload []byte, key interface{}) ([]byte, error) {
+func (a *algHMAC) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	secret, ok := key.([]byte)
 	if !ok {
 		return nil, ErrInvalidKey
@@ -34,8 +35,8 @@ func (a *algHMAC) Sign(headerAndPayload []byte, key interface{}) ([]byte, error)
 	return h.Sum(nil), nil
 }
 
-func (a *algHMAC) Verify(headerAndPayload []byte, signature []byte, key interface{}) error {
-	expectedSignature, err := a.Sign(headerAndPayload, key)
+func (a *algHMAC) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
+	expectedSignature, err := a.Sign(key, headerAndPayload)
 	if err != nil {
 		return err
 	}
@@ -45,4 +46,42 @@ func (a *algHMAC) Verify(headerAndPayload []byte, signature []byte, key interfac
 	}
 
 	return nil
+}
+
+// Key Helper.
+
+// MustLoadHMAC accepts a single filename
+// which its plain text data should contain the HMAC shared key.
+// Pass the returned value to both `Token` and `VerifyToken` functions.
+//
+// It panics if the file was not found or unable to read from.
+func MustLoadHMAC(filenameOrRaw string) []byte {
+	key, err := LoadHMAC(filenameOrRaw)
+	if err != nil {
+		panic(err)
+	}
+
+	return key
+}
+
+// LoadHMAC accepts a single filename
+// which its plain text data should contain the HMAC shared key.
+// Pass the returned value to both `Token` and `VerifyToken` functions.
+func LoadHMAC(filenameOrRaw string) ([]byte, error) {
+	if fileExists(filenameOrRaw) {
+		// load contents from file.
+		return ReadFile(filenameOrRaw)
+	}
+
+	// otherwise just cast the argument to []byte
+	return []byte(filenameOrRaw), nil
+}
+
+// fileExists tries to report whether the local physical "path" exists and it's not a directory.
+func fileExists(path string) bool {
+	if f, err := os.Stat(path); err != nil {
+		return os.IsExist(err) && !f.IsDir()
+	}
+
+	return true
 }

@@ -5,19 +5,18 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"testing"
 )
 
 // Test keys generated through OpenSSL CLI.
 func TestEncodeDecodeTokenRSA(t *testing.T) {
-	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsa_private_key.pem")
+	privateKey, err := LoadPrivateKeyRSA("./_testfiles/rsa_private_key.pem")
 	if err != nil {
 		t.Fatalf("rsa: private key: %v", err)
 	}
 
-	publicKey, err := loadPublicKeyRSA("./_testfiles/rsa_public_key.pem")
+	publicKey, err := LoadPublicKeyRSA("./_testfiles/rsa_public_key.pem")
 	if err != nil {
 		t.Fatalf("rsa: public key: %v", err)
 	}
@@ -28,12 +27,12 @@ func TestEncodeDecodeTokenRSA(t *testing.T) {
 
 // Test generated RSA keys from Go.
 func TestEncodeDecodeTokenRSAGo(t *testing.T) {
-	privateKey, err := loadPrivateKeyRSA("./_testfiles/rsa_private_key_go.pem")
+	privateKey, err := LoadPrivateKeyRSA("./_testfiles/rsa_private_key_go.pem")
 	if err != nil {
 		t.Fatalf("rsa: private key: %v", err)
 	}
 
-	publicKey, err := loadPublicKeyRSA("./_testfiles/rsa_public_key_go.pem")
+	publicKey, err := LoadPublicKeyRSA("./_testfiles/rsa_public_key_go.pem")
 	if err != nil {
 		t.Fatalf("rsa: public key: %v", err)
 	}
@@ -75,78 +74,4 @@ func generateTestFilesRSA() error {
 		return err
 	}
 	return ioutil.WriteFile("./_testfiles/rsa_public_key.pem", pubKeyPem, 0666)
-}
-
-func loadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error) {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := parsePrivateKeyRSA(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
-}
-
-func loadPublicKeyRSA(filename string) (*rsa.PublicKey, error) {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := parsePublicKeyRSA(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
-}
-
-func parsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode(key)
-	if block == nil {
-		return nil, fmt.Errorf("pem format missing")
-	}
-
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
-			pKey, ok := key.(*rsa.PrivateKey)
-			if !ok {
-				return nil, fmt.Errorf("not a type of rsa private key")
-			}
-
-			privateKey = pKey
-		} else {
-			return nil, err
-		}
-	}
-
-	return privateKey, nil
-}
-
-func parsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
-	block, _ := pem.Decode(key)
-	if block == nil {
-		return nil, fmt.Errorf("pem format missing")
-	}
-
-	parsedKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
-			parsedKey = cert.PublicKey
-		} else {
-			return nil, err
-		}
-	}
-
-	publicKey, ok := parsedKey.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("not a type of rsa public key")
-	}
-
-	return publicKey, nil
 }
