@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// Map is just a type alias, a shortcut of map[string]interface{}.
+type Map = map[string]interface{}
+
 // Clock is used to validate tokens expiration if the "exp" (expiration) exists in the payload.
 // It can be overridden to use any other time value, useful for testing.
 //
@@ -18,6 +21,21 @@ var Clock = time.Now
 // Example of usage: embedded key pairs.
 // Defaults to the `ioutil.ReadFile` which reads the file from the physical disk.
 var ReadFile = ioutil.ReadFile
+
+// Marshal same as json.Marshal.
+// This variable can be modified to enable custom encoder behavior
+// for a signed payload.
+var Marshal = func(v interface{}) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	if b, ok := v.([]byte); ok {
+		return b, nil
+	}
+
+	return json.Marshal(v)
+}
 
 // Unmarshal same as json.Unmarshal
 // but with the Decoder unmarshals a number into an interface{} as a

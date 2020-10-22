@@ -54,7 +54,7 @@ func (a *algEdDSA) Verify(key PublicKey, headerAndPayload []byte, signature []by
 // MustLoadEdDSA accepts private and public PEM filenames
 // and returns a pair of private and public ed25519 keys.
 // Pass the returned private key to `Token` (signing) function
-// and the public key to the `VerifyToken` function.
+// and the public key to the `Verify` function.
 //
 // It panics on errors.
 func MustLoadEdDSA(privateKeyFilename, publicKeyFilename string) (ed25519.PrivateKey, ed25519.PublicKey) {
@@ -90,7 +90,7 @@ func LoadPrivateKeyEdDSA(filename string) (ed25519.PrivateKey, error) {
 
 // LoadPublicKeyEdDSA accepts a file path of a PEM-encoded ed25519 public key
 // and returns the ed25519 public key Go value.
-// Pass the returned value to the `VerifyToken` function.
+// Pass the returned value to the `Verify` function.
 func LoadPublicKeyEdDSA(filename string) (ed25519.PublicKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -132,7 +132,7 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 
 // ParsePublicKeyEdDSA decodes and parses the
 // PEM-encoded ed25519 public key's raw contents.
-// Pass the result to the `VerifyToken` function.
+// Pass the result to the `Verify` function.
 func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 	asn1PubKey := struct {
 		OBjectIdentifier struct {

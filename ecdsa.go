@@ -101,7 +101,7 @@ func (a *algECDSA) Verify(key PublicKey, headerAndPayload []byte, signature []by
 // MustLoadECDSA accepts private and public PEM filenames
 // and returns a pair of private and public ECDSA keys.
 // Pass the returned private key to the `Token` (signing) function
-// and the public key to the `VerifyToken` function.
+// and the public key to the `Verify` function.
 //
 // It panics on errors.
 func MustLoadECDSA(privateKeyFilename, publicKeyFilename string) (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
@@ -137,7 +137,7 @@ func LoadPrivateKeyECDSA(filename string) (*ecdsa.PrivateKey, error) {
 
 // LoadPublicKeyECDSA accepts a file path of a PEM-encoded ECDSA public key
 // and returns the ECDSA public key Go value.
-// Pass the returned value to the `VerifyToken` function.
+// Pass the returned value to the `Verify` function.
 func LoadPublicKeyECDSA(filename string) (*ecdsa.PublicKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -166,7 +166,7 @@ func ParsePrivateKeyECDSA(key []byte) (*ecdsa.PrivateKey, error) {
 
 // ParsePublicKeyECDSA decodes and parses the
 // PEM-encoded ECDSA public key's raw contents.
-// Pass the result to the `VerifyToken` function.
+// Pass the result to the `Verify` function.
 func ParsePublicKeyECDSA(key []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(key)
 

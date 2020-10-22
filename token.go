@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 var (
@@ -22,26 +23,64 @@ type (
 	PublicKey interface{}
 )
 
-// Token generates a new token based on the algorithm and a secret key.
+// Sign signs and generates a new token based on the algorithm and a secret key.
 // The claims is the payload, the actual body of the token, should
 // contain information about a specific authorized client.
 // Note that the payload part is not encrypted
 // therefore, it should NOT contain any private information.
+// See the `Verify` function to decode and verify the result token.
 //
 // Example Code:
 //
 //  now := time.Now()
-//  token, err := jwt.Token(jwt.HS256, []byte("secret"), map[string]interface{}{
+//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), map[string]interface{}{
 //    "iat": now.Unix(),
 //    "exp": now.Add(15 * time.Minute).Unix(),
 //    "foo": "bar",
 //  })
-func Token(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
+func Sign(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
 	return encodeToken(alg, key, claims)
 }
 
+// Merge accepts custom and standard claims
+// and returns a flattened JSON result of both.
+// Usage:
+//  Merge(map[string]interface{}{"foo":"bar"}, jwt.Claims{
+//    MaxAge: 15 * time.Minute,
+//    Issuer: "an-issuer",
+//  })
+func Merge(custom interface{}, claims Claims) []byte {
+	// set the expiration through the MaxAge field helper.
+	if maxAge := claims.MaxAge; maxAge > time.Second {
+		now := Clock()
+		claims.Expiry = now.Add(maxAge).Unix()
+		claims.IssuedAt = now.Unix()
+	}
+
+	claimsB, err := Marshal(claims)
+	if err != nil {
+		return nil
+	}
+
+	customB, err := Marshal(custom)
+	if err != nil {
+		return nil
+	}
+
+	if len(customB) == 0 {
+		return claimsB
+	}
+
+	claimsB = claimsB[0 : len(claimsB)-1] // remove last '}'
+	customB = customB[1:]                 // remove first '{'
+
+	raw := append(claimsB, ',')
+	raw = append(raw, customB...)
+	return raw
+}
+
 // VerifiedToken holds the information about a verified token.
-// Look `VerifyToken` for more.
+// Look `Verify` for more.
 type VerifiedToken struct {
 	// Note:
 	// We don't provide information for header and signature parts
@@ -59,14 +98,14 @@ type VerifiedToken struct {
 // to the "dest" pointer of a struct or map value.
 // Note that the `StandardClaims` field is always set,
 // as it contains the standard JWT claims,
-// and validated at the `VerifyToken` function itself,
+// and validated at the `Verify` function itself,
 // therefore NO FURTHER STEP is required
 // to validate the "exp", "iat" and "nbf" claims.
 func (t *VerifiedToken) Claims(dest interface{}) error {
 	return Unmarshal(t.Payload, dest)
 }
 
-// VerifyToken decodes, verifies and validates the standard JWT claims
+// Verify decodes, verifies and validates the standard JWT claims
 // of the given "token" using the algorithm and
 // the secret key that this token was generated with.
 //
@@ -81,11 +120,11 @@ func (t *VerifiedToken) Claims(dest interface{}) error {
 //
 // Example Code:
 //
-//  verifiedToken, err := jwt.VerifyToken(jwt.HS256, []byte("secret"), token)
+//  verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token)
 //  [handle error...]
 //  var claims map[string]interface{}
 //  verifiedToken.Claims(&claims)
-func VerifyToken(
+func Verify(
 	alg Alg,
 	key PublicKey,
 	token []byte,
@@ -211,7 +250,7 @@ func createHeader(alg string) []byte {
 }
 
 func createPayload(claims interface{}) ([]byte, error) {
-	payload, err := json.Marshal(claims)
+	payload, err := Marshal(claims)
 	if err != nil {
 		return nil, err
 	}

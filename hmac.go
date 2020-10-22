@@ -52,7 +52,7 @@ func (a *algHMAC) Verify(key PublicKey, headerAndPayload []byte, signature []byt
 
 // MustLoadHMAC accepts a single filename
 // which its plain text data should contain the HMAC shared key.
-// Pass the returned value to both `Token` and `VerifyToken` functions.
+// Pass the returned value to both `Token` and `Verify` functions.
 //
 // It panics if the file was not found or unable to read from.
 func MustLoadHMAC(filenameOrRaw string) []byte {
@@ -66,7 +66,7 @@ func MustLoadHMAC(filenameOrRaw string) []byte {
 
 // LoadHMAC accepts a single filename
 // which its plain text data should contain the HMAC shared key.
-// Pass the returned value to both `Token` and `VerifyToken` functions.
+// Pass the returned value to both `Token` and `Verify` functions.
 func LoadHMAC(filenameOrRaw string) ([]byte, error) {
 	if fileExists(filenameOrRaw) {
 		// load contents from file.

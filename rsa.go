@@ -61,7 +61,7 @@ func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte
 // MustLoadRSA accepts private and public PEM file paths
 // and returns a pair of private and public RSA keys.
 // Pass the returned private key to the `Token` (signing) function
-// and the public key to the `VerifyToken` function.
+// and the public key to the `Verify` function.
 //
 // It panics on errors.
 func MustLoadRSA(privateKeyFilename, publicKeyFilename string) (*rsa.PrivateKey, *rsa.PublicKey) {
@@ -97,7 +97,7 @@ func LoadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error) {
 
 // LoadPublicKeyRSA accepts a file path of a PEM-encoded RSA public key
 // and returns the RSA public key Go value.
-// Pass the returned value to the `VerifyToken` function.
+// Pass the returned value to the `Verify` function.
 func LoadPublicKeyRSA(filename string) (*rsa.PublicKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -140,7 +140,7 @@ func ParsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error) {
 
 // ParsePublicKeyRSA decodes and parses the
 // PEM-encoded RSA public key's raw contents.
-// Pass the result to the `VerifyToken` function.
+// Pass the result to the `Verify` function.
 func ParsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
 	block, _ := pem.Decode(key)
 	if block == nil {

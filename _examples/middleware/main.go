@@ -24,7 +24,7 @@ func main() {
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
-	token, err := jwt.Token(jwt.HS256, sharedKey, map[string]interface{}{
+	token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
 		"iat": now.Unix(),
 		"exp": now.Add(15 * time.Minute).Unix(),
 		"foo": "bar",
@@ -83,7 +83,7 @@ func verify(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		verifiedToken, err := jwt.VerifyToken(jwt.HS256, sharedKey, []byte(token))
+		verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
 		if err != nil {
 			unauthorized(w)
 			return

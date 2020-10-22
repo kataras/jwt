@@ -19,7 +19,7 @@ func main() {
 
 /*
 Pass the "privateKey" to `Token` (signing) function
-and the "publicKey" to the `VerifyToken` function.
+and the "publicKey" to the `Verify` function.
 
 // RSA | jwt.RS256/RS384/RS512:
 var privateKey, publicKey = jwt.MustLoadRSA(
@@ -41,7 +41,7 @@ var privateKey, publicKey = jwt.MustLoadEdDSA(
 */
 
 // HMAC | jwt.HS256/HS384/HS512,
-// pass the same key on both `Token` and `VerifyToken`.
+// pass the same key on both `Token` and `Verify`.
 // Keep it secret; do NOT share this to parties that are not
 // responsible to sign and verify tokens
 // that were produced by your application.
@@ -50,12 +50,15 @@ var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 // generate token to use.
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
-
-	token, err := jwt.Token(jwt.HS256, sharedKey, map[string]interface{}{
+	token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
 		"iat": now.Unix(),
 		"exp": now.Add(15 * time.Minute).Unix(),
 		"foo": "bar",
 	})
+	// OR:
+	// token, err := jwt.Sign(jwt.HS256, sharedKey, jwt.Merge(jwt.Map{
+	// 	"foo": "bar",
+	// }, jwt.Claims{MaxAge: 1 * time.Minute}))
 
 	if err != nil {
 		log.Printf("Generate token failure: %v", err)
@@ -80,9 +83,9 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the token and acquire a verified token instance
 	// which can be used to bind custom claims (see `Claims` below).
-	verifiedToken, err := jwt.VerifyToken(jwt.HS256, sharedKey, []byte(token))
+	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
 	if err != nil {
-		log.Printf("VerifyToken error: %v", err)
+		log.Printf("Verify error: %v", err)
 		unauthorized(w)
 		return
 	}
@@ -94,7 +97,7 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// 	Foo string `json:"foo"`
 	// }{}
 	if err = verifiedToken.Claims(&claims); err != nil {
-		log.Printf("VerifyToken: decode claims: %v", err)
+		log.Printf("Verify: decode claims: %v", err)
 		unauthorized(w)
 		return
 	}
