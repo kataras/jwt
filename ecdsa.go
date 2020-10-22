@@ -21,6 +21,8 @@ func (a *algECDSA) Name() string {
 	return a.name
 }
 
+// JWT handbook chapter 7.2.2.3.1 Algorithm
+// The following code is a clone of the js code described in the book.
 func (a *algECDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*ecdsa.PrivateKey)
 	if !ok {

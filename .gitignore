@@ -2,6 +2,3 @@
 /_examples/test-*
 /_examples/issue-*
 /_examples/feature-*
-# TODO: remove it on release. This example is currently
-# used for personal web end-to-end tests.
-/_examples/*

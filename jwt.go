@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"time"
 )
@@ -16,3 +18,14 @@ var Clock = time.Now
 // Example of usage: embedded key pairs.
 // Defaults to the `ioutil.ReadFile` which reads the file from the physical disk.
 var ReadFile = ioutil.ReadFile
+
+// Unmarshal same as json.Unmarshal
+// but with the Decoder unmarshals a number into an interface{} as a
+// json.Number instead of as a float64.
+// This is the function being called on `VerifiedToken.Claims` method.
+// This variable can be modified to enable custom decoder behavior.
+var Unmarshal = func(payload []byte, dest interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	dec.UseNumber() // fixes the issue of setting float64 instead of int64 on maps.
+	return dec.Decode(&dest)
+}

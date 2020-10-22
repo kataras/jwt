@@ -6,31 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 )
-
-// A builtin list of fixed headers for builtin algorithms (to boost the performance a bit).
-// key = alg, value = the base64encoded full header
-// (when kid or any other extra headers are not required to be inside).
-var fixedHeaders = map[string][]byte{
-	NONE.Name():  nil,
-	HS256.Name(): nil,
-	HS384.Name(): nil,
-	HS512.Name(): nil,
-	RS256.Name(): nil,
-	RS384.Name(): nil,
-	RS512.Name(): nil,
-	ES256.Name(): nil,
-	ES384.Name(): nil,
-	ES512.Name(): nil,
-	EdDSA.Name(): nil,
-}
-
-func init() {
-	for k := range fixedHeaders {
-		fixedHeaders[k] = createHeader(k)
-	}
-}
 
 var (
 	// ErrTokenForm indicates that the extracted token has not the expected form (it's not a JWT).
@@ -54,6 +30,7 @@ type (
 //
 // Example Code:
 //
+//  now := time.Now()
 //  token, err := jwt.Token(jwt.HS256, []byte("secret"), map[string]interface{}{
 //    "iat": now.Unix(),
 //    "exp": now.Add(15 * time.Minute).Unix(),
@@ -68,32 +45,51 @@ func Token(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
 type VerifiedToken struct {
 	// Note:
 	// We don't provide information for header and signature parts
-	// unless is requested.
-	Token   []byte
-	Payload []byte
-	Claims  Claims
-	Dest    interface{}
+	// unless is requested on feature requests.
+	Token          []byte
+	Payload        []byte
+	StandardClaims Claims
 }
 
-// VerifyToken decodes and verifies the given "token" based
-// on the algorithm and the secret key that this token was generated with.
-// It binds the payload part to the "dest" if not nil,
-// it can be a json.RawMessage to delay unmarshal for multiple destinations
-// or use the return VerifiedToken's Payload to unmarshal more custom data.
+// Claims decodes the token's payload to the "dest".
+// If the application requires custom claims, this is the method to Go.
+//
+// It calls the `Unmarshal(t.Payload, dest)` package-level function .
+// When called, it decodes the token's payload (aka claims)
+// to the "dest" pointer of a struct or map value.
+// Note that the `StandardClaims` field is always set,
+// as it contains the standard JWT claims,
+// and validated at the `VerifyToken` function itself,
+// therefore NO FURTHER STEP is required
+// to validate the "exp", "iat" and "nbf" claims.
+func (t *VerifiedToken) Claims(dest interface{}) error {
+	return Unmarshal(t.Payload, dest)
+}
+
+// VerifyToken decodes, verifies and validates the standard JWT claims
+// of the given "token" using the algorithm and
+// the secret key that this token was generated with.
+//
+// It returns a VerifiedToken which can be used to
+// read the standard claims and some read-only information about the token.
+// That VerifiedToken contains a `Claims` method, useful
+// to bind the token's payload(claims) to a custom Go struct or a map when necessary.
+//
 // The last variadic input argument is optional, can be used
 // for further claims validations before exit.
 // Returns the verified token information.
 //
 // Example Code:
 //
+//  verifiedToken, err := jwt.VerifyToken(jwt.HS256, []byte("secret"), token)
+//  [handle error...]
 //  var claims map[string]interface{}
-//  verifiedToken, err := jwt.VerifyToken(jwt.HS256, []byte("secret"), time.Now(), token, &claims)
+//  verifiedToken.Claims(&claims)
 func VerifyToken(
 	alg Alg,
 	key PublicKey,
-	t time.Time,
 	token []byte,
-	dest interface{}, validators ...ClaimsValidator,
+	validators ...ClaimsValidator,
 ) (*VerifiedToken, error) {
 	payload, err := decodeToken(alg, key, token)
 	if err != nil {
@@ -106,20 +102,15 @@ func VerifyToken(
 		return nil, err
 	}
 
-	err = validateClaims(t, claims, validators...)
+	err = validateClaims(Clock(), claims, validators...)
 	if err != nil {
 		return nil, err
 	}
 
-	if dest != nil {
-		err = json.Unmarshal(payload, &dest)
-	}
-
 	verifiedTok := &VerifiedToken{
-		Token:   token,
-		Payload: payload,
-		Claims:  claims,
-		Dest:    dest,
+		Token:          token,
+		Payload:        payload,
+		StandardClaims: claims,
 	}
 	return verifiedTok, nil
 }
@@ -187,6 +178,29 @@ func joinParts(parts ...[]byte) []byte {
 	return bytes.Join(parts, sep)
 }
 
+// A builtin list of fixed headers for builtin algorithms (to boost the performance a bit).
+// key = alg, value = the base64encoded full header
+// (when kid or any other extra headers are not required to be inside).
+var fixedHeaders = map[string][]byte{
+	NONE.Name():  nil,
+	HS256.Name(): nil,
+	HS384.Name(): nil,
+	HS512.Name(): nil,
+	RS256.Name(): nil,
+	RS384.Name(): nil,
+	RS512.Name(): nil,
+	ES256.Name(): nil,
+	ES384.Name(): nil,
+	ES512.Name(): nil,
+	EdDSA.Name(): nil,
+}
+
+func init() {
+	for k := range fixedHeaders {
+		fixedHeaders[k] = createHeader(k)
+	}
+}
+
 func createHeader(alg string) []byte {
 	if header, ok := fixedHeaders[alg]; ok && len(header) > 0 {
 		return header
@@ -250,7 +264,7 @@ LoadPrivateKeyRSA/ECDSA/EdDSA(filename) - ParsePrivateKeyRSA/ECDSA/EdDSA(keyByte
 LoadPublicKeyRSA/ECDSA/EdDSA(filename)  - ParsePublicKeyRSA/ECDSA/EdDSA(keyBytes) and
 MustLoadRSA/ECDSA/EdDSA(privateFilename, publicFilename string) as a shortcut for the above.
 
-^ The 2nd option was choosen.
+^ The 2nd option was chosen.
 
 func (key PrivateKey) parse(alg string) interface{} {
 	switch alg {

@@ -62,6 +62,22 @@ var (
 	NONE Alg = &algNONE{}
 	// HMAC-SHA signing algorithms.
 	// Keys should be type of []byte.
+	//
+	// HMAC shared secrets, as used by JWTs, are optimized for speed.
+	// This allows many sign/verify operations to be performed efficiently
+	// but make brute force attacks easier. So, the length of the shared secret
+	// for HS256/384/512 is of the utmost importance. In fact, JSON Web
+	// Algorithms9 defines the minimum key length to be equal to the size in bits of the hash function
+	// used along with the HMAC algorithm:
+	// > A key of the same size as the hash output (for instance, 256 bits for "HS256") or larger
+	// MUST be used with this algorithm.” - JSON Web Algorithms (RFC 7518), 3.2 HMAC with SHA-2 Functions.
+	//
+	// In other words, many passwords that could be used in other contexts are simply not good enough for
+	// use with HMAC-signed JWTs. 256-bits equals 32 ASCII characters, so if you are using something
+	// human readable, CONSIDER that number to be the MINIMUM number of characters to include in the
+	// secret. Another good option is to switch to RS256 or other public-key algorithms, which are much
+	// more robust and flexible. This is NOT SIMPLY A HYPOTHETICAL ATTACK, it has been shown that brute
+	// force attacks for HS256 are simple enough to perform11 if the shared secret is too short.
 	HS256 Alg = &algHMAC{"HS256", crypto.SHA256}
 	HS384 Alg = &algHMAC{"HS384", crypto.SHA384}
 	HS512 Alg = &algHMAC{"HS512", crypto.SHA512}
