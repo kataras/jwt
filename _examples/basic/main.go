@@ -58,7 +58,7 @@ func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// OR:
 	// token, err := jwt.Sign(jwt.HS256, sharedKey, jwt.Merge(jwt.Map{
 	// 	"foo": "bar",
-	// }, jwt.Claims{MaxAge: 1 * time.Minute}))
+	// }, jwt.Claims{MaxAge: 15 * time.Minute}))
 
 	if err != nil {
 		log.Printf("Generate token failure: %v", err)
@@ -82,7 +82,7 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the token and acquire a verified token instance
-	// which can be used to bind custom claims (see `Claims` below).
+	// which can be used to bind the custom claims (see `Claims` below).
 	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
 	if err != nil {
 		log.Printf("Verify error: %v", err)

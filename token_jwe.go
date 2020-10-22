@@ -1,6 +1,8 @@
 package jwt
 
-/* TODO: https://tools.ietf.org/html/rfc7516#section-3
+/* TODO: If asked, more complexity will be added to the package,
+add support for protected and encrypted tokens.
+https://tools.ietf.org/html/rfc7516#section-3
 Chapter 5 of the official JWT handbook (v0.14.1)
 
 Let's think in terms of producers and consumers. The producer
