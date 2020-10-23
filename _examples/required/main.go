@@ -10,7 +10,9 @@ import (
 )
 
 // The jwt package provides an extra feature to protect your claims,
-// you can delcare what fields of your custom claims structure are required.
+// you can declare what fields of your custom claims structure are required.
+// Useful when the same key can generate more than one token claims type
+// and you want somehow to separate the token claims type (e.g. a refresh token and a access claims).
 //
 // [1] Just change the default Unmarshal function with the following:
 func init() {

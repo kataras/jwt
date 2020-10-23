@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	// ErrTokenForm indicates that the extracted token has not the expected form (it's not a JWT).
+	// ErrMissing indicates that a given token to `Verify` is empty.
+	ErrMissing = errors.New("token is empty")
+	// ErrTokenForm indicates that the extracted token has not the expected form .
 	ErrTokenForm = errors.New("invalid token form")
 	// ErrTokenAlg indicates that the given algorithm does not match the extracted one.
 	ErrTokenAlg = errors.New("unexpected token algorithm")
@@ -144,6 +146,10 @@ func Verify(
 	token []byte,
 	validators ...TokenValidator,
 ) (*VerifiedToken, error) {
+	if len(token) == 0 {
+		return nil, ErrMissing
+	}
+
 	payload, err := decodeToken(alg, key, token)
 	if err != nil {
 		return nil, err

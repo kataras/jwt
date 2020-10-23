@@ -100,7 +100,7 @@ err := verifiedToken.Claims(&claims)
 
 - [x] Add a `blocklist` to be able to invalidate tokens at server-side.
 - [x] Add a special `json:"..., required"` tag field to make custom fields required on the `VerifiedToken.Claims` (may require a type of Optional argument there).
-   - [ ] Add a unit test and a blackbox one
+   - [x] Add a unit test and a blackbox one
 - [ ] If requested, add support for [JWE](https://tools.ietf.org/html/rfc7516#section-3).
 
 ## License
