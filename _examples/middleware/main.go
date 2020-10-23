@@ -75,6 +75,7 @@ const tokenContextKey contextKey = 1
 
 // Our JWT middleware.
 // Usage: http.HandleFunc("/route", verify(routeHandler))
+// and see the `protectedHandler`.
 func verify(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
@@ -93,8 +94,57 @@ func verify(next http.HandlerFunc) http.HandlerFunc {
 		// Store the verified token instance to the context of the Request instance,
 		// to give the ability to the handler itself decode the custom claims to a custom Go value type.
 		// If the last is not required, you can store and share
-		// the map or the go structure value instead of the "verifiedToken" instance.
+		// the map or the go structure value instead of the "verifiedToken" instance (see the 'verify2' example).
 		r = r.WithContext(context.WithValue(r.Context(), tokenContextKey, verifiedToken))
+		// Finally, execute the next handler.
+		next(w, r)
+	}
+}
+
+// Usage:
+// http.HandleFunc("/route", verify(routeHandler))
+// claims := r.Context().Value(tokenContextKey).(jwt.Map)
+func verify2(next http.HandlerFunc) http.HandlerFunc {
+	/*
+		Another idea, when you want a single middleware to support different
+		Go structs (benefit: type safety when access the claims fields):
+		verify2(getClaimsPtr func() interface{}, next http.HandlerFunc) {
+			// [...]
+			claimsPtr := getClaimsPtr()
+			verifiedToken.Claims(claimsPtr)
+			// [...]
+		}
+		Another idea's usage:
+		verify2(func() interface{} {
+			return &userClaims{}
+		}, routeHandler)
+		Inside the handler:
+		claims := r.Context().Value(tokenContextKey).(*userClaims)
+	*/
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			unauthorized(w)
+			return
+		}
+
+		verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
+		if err != nil {
+			unauthorized(w)
+			return
+		}
+
+		var claims jwt.Map
+		// Another idea:
+		// claimsPtr := getClaimsFunc()
+		// verifiedToken.Claims(claimsPtr)
+		if err = verifiedToken.Claims(&claims); err != nil {
+			unauthorized(w)
+			return
+		}
+
+		// Store the the map or the go structure claims value directly.
+		r = r.WithContext(context.WithValue(r.Context(), tokenContextKey, claims))
 		// Finally, execute the next handler.
 		next(w, r)
 	}

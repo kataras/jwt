@@ -24,6 +24,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
    * [Basic](_examples/basic/main.go)
    * [HTTP Middleware](_examples/middleware/main.go)
    * [Blocklist](_examples/blocklist/main.go)
+   * [JSON Required Tag](_examples/required/main.go)
 * [References](#references)
 * [TODO](#todo)
 * [License](#license)
