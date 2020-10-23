@@ -73,7 +73,7 @@ func verifyTokenHandler(blocklist *jwt.Blocklist) http.HandlerFunc {
 		// Add the "blocklist" to the optional last variadic input arguments of jwt.TokenValidator.
 		// It will return `jwt.ErrBlocked` if at least one previous request was
 		// made with a "?block=true" url query parameter.
-		verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, jwt.StringToBytes(token), blocklist)
+		verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token), blocklist)
 		if err != nil {
 			log.Printf("Verify error: %v", err)
 			unauthorized(w)
@@ -82,7 +82,8 @@ func verifyTokenHandler(blocklist *jwt.Blocklist) http.HandlerFunc {
 
 		if shouldBlock {
 			blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
-			log.Println("The token has been blocked just now\nNavigate to http://localhost:8080/protected and you should see an ErrBlocked")
+			log.Printf(`The token has been blocked now.
+Navigate to http://localhost:8080/protected?token=%s and you should see an ErrBlocked`, token)
 			unauthorized(w)
 			return
 		}

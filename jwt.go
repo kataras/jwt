@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"reflect"
 	"time"
 )
 
@@ -42,7 +43,28 @@ var Marshal = func(v interface{}) ([]byte, error) {
 // json.Number instead of as a float64.
 // This is the function being called on `VerifiedToken.Claims` method.
 // This variable can be modified to enable custom decoder behavior.
-var Unmarshal = func(payload []byte, dest interface{}) error {
+var Unmarshal = defaultUnmarshal
+
+// UnmarshalWithRequired protects the custom fields of JWT claims
+// based on the json:required tag e.g. `json:"name,required"`.
+// It accepts a struct value to be validated later on.
+// Returns ErrMissingKey if a required value is missing from the payload.
+//
+// Usage:
+//  Unmarshal = UnmarshalWithRequired
+//  [...]
+//  A Go struct like: UserClaims { Username string `json:"username,required" `}
+//  [...]
+//  And `Verify` as usual.
+func UnmarshalWithRequired(payload []byte, dest interface{}) error {
+	if err := defaultUnmarshal(payload, dest); err != nil {
+		return err
+	}
+
+	return meetRequirements(reflect.ValueOf(dest))
+}
+
+func defaultUnmarshal(payload []byte, dest interface{}) error {
 	dec := json.NewDecoder(bytes.NewReader(payload))
 	dec.UseNumber() // fixes the issue of setting float64 instead of int64 on maps.
 	return dec.Decode(&dest)

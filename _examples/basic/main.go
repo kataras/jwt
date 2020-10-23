@@ -87,11 +87,6 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the token and acquire a verified token instance
 	// which can be used to bind the custom claims (see `Claims` below).
-	//
-	// The jwt package has a helper which returns []byte from a string
-	// without a memory allocation (unless --tags=safe is added on go build command).
-	// jwt.StringToBytes(token)
-	// OR just: []byte(token)
 	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
 	if err != nil {
 		log.Printf("Verify error: %v", err)

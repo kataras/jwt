@@ -27,6 +27,8 @@ var _ TokenValidator = (*Blocklist)(nil)
 // NewBlocklist returns a new up and running in-memory Token Blocklist.
 // It accepts the clear every "x" duration. Indeed, this duration
 // can match the usual tokens expiration one.
+//
+// A blocklist implements the `TokenValidator` interface.
 func NewBlocklist(gcEvery time.Duration) *Blocklist {
 	return NewBlocklistContext(context.Background(), gcEvery)
 }

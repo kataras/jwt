@@ -6,8 +6,3 @@ package jwt
 func BytesToString(b []byte) string {
 	return string(b)
 }
-
-// StringToBytes converts a string into slice of bytes by wrapping.
-func StringToBytes(s string) []byte {
-	return []byte(s)
-}

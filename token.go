@@ -150,7 +150,7 @@ func Verify(
 	}
 
 	var claims Claims
-	err = json.Unmarshal(payload, &claims)
+	err = json.Unmarshal(payload, &claims) // use the standard one instead of the custom, no need to support "required" feature here.
 	if err != nil {
 		return nil, err
 	}
