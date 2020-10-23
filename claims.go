@@ -30,7 +30,7 @@ type Claims struct {
 	// This claims sets the exact moment from which
 	// this JWT is considered invalid. This implementation allow for a certain skew
 	// between clocks (by considering this JWT to be valid for a few minutes after the expiration
-	// 	date, see the "t" argument of `Verify` function).
+	// date, modify the `Clock` variable).
 	Expiry int64 `json:"exp,omitempty"`
 	// A string representing a unique identifier for this JWT. This claim may be
 	// used to differentiate JWTs with other similar content (preventing replays, for instance). It is
@@ -63,10 +63,7 @@ type Claims struct {
 	MaxAge time.Duration `json:"-"`
 }
 
-// ClaimsValidator provides further claims validation.
-type ClaimsValidator func(Claims) error
-
-func validateClaims(t time.Time, claims Claims, validators ...ClaimsValidator) error {
+func validateClaims(t time.Time, claims Claims) error {
 	now := t.Round(time.Second).Unix()
 
 	if claims.NotBefore > 0 {
@@ -84,12 +81,6 @@ func validateClaims(t time.Time, claims Claims, validators ...ClaimsValidator) e
 	if claims.Expiry > 0 {
 		if now > claims.Expiry {
 			return ErrExpired
-		}
-	}
-
-	for _, validator := range validators {
-		if err := validator(claims); err != nil {
-			return err
 		}
 	}
 

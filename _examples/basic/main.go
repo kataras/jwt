@@ -66,6 +66,10 @@ func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The wjt package has a helper which returns a string from a []byte token
+	// without a memory allocation (unless --tags=safe is added on go build command).
+	// tokenString := jwt.BytesToString(token)
+	// OR just:
 	tokenString := string(token)
 
 	w.Header().Set("Content-Type", "text/html;charset=utf-8")
@@ -83,6 +87,11 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the token and acquire a verified token instance
 	// which can be used to bind the custom claims (see `Claims` below).
+	//
+	// The jwt package has a helper which returns []byte from a string
+	// without a memory allocation (unless --tags=safe is added on go build command).
+	// jwt.StringToBytes(token)
+	// OR just: []byte(token)
 	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, []byte(token))
 	if err != nil {
 		log.Printf("Verify error: %v", err)

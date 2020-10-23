@@ -105,6 +105,20 @@ func (t *VerifiedToken) Claims(dest interface{}) error {
 	return Unmarshal(t.Payload, dest)
 }
 
+// TokenValidator provides further token and claims validation.
+type TokenValidator interface {
+	// ValidateToken accepts the token, the claims extracted from that
+	// and any error that may caused by claims validation (e.g. ErrExpired)
+	// or the previous validator.
+	// A token validator can skip the builtin validation and return a nil error.
+	// Usage:
+	//  func(v *myValidator) ValidateToken(token []byte, claims Claims, err error) error {
+	//    if err!=nil { return err } <- to respect the previous error
+	//    // otherwise return nil or any custom error.
+	//  }
+	ValidateToken(token []byte, claims Claims, err error) error
+}
+
 // Verify decodes, verifies and validates the standard JWT claims
 // of the given "token" using the algorithm and
 // the secret key that this token was generated with.
@@ -128,7 +142,7 @@ func Verify(
 	alg Alg,
 	key PublicKey,
 	token []byte,
-	validators ...ClaimsValidator,
+	validators ...TokenValidator,
 ) (*VerifiedToken, error) {
 	payload, err := decodeToken(alg, key, token)
 	if err != nil {
@@ -141,7 +155,18 @@ func Verify(
 		return nil, err
 	}
 
-	err = validateClaims(Clock(), claims, validators...)
+	err = validateClaims(Clock(), claims)
+	for _, validator := range validators {
+		if validator == nil {
+			continue
+		}
+		// A token validator can skip the builtin validation and return a nil error,
+		// in that case the previous error is skipped.
+		if err = validator.ValidateToken(token, claims, err); err != nil {
+			break
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}

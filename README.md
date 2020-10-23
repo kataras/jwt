@@ -23,6 +23,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [Examples](_examples)
    * [Basic](_examples/basic/main.go)
    * [HTTP Middleware](_examples/middleware/main.go)
+   * [Blocklist](_examples/blocklist/main.go)
 * [References](#references)
 * [TODO](#todo)
 * [License](#license)
