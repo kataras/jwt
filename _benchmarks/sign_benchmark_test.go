@@ -116,7 +116,7 @@ func BenchmarkSign_jwt_go_Struct2(b *testing.B) {
 	// (in order to have a fair benchmark between the rest).
 	//
 	// Does support custom type but:
-	// 1. Should implement a Valid() error although it's never called on its Signing proccess(...)
+	// 1. Should implement a Valid() error although it's never called on its Signing process(...)
 	// 2. it should provide the "exp", "iat" by its own and
 	// 3. it does not provide automatic validation on its Verify status(!)
 	// It does not support separate helper for max age, so it needs a separate jwt claims struct,

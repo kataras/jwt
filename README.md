@@ -17,8 +17,9 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 ## Table of Contents
 
 * [Sign a token](#sign-a-token)
+   * [The standard Claims](#the-standard-jwt-claims)
 * [Verify a token](#verify-a-token)
-   * [Decode custom claims](#decode-custom-claims)
+   * [Decode custom Claims](#decode-custom-claims)
    * [JSON Required Tag](#json-required-tag)
 * [Choosing the right algorithm](#choose-the-right-algorithm)
 * [Benchmarks](_benchmarks)
@@ -42,44 +43,114 @@ var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 ```
 
 ```go
-now := time.Now()
-token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
-    "iat": now.Unix(),
-    "exp": now.Add(15 * time.Minute).Unix(),
-    "foo": "bar",
-})
+type User struct {
+   Username string `json:"username"`
+}
+```
+
+```go
+userClaims := User {
+   Username:"kataras",
+}
+
+token, err := jwt.Sign(jwt.HS256, sharedkey, userClaims, jwt.MaxAge(15 *time.Minute))
 ```
 
 `[1]` The first argument is the signing algorithm to create the signature part.
 `[2]` The second argument is the private key (or shared key, when symmetric algorithm was chosen) will be used to create the signature.
-`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom structs. `Returns` the encoded token, ready to be sent and store to the client.
+`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom structs. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and store to the client.
 
-There are two more ways to create a token if you don't like to set the expiration or other standard JWT claims manually:
+The `jwt.MaxAge` is a helper which sets the `jwt.Claims.Expiry` and `jwt.Claims.IssuedAt` for you.
+
+Example Code to manually set all claims using a standard `map`:
+
+```go
+now := time.Now()
+claims := map[string]interface{}{
+    "iat": now.Unix(),
+    "exp": now.Add(15 * time.Minute).Unix(),
+    "foo": "bar",
+}
+
+token, err := jwt.Sign(jwt.HS256, sharedKey, claims)
+```
+
+Example Code to merge map claims with standard claims:
 
 ```go
 customClaims := jwt.Map{"foo": "bar"}
 
-token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, jwt.MaxAge(15 * time.Minute))
+now := time.Now()
+standardClaims := jwt.Claims{
+   Expiry:   now.Add(15 * time.Minute).Unix(),
+   IssuedAt: now.Unix(), 
+   Issuer:   "my-app",
+}
+
+token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, standardClaims)
 ```
 
+> The `jwt.Map` is just a _type alias_, a _shortcut_, of `map[string]interface{}`.
 
+At all cases, the `iat(IssuedAt)` and `exp(Expiry/MaxAge)` (and `nbf(NotBefore)`) values will be validated automatically on the `Verify` method below.
+
+### The standard JWT Claims
+
+The `jwt.Claims` we've shown above, looks like this:
 
 ```go
-customClaims := map[string]interface{}{ // or jwt.Map
-   "foo":"bar",
-}
+type Claims struct {
+   // The opposite of the exp claim. A number representing a specific
+   // date and time in the format “seconds since epoch” as defined by POSIX.
+   // This claim sets the exact moment from which this JWT is considered valid.
+   // The current time (see `Clock` package-level variable)
+   // must be equal to or later than this date and time.
+   NotBefore int64 `json:"nbf,omitempty"`
 
-standardClaims := jwt.Claims{
-   MaxAge: 15 * time.Minute,
-   Issuer: "my-app",
-}
+   // A number representing a specific date and time (in the same
+   // format as exp and nbf) at which this JWT was issued.
+   IssuedAt int64 `json:"iat,omitempty"`
 
-token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, jwt.WithClaims(standardClaims))
+   // A number representing a specific date and time in the
+   // format “seconds since epoch” as defined by POSIX6.
+   // This claims sets the exact moment from which
+   // this JWT is considered invalid. This implementation
+   // allow for a certain skew between clocks
+   // (by considering this JWT to be valid for a few minutes
+   // after the expiration date, modify the `Clock` variable).
+   Expiry int64 `json:"exp,omitempty"`
+
+   // A string representing a unique identifier for this JWT.
+   // This claim may be used to differentiate JWTs with
+   // other similar content (preventing replays, for instance).
+   ID string `json:"jti,omitempty"`
+
+   // A string or URI that uniquely identifies the party
+   // that issued the JWT.
+   // Its interpretation is application specific
+   // (there is no central authority managing issuers).
+   Issuer string `json:"iss,omitempty"`
+
+   // A string or URI that uniquely identifies the party
+   // that this JWT carries information about.
+   // In other words, the claims contained in this JWT
+   // are statements about this party.
+   // The JWT spec specifies that this claim must be unique in
+   // the context of the issuer or,
+   // in cases where that is not possible, globally unique. Handling of
+   // this claim is application specific.
+   Subject string `json:"sub,omitempty"`
+
+   // Either a single string or URI or an array of such
+   // values that uniquely identify the intended recipients of this JWT.
+   // In other words, when this claim is present, the party reading
+   // the data in this JWT must find itself in the aud claim or
+   // disregard the data contained in the JWT.
+   // As in the case of the iss and sub claims, this claim is
+   // application specific.
+   Audience []string `json:"aud,omitempty"`
+}
 ```
-
-The `jwt.Claims.MaxAge` field is a helper field which sets the `jwt.Claims.Expiry` and `jwt.Claims.IssuedAt` for you. The `jwt.Merge` function is just a helper to merge your custom fields with the standard `jwt.Claims` structure one. There is also the `jwt.Map` type alias, which is just a plain shortcut of a `map[string]interface{}`.
-
-On both examples above, the `iat(IssuedAt)` and `exp(Expiry/MaxAge)` (and `nbf(NotBefore)`) values will be validated automatically on the `Verify` method below.
 
 ## Verify a Token
 
@@ -97,51 +168,7 @@ type VerifiedToken struct {
 	Header         []byte // The header (decoded) part.
 	Payload        []byte // The payload (decoded) part.
 	Signature      []byte // The signature (decoded) part.
-	StandardClaims Claims { // Any standard claims that are extracted from the payload.
-      // The opposite of the exp claim. A number representing a specific
-      // date and time in the format “seconds since epoch” as defined by POSIX.
-      // This claim sets the exact moment from which this JWT is considered valid.
-      // The current time (see `Clock` package-level variable)
-      // must be equal to or later than this date and time.
-      NotBefore int64 `json:"nbf,omitempty"`
-      // A number representing a specific date and time (in the same
-      // format as exp and nbf) at which this JWT was issued.
-      IssuedAt int64 `json:"iat,omitempty"`
-      // A number representing a specific date and time in the
-      // format “seconds since epoch” as defined by POSIX6.
-      // This claims sets the exact moment from which
-      // this JWT is considered invalid. This implementation
-      // allow for a certain skew between clocks
-      // (by considering this JWT to be valid for a few minutes
-      // after the expiration date, modify the `Clock` variable).
-      Expiry int64 `json:"exp,omitempty"`
-      // A string representing a unique identifier for this JWT.
-      // This claim may be used to differentiate JWTs with
-      // other similar content (preventing replays, for instance).
-      ID string `json:"jti,omitempty"`
-      // A string or URI that uniquely identifies the party
-      // that issued the JWT.
-      // Its interpretation is application specific
-      // (there is no central authority managing issuers).
-      Issuer string `json:"iss,omitempty"`
-      // A string or URI that uniquely identifies the party
-      // that this JWT carries information about.
-      // In other words, the claims contained in this JWT
-      // are statements about this party.
-      // The JWT spec specifies that this claim must be unique in
-      // the context of the issuer or,
-      // in cases where that is not possible, globally unique. Handling of
-      // this claim is application specific.
-      Subject string `json:"sub,omitempty"`
-      // Either a single string or URI or an array of such
-      // values that uniquely identify the intended recipients of this JWT.
-      // In other words, when this claim is present, the party reading
-      // the data in this JWT must find itself in the aud claim or
-      // disregard the data contained in the JWT.
-      // As in the case of the iss and sub claims, this claim is
-      // application specific.
-      Audience []string `json:"aud,omitempty"`
-   }
+	StandardClaims Claims // Any standard claims that are extracted from the payload.
 }
 ```
 

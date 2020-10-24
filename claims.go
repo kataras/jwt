@@ -15,6 +15,8 @@ var (
 )
 
 // Claims holds the standard JWT claims (payload fields).
+// It can be used to validate the JWT and to sign it.
+// It completes the `SignOption` interface.
 type Claims struct {
 	// The opposite of the exp claim. A number representing a specific
 	// date and time in the format “seconds since epoch” as defined by POSIX.
@@ -76,6 +78,74 @@ func validateClaims(t time.Time, claims Claims) error {
 	}
 
 	return nil
+}
+
+// ApplyClaims implements the `SignOption` interface.
+func (c Claims) ApplyClaims(dest *Claims) {
+	if v := c.NotBefore; v > 0 {
+		dest.NotBefore = v
+	}
+
+	if v := c.IssuedAt; v > 0 {
+		dest.IssuedAt = v
+	}
+
+	if v := c.Expiry; v > 0 {
+		dest.Expiry = v
+	}
+
+	if v := c.ID; v != "" {
+		dest.ID = v
+	}
+
+	if v := c.Issuer; v != "" {
+		dest.Issuer = v
+	}
+
+	if v := c.Subject; v != "" {
+		dest.Subject = v
+	}
+
+	if v := c.Audience; len(v) > 0 {
+		dest.Audience = v
+	}
+}
+
+// MaxAge is a SignOption to set the expiration "exp", "iat" JWT standard claims.
+// Can be passed as last input argument of the `Sign` function.
+//
+// If maxAge > second then sets expiration to the token.
+// It's a helper field to set the `Expiry` and `IssuedAt`
+// fields at once.
+//
+// See the `Clock` package-level variable to modify
+// the current time function.
+func MaxAge(maxAge time.Duration) SignOptionFunc {
+	return func(c *Claims) {
+		if maxAge <= time.Second {
+			return
+		}
+		now := Clock()
+		c.Expiry = now.Add(maxAge).Unix()
+		c.IssuedAt = now.Unix()
+	}
+}
+
+// MaxAgeMap is a helper to set "exp" and "iat" claims to a map claims.
+// Usage:
+// claims := map[string]interface{}{"foo": "bar"}
+// MaxAgeMap(15 * time.Minute, claims)
+// Sign(alg, key, claims)
+func MaxAgeMap(maxAge time.Duration, claims Map) {
+	if claims == nil {
+		return
+	}
+
+	now := Clock()
+	if claims["exp"] == nil {
+		claims["exp"] = now.Add(maxAge).Unix()
+		claims["iat"] = now.Unix()
+	}
 }
 
 // Merge accepts two claim structs or maps
