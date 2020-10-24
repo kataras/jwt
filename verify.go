@@ -31,7 +31,7 @@ func Verify(
 		return nil, ErrMissing
 	}
 
-	payload, err := decodeToken(alg, key, token)
+	header, payload, signature, err := decodeToken(alg, key, token)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,9 @@ func Verify(
 
 	verifiedTok := &VerifiedToken{
 		Token:          token,
+		Header:         header,
 		Payload:        payload,
+		Signature:      signature,
 		StandardClaims: claims,
 	}
 	return verifiedTok, nil
@@ -83,12 +85,11 @@ type TokenValidator interface {
 // VerifiedToken holds the information about a verified token.
 // Look `Verify` for more.
 type VerifiedToken struct {
-	// Note:
-	// We don't provide information for header and signature parts
-	// unless is requested on feature requests.
-	Token          []byte
-	Payload        []byte
-	StandardClaims Claims
+	Token          []byte // The original token.
+	Header         []byte // The header (decoded) part.
+	Payload        []byte // The payload (decoded) part.
+	Signature      []byte // The signature (decoded) part.
+	StandardClaims Claims // Any standard claims that are extracted from the payload.
 }
 
 // Claims decodes the token's payload to the "dest".

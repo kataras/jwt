@@ -48,32 +48,43 @@ func encodeToken(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
 // BUT, for security reason the algorithm MUST explicitly match
 // (even if we perform hash comparison later on).
 //
-// Decodes and verifies the given "token".
-// It returns the payload/body/data part.
-func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, error) {
+// Decodes and verifies the given compact "token".
+// It returns the header, payoad and signature parts (decoded).
+func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, []byte, []byte, error) {
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
-		return nil, ErrTokenForm
+		return nil, nil, nil, ErrTokenForm
 	}
 
 	header := parts[0]
-	expectedHeader := createHeader(alg.Name())
-	if !bytes.Equal(header, expectedHeader) {
-		return nil, ErrTokenAlg
-	}
-
 	payload := parts[1]
 	signature := parts[2]
-	signatureDecoded, err := Base64Decode(signature)
+
+	headerDecoded, err := Base64Decode(header)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	headerPayload := joinParts(header, payload)
-	if err := alg.Verify(key, headerPayload, signatureDecoded); err != nil {
-		return nil, err
+	// validate header equality.
+	expectedHeader := createHeaderRaw(alg.Name())
+	if !bytes.Equal(expectedHeader, headerDecoded) {
+		return nil, nil, nil, ErrTokenAlg
 	}
 
-	return Base64Decode(payload)
+	signatureDecoded, err := Base64Decode(signature)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// validate signature.
+	headerPayload := joinParts(header, payload)
+	if err := alg.Verify(key, headerPayload, signatureDecoded); err != nil {
+		return nil, nil, nil, err
+	}
+
+	payload, err = Base64Decode(payload)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return headerDecoded, payload, signatureDecoded, nil
 }
 
 var (
@@ -89,7 +100,12 @@ func joinParts(parts ...[]byte) []byte {
 // A builtin list of fixed headers for builtin algorithms (to boost the performance a bit).
 // key = alg, value = the base64encoded full header
 // (when kid or any other extra headers are not required to be inside).
-var fixedHeaders = map[string][]byte{
+type fixedHeader struct {
+	raw     []byte
+	encoded []byte
+}
+
+var fixedHeaders = map[string]*fixedHeader{
 	NONE.Name():  nil,
 	HS256.Name(): nil,
 	HS384.Name(): nil,
@@ -105,17 +121,27 @@ var fixedHeaders = map[string][]byte{
 
 func init() {
 	for k := range fixedHeaders {
-		fixedHeaders[k] = createHeader(k)
+		fixedHeaders[k] = &fixedHeader{
+			raw:     createHeaderRaw(k),
+			encoded: createHeader(k),
+		}
 	}
 }
 
 func createHeader(alg string) []byte {
-	if header, ok := fixedHeaders[alg]; ok && len(header) > 0 {
-		return header
+	if header := fixedHeaders[alg]; header != nil {
+		return header.encoded
 	}
 
-	header := []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
-	return Base64Encode(header)
+	return Base64Encode([]byte(`{"alg":"` + alg + `","typ":"JWT"}`))
+}
+
+func createHeaderRaw(alg string) []byte {
+	if header := fixedHeaders[alg]; header != nil {
+		return header.raw
+	}
+
+	return []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
 }
 
 func createPayload(claims interface{}) ([]byte, error) {

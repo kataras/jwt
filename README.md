@@ -89,6 +89,62 @@ Verifying a Token is done through the `Verify` package-level function.
 verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
 ```
 
+The `VerifiedToken` carries the token decoded information: 
+
+```go
+type VerifiedToken struct {
+	Token          []byte // The original token.
+	Header         []byte // The header (decoded) part.
+	Payload        []byte // The payload (decoded) part.
+	Signature      []byte // The signature (decoded) part.
+	StandardClaims Claims { // Any standard claims that are extracted from the payload.
+      // The opposite of the exp claim. A number representing a specific
+      // date and time in the format “seconds since epoch” as defined by POSIX.
+      // This claim sets the exact moment from which this JWT is considered valid.
+      // The current time (see `Clock` package-level variable)
+      // must be equal to or later than this date and time.
+      NotBefore int64 `json:"nbf,omitempty"`
+      // A number representing a specific date and time (in the same
+      // format as exp and nbf) at which this JWT was issued.
+      IssuedAt int64 `json:"iat,omitempty"`
+      // A number representing a specific date and time in the
+      // format “seconds since epoch” as defined by POSIX6.
+      // This claims sets the exact moment from which
+      // this JWT is considered invalid. This implementation
+      // allow for a certain skew between clocks
+      // (by considering this JWT to be valid for a few minutes
+      // after the expiration date, modify the `Clock` variable).
+      Expiry int64 `json:"exp,omitempty"`
+      // A string representing a unique identifier for this JWT.
+      // This claim may be used to differentiate JWTs with
+      // other similar content (preventing replays, for instance).
+      ID string `json:"jti,omitempty"`
+      // A string or URI that uniquely identifies the party
+      // that issued the JWT.
+      // Its interpretation is application specific
+      // (there is no central authority managing issuers).
+      Issuer string `json:"iss,omitempty"`
+      // A string or URI that uniquely identifies the party
+      // that this JWT carries information about.
+      // In other words, the claims contained in this JWT
+      // are statements about this party.
+      // The JWT spec specifies that this claim must be unique in
+      // the context of the issuer or,
+      // in cases where that is not possible, globally unique. Handling of
+      // this claim is application specific.
+      Subject string `json:"sub,omitempty"`
+      // Either a single string or URI or an array of such
+      // values that uniquely identify the intended recipients of this JWT.
+      // In other words, when this claim is present, the party reading
+      // the data in this JWT must find itself in the aud claim or
+      // disregard the data contained in the JWT.
+      // As in the case of the iss and sub claims, this claim is
+      // application specific.
+      Audience []string `json:"aud,omitempty"`
+   }
+}
+```
+
 ### Decode custom Claims
 
 To extract any custom claims, given on the `Sign` method, we use the result of the `Verify` method, which is a `VerifiedToken` pointer. This VerifiedToken has a single method, the `Claims(dest interface{}) error` one, which can be used to decode the claims (payload part) to a value of our choice. Again, that value can be a `map` or any `struct`.

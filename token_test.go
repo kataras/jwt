@@ -29,9 +29,13 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 		}
 	}
 
-	payload, err := decodeToken(alg, verKey, token)
+	header, payload, _, err := decodeToken(alg, verKey, token)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// test header.
+	if expected, got := createHeaderRaw(alg.Name()), header; !bytes.Equal(expected, got) {
+		t.Fatalf("expected header: %q but got: %q", expected, got)
 	}
 
 	var got map[string]interface{}

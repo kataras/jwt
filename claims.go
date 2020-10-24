@@ -19,7 +19,7 @@ type Claims struct {
 	// The opposite of the exp claim. A number representing a specific
 	// date and time in the format “seconds since epoch” as defined by POSIX.
 	// This claim sets the exact moment from which this JWT is considered valid.
-	// The current time (see "t" argument of the `Verify` function)
+	// The current time (see `Clock` package-level variable)
 	// must be equal to or later than this date and time.
 	NotBefore int64 `json:"nbf,omitempty"`
 	// A number representing a specific date and time (in the same
