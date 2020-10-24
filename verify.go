@@ -89,7 +89,7 @@ type VerifiedToken struct {
 	Header         []byte // The header (decoded) part.
 	Payload        []byte // The payload (decoded) part.
 	Signature      []byte // The signature (decoded) part.
-	StandardClaims Claims // Any standard claims that are extracted from the payload.
+	StandardClaims Claims // Any standard claims extracted from the payload.
 }
 
 // Claims decodes the token's payload to the "dest".

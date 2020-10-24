@@ -16,6 +16,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 
 ## Table of Contents
 
+* [Getting started](#getting-started)
 * [Sign a token](#sign-a-token)
    * [The standard Claims](#the-standard-jwt-claims)
 * [Verify a token](#verify-a-token)
@@ -32,6 +33,33 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [References](#references)
 * [TODO](#todo)
 * [License](#license)
+
+## Getting Started
+
+Sign and generate a token with the `Sign` method, returns the token in compact form. Optionally set an expiration, if "`exp"` is missing from the payload use the `jwt.MaxAge` helper. Verify the token with the `Verify` method, returns a `VerifiedToken` value. Decode the custom claims with the `VerifiedToken.Claims` method. Extremely easy! 
+
+```go
+package main
+
+import "github.com/kataras/jwt"
+
+// Keep it secret.
+var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
+
+func main() {
+   // Generate a token:
+   myClaims := map[string]interface{}{
+      "foo": "bar",
+   }
+   token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15 * time.Minute))
+
+   // Verify and extract claims from a token:
+   verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
+
+   var claims map[string]interface{}
+   err = verifiedToken.Claims(&claims)
+}
+```
 
 ## Sign a Token
 
@@ -57,9 +85,9 @@ userClaims := User {
 token, err := jwt.Sign(jwt.HS256, sharedkey, userClaims, jwt.MaxAge(15 *time.Minute))
 ```
 
-`[1]` The first argument is the signing algorithm to create the signature part.
-`[2]` The second argument is the private key (or shared key, when symmetric algorithm was chosen) will be used to create the signature.
-`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom structs. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and stored to the client.
+`[1]` The first argument is the signing algorithm to create the signature part. 
+`[2]` The second argument is the private key (or shared key, when symmetric algorithm was chosen) will be used to create the signature. 
+`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom `struct`, `map` and raw `[]byte`. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and stored to the client.
 
 The `jwt.MaxAge` is a helper which sets the `jwt.Claims.Expiry` and `jwt.Claims.IssuedAt` for you.
 
