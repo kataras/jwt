@@ -1,6 +1,6 @@
 # JWT
 
-[![build status](https://img.shields.io/travis/com/kataras/jwt/master.svg?style=for-the-badge&logo=travis)](https://travis-ci.com/github/kataras/jwt) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
+[![build status](https://img.shields.io/travis/com/kataras/jwt/master.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
 Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl).
 
@@ -23,7 +23,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
    * [Decode custom Claims](#decode-custom-claims)
    * [JSON Required Tag](#json-required-tag)
 * [Block a Token](#block-a-token)
-* [Choosing the right algorithm](#choose-the-right-algorithm)
+* [Choose the right algorithm](#choose-the-right-algorithm)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
    * [Basic](_examples/basic/main.go)
@@ -31,12 +31,11 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
    * [Blocklist](_examples/blocklist/main.go)
    * [JSON Required Tag](_examples/required/main.go)
 * [References](#references)
-* [TODO](#todo)
 * [License](#license)
 
 ## Getting Started
 
-Sign and generate a token with the `Sign` method, returns the token in compact form. Optionally set an expiration, if "`exp"` is missing from the payload use the `jwt.MaxAge` helper. Verify the token with the `Verify` method, returns a `VerifiedToken` value. Decode the custom claims with the `VerifiedToken.Claims` method. Extremely easy! 
+Sign and generate a token with the `Sign` method, returns the token in compact form. Optionally set an expiration, if `"exp"` is missing from the payload use the `jwt.MaxAge` helper. Verify the token with the `Verify` method, returns a `VerifiedToken` value. Decode the custom claims with the `VerifiedToken.Claims` method. Extremely easy!
 
 ```go
 package main
@@ -85,7 +84,7 @@ userClaims := User {
 token, err := jwt.Sign(jwt.HS256, sharedkey, userClaims, jwt.MaxAge(15 *time.Minute))
 ```
 
-`[1]` The first argument is the signing algorithm to create the signature part. 
+`[1]` The first argument is the signing [algorithm](#choose-the-right-algorithm) to create the signature part. 
 `[2]` The second argument is the private key (or shared key, when symmetric algorithm was chosen) will be used to create the signature. 
 `[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom `struct`, `map` and raw `[]byte`. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and stored to the client.
 
