@@ -21,6 +21,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [Verify a token](#verify-a-token)
    * [Decode custom Claims](#decode-custom-claims)
    * [JSON Required Tag](#json-required-tag)
+* [Block a Token](#block-a-token)
 * [Choosing the right algorithm](#choose-the-right-algorithm)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
@@ -58,7 +59,7 @@ token, err := jwt.Sign(jwt.HS256, sharedkey, userClaims, jwt.MaxAge(15 *time.Min
 
 `[1]` The first argument is the signing algorithm to create the signature part.
 `[2]` The second argument is the private key (or shared key, when symmetric algorithm was chosen) will be used to create the signature.
-`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom structs. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and store to the client.
+`[3]` The third argument is the JWT claims. The JWT claims is the payload part and it depends on your application's requirements, there you can set custom fields (and expiration) that you can extract to another request of the same authorized client later on. Note that the claims can be **any Go type**, including custom structs. `[4]` The last variadic argument is a type of `SignOption` (`MaxAge` function and `Claims` struct are both valid sign options), can be used to merge custom claims with the standard ones.  `Returns` the encoded token, ready to be sent and stored to the client.
 
 The `jwt.MaxAge` is a helper which sets the `jwt.Claims.Expiry` and `jwt.Claims.IssuedAt` for you.
 
@@ -92,7 +93,7 @@ token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, standardClaims)
 
 > The `jwt.Map` is just a _type alias_, a _shortcut_, of `map[string]interface{}`.
 
-At all cases, the `iat(IssuedAt)` and `exp(Expiry/MaxAge)` (and `nbf(NotBefore)`) values will be validated automatically on the `Verify` method below.
+At all cases, the `iat(IssuedAt)` and `exp(Expiry/MaxAge)` (and `nbf(NotBefore)`) values will be validated automatically on the [`Verify`](#verify-a-token) method.
 
 ### The standard JWT Claims
 
@@ -168,7 +169,7 @@ type VerifiedToken struct {
 	Header         []byte // The header (decoded) part.
 	Payload        []byte // The payload (decoded) part.
 	Signature      []byte // The signature (decoded) part.
-	StandardClaims Claims // Any standard claims that are extracted from the payload.
+	StandardClaims Claims // Standard claims extracted from the payload.
 }
 ```
 
@@ -206,6 +207,26 @@ type userClaims struct {
 
 That's all, the `VerifiedToken.Claims` method will throw an `ErrMissingKey` if the given token's payload does not meet the requirements.
 
+## Block a Token
+
+When a user logs out, the client app should delete the token from its memory. This would stop the client from being able to make authorized requests. But if the token is still valid and somebody else has access to it, the token could still be used. Therefore, a server-side invalidation is indeed useful for cases like that. When the server receives a logout request, take the token from the request and store it to the `Blocklist` through its `InvalidateToken` method. For each authorized request the `jwt.Verify` will check the `Blocklist` to see if the token has been invalidated. To keep the search space small, the expired tokens are automatically removed from the Blocklist's in-memory storage.
+
+Enable blocklist by following the three simple steps below.
+
+**1.** Initialize a blocklist instance, clean unused and expired tokens every 1 hour.
+```go
+blocklist := jwt.NewBlocklist(1 * time.Hour)
+```
+**2.** Add the `blocklist` instance to the `jwt.Verify`'s last argument, to disallow blocked entries.
+```go
+verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
+// [err == jwt.ErrBlocked when the token is valid but was blocked]
+```
+**3.** Call the `blocklist.InvalidateToken` whenever you want to block a specific authorized token. The method accepts the token and the expiration time should be removed from the blocklist.
+```go
+blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
+```
+
 ## Choose the right algorithm
 
 ## References
@@ -218,15 +239,8 @@ Here is what helped me to implement JWT in Go:
 - Create Your JWTs From Scratch (PHP): https://dzone.com/articles/create-your-jwts-from-scratch
 - How to make your own JWT (Javascript): https://medium.com/code-wave/how-to-make-your-own-jwt-c1a32b5c3898
 - Encode and Decode keys: https://golang.org/src/crypto/x509/x509_test.go (and its variants)
-- The idea of a "Black"(I prefer to chose the word "Block" instead) List: https://blog.indrek.io/articles/invalidate-jwt/
+- The inspiration behind the "Blacklist" feature (I prefer to chose the word "Blocklist" instead): https://blog.indrek.io/articles/invalidate-jwt/
 - We need JWT in the modern web: https://medium.com/swlh/why-do-we-need-the-json-web-token-jwt-in-the-modern-web-8490a7284482
-
-## TODO
-
-- [x] Add a `blocklist` to be able to invalidate tokens at server-side.
-- [x] Add a special `json:"..., required"` tag field to make custom fields required on the `VerifiedToken.Claims` (may require a type of Optional argument there).
-   - [x] Add a unit test and a blackbox one
-- [ ] If requested, add support for [JWE](https://tools.ietf.org/html/rfc7516#section-3).
 
 ## License
 
