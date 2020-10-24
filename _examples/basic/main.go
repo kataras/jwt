@@ -49,16 +49,15 @@ var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 
 // generate token to use.
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-	token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
-		"iat": now.Unix(),
-		"exp": now.Add(15 * time.Minute).Unix(),
-		"foo": "bar",
-	})
-	// OR:
-	// token, err := jwt.Sign(jwt.HS256, sharedKey, jwt.Merge(jwt.Map{
+	// now := time.Now()
+	// token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
+	// 	"iat": now.Unix(),
+	// 	"exp": now.Add(15 * time.Minute).Unix(),
 	// 	"foo": "bar",
-	// }, jwt.Claims{MaxAge: 15 * time.Minute}))
+	// })
+	// OR:
+	claims := jwt.Map{"foo": "bar"} // <- can be any type.
+	token, err := jwt.Sign(jwt.HS256, sharedKey, claims, jwt.MaxAge(15*time.Hour))
 
 	if err != nil {
 		log.Printf("Generate token failure: %v", err)
@@ -66,8 +65,8 @@ func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The wjt package has a helper which returns a string from a []byte token
-	// without a memory allocation (unless --tags=safe is added on go build command).
+	// The jwt package has a helper which returns a string from a []byte token
+	// without a memory allocation (unless --tags=safe is added to the go build command).
 	// tokenString := jwt.BytesToString(token)
 	// OR just:
 	tokenString := string(token)

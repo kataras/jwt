@@ -52,15 +52,6 @@ type Claims struct {
 	// disregard the data contained in the JWT. As in the case of the iss and sub claims, this claim
 	// is application specific.
 	Audience []string `json:"aud,omitempty"`
-
-	// MaxAge is a field which is not part of any JSON result.
-	// If not empty sets expiration to the token.
-	// It's a helper field to set the `Expiry` and `IssuedAt`
-	// fields at once. It's used on `Sign` function.
-	//
-	// See the `Clock` package-level variable to modify
-	// the current time function.
-	MaxAge time.Duration `json:"-"`
 }
 
 func validateClaims(t time.Time, claims Claims) error {
@@ -85,4 +76,42 @@ func validateClaims(t time.Time, claims Claims) error {
 	}
 
 	return nil
+}
+
+// Merge accepts two claim structs or maps
+// and returns a flattened JSON result of both (no checks for duplicatations are maden).
+//
+// Usage:
+//
+//  claims := Merge(map[string]interface{}{"foo":"bar"}, Claims{
+//    MaxAge: 15 * time.Minute,
+//    Issuer: "an-issuer",
+//  })
+//  Sign(alg, key, claims)
+//
+// Merge is automatically called when:
+//
+//  Sign(alg, key, claims, MaxAge(time.Duration))
+//  Sign(alg, key, claims, WithClaims(Claims{...}))
+func Merge(claims interface{}, other interface{}) []byte {
+	claimsB, err := Marshal(claims)
+	if err != nil {
+		return nil
+	}
+
+	otherB, err := Marshal(other)
+	if err != nil {
+		return nil
+	}
+
+	if len(otherB) == 0 {
+		return claimsB
+	}
+
+	claimsB = claimsB[0 : len(claimsB)-1] // remove last '}'
+	otherB = otherB[1:]                   // remove first '{'
+
+	raw := append(claimsB, ',')
+	raw = append(raw, otherB...)
+	return raw
 }
