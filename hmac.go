@@ -3,6 +3,7 @@ package jwt
 import (
 	"crypto"
 	"crypto/hmac"
+	"crypto/rand"
 	_ "crypto/sha256" // ignore:lint
 	_ "crypto/sha512"
 	"os"
@@ -49,6 +50,19 @@ func (a *algHMAC) Verify(key PublicKey, headerAndPayload []byte, signature []byt
 }
 
 // Key Helper.
+
+// MustGenerateRandom returns a random HMAC key.
+// Usage:
+//  MustGenerateRandom(64)
+func MustGenerateRandom(n int) []byte {
+	key := make([]byte, n)
+	_, err := rand.Read(key)
+	if err != nil {
+		panic(err)
+	}
+
+	return key
+}
 
 // MustLoadHMAC accepts a single filename
 // which its plain text data should contain the HMAC shared key.

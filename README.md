@@ -63,6 +63,8 @@ func main() {
 }
 ```
 
+The package contains comments on each one of its exported functions, structures and variables, therefore, for a more detailed technical documentation please refer to [godocs](https://pkg.go.dev/github.com/kataras/jwt).
+
 ## Sign a Token
 
 Signing and Verifying a token is an extremely easy process.
@@ -215,6 +217,12 @@ var claims = struct {
 err := verifiedToken.Claims(&claims)
 ```
 
+By default expiration set and validation is done through `time.Now()`. You can change that behavior through the `jwt.Clock` variable, e.g. 
+
+```go
+jwt.Clock = time.Now().UTC()
+```
+
 ### JSON required tag
 
 When more than one token with different claims can be generated based on the same algorithm and key, somehow you need to invalidate a token if its payload misses one or more fields of your custom claims structure. Although it's not recommended to use the same algorithm and key for generating two different types of tokens, you can do it, and to avoid invalid claims to be retrieved by your application's route handler this package offers the JSON **`,required`** tag field. It checks if the claims extracted from the token's payload meet the requirements of the expected **struct** value.
@@ -306,6 +314,10 @@ import (
 ```
 
 ```go
+// Generate HMAC
+sharedKey := make([]byte, 32)
+_, _ = rand.Read(sharedKey)
+
 // Generate RSA
 bitSize := 2048
 privateKey, _ := rsa.GenerateKey(rand.Reader, bitSize)
@@ -325,6 +337,11 @@ publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
 This package contains all the helpers you need to load and parse PEM-formatted keys.
 
 All the available helpers:
+
+```go
+// HMAC
+MustLoadHMAC(filenameOrRaw string) []byte
+```
 
 ```go
 // RSA

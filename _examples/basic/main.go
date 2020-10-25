@@ -45,7 +45,7 @@ var privateKey, publicKey = jwt.MustLoadEdDSA(
 // Keep it secret; do NOT share this to parties that are not
 // responsible to sign and verify tokens
 // that were produced by your application.
-var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
+var sharedKey = []byte("sercrethatmaycontainch@r$32chars") // OR jwt.MustGenerateRandom(32)
 
 // generate token to use.
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {

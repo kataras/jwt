@@ -162,7 +162,7 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 // Merge is automatically called when:
 //
 //  Sign(alg, key, claims, MaxAge(time.Duration))
-//  Sign(alg, key, claims, WithClaims(Claims{...}))
+//  Sign(alg, key, claims, Claims{...})
 func Merge(claims interface{}, other interface{}) []byte {
 	claimsB, err := Marshal(claims)
 	if err != nil {
