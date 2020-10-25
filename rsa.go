@@ -67,12 +67,12 @@ func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte
 func MustLoadRSA(privateKeyFilename, publicKeyFilename string) (*rsa.PrivateKey, *rsa.PublicKey) {
 	privateKey, err := LoadPrivateKeyRSA(privateKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	publicKey, err := LoadPublicKeyRSA(publicKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	return privateKey, publicKey

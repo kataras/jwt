@@ -17,4 +17,6 @@ func TestEncodeDecodeTokenECDSA(t *testing.T) {
 
 	// eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGFyYXMifQ.oW8ic_m78NAzBPcl9TSX0qjqsyFUkyZQfvIHCJYC-DeVMLbbOjR78UGk-3XQ3o1nfyI2tQBXsYDc5OK80DR3yA
 	testEncodeDecodeToken(t, ES256, privateKey, publicKey, nil)
+	// test the automatic extract of public key from private key.
+	testEncodeDecodeToken(t, ES256, privateKey, privateKey, nil)
 }

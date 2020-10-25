@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -66,5 +67,18 @@ func TestBlocklist(t *testing.T) {
 	}
 	if removed := b.GC(); removed != 1 {
 		t.Fatalf("expected one token to be removed as it's expired")
+	}
+
+	// test automatic gc
+	ctx, cancel := context.WithCancel(context.Background())
+	b = NewBlocklistContext(ctx, 500*time.Millisecond)
+	for i := 0; i < 10; i++ {
+		b.InvalidateToken(MustGenerateRandom(92), Clock().Add(time.Second).Unix())
+	}
+	time.Sleep(2 * time.Second)
+	cancel()
+
+	if got := b.Count(); got != 0 {
+		t.Fatalf("expected all entries to be removed but: %d", got)
 	}
 }

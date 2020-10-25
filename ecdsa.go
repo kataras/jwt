@@ -107,12 +107,12 @@ func (a *algECDSA) Verify(key PublicKey, headerAndPayload []byte, signature []by
 func MustLoadECDSA(privateKeyFilename, publicKeyFilename string) (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
 	privateKey, err := LoadPrivateKeyECDSA(privateKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	publicKey, err := LoadPublicKeyECDSA(publicKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	return privateKey, publicKey

@@ -3,16 +3,24 @@ package jwt
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
 var testAlg, testSecret = HS256, []byte("secret")
+var invalidKey = "inv"
 
 func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey PublicKey, expectedToken []byte) {
 	t.Helper()
 
 	claims := map[string]interface{}{
 		"username": "kataras",
+	}
+
+	if alg != NONE { // test invalid key error for all algorithms.
+		if _, err := encodeToken(alg, invalidKey, claims); !errors.Is(err, ErrInvalidKey) {
+			t.Fatalf("[%s] encode token: expected error: ErrInvalidKey but got: %v", alg.Name(), err)
+		}
 	}
 
 	token, err := encodeToken(alg, signKey, claims)
@@ -26,6 +34,12 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 		// ECDSA and EdDSA elliptics cannot produce the same token everytime.
 		if !bytes.Equal(token, expectedToken) {
 			t.Fatalf("expected token:\n%s\n\nbut got:\n%s", string(expectedToken), string(token))
+		}
+	}
+
+	if alg != NONE { // test invalid key error for all algorithms.
+		if _, _, _, err := decodeToken(alg, invalidKey, token); !errors.Is(err, ErrInvalidKey) {
+			t.Fatalf("[%s] decode token: expected error: ErrInvalidKey but got: %v", alg.Name(), err)
 		}
 	}
 

@@ -60,12 +60,12 @@ func (a *algEdDSA) Verify(key PublicKey, headerAndPayload []byte, signature []by
 func MustLoadEdDSA(privateKeyFilename, publicKeyFilename string) (ed25519.PrivateKey, ed25519.PublicKey) {
 	privateKey, err := LoadPrivateKeyEdDSA(privateKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	publicKey, err := LoadPublicKeyEdDSA(publicKeyFilename)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	return privateKey, publicKey

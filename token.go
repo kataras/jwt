@@ -35,7 +35,7 @@ func encodeToken(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
 
 	signature, err := createSignature(alg, key, headerPayload)
 	if err != nil {
-		return nil, fmt.Errorf("encodeToken: signature: %v", err)
+		return nil, fmt.Errorf("encodeToken: signature: %w", err)
 	}
 
 	// header.payload.signature

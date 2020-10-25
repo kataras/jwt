@@ -51,6 +51,10 @@ func (a *algHMAC) Verify(key PublicKey, headerAndPayload []byte, signature []byt
 
 // Key Helper.
 
+var panicHandler = func(v interface{}) {
+	panic(v)
+}
+
 // MustGenerateRandom returns a random HMAC key.
 // Usage:
 //  MustGenerateRandom(64)
@@ -58,7 +62,7 @@ func MustGenerateRandom(n int) []byte {
 	key := make([]byte, n)
 	_, err := rand.Read(key)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	return key
@@ -72,7 +76,7 @@ func MustGenerateRandom(n int) []byte {
 func MustLoadHMAC(filenameOrRaw string) []byte {
 	key, err := LoadHMAC(filenameOrRaw)
 	if err != nil {
-		panic(err)
+		panicHandler(err)
 	}
 
 	return key
