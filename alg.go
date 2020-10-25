@@ -32,15 +32,16 @@ type Alg interface {
 
 // The builtin signing available algorithms.
 // Author's recommendation of choosing the best algorithm for your application:
-// If you already work with RSA keys, choose RSA (length of produced token characters is bigger).
-// If you need the separation between public and private key, Choose ECDSA or EdDSA.
-// ECDSA and EdDSA produces smaller tokens than RSA.
-// If you need performance and well-tested algorithm, choose HMAC.
-// The basic difference between symmetric and an asymmetric encryption algorithm
-// is that symmetric encryption uses one key for both encryption and decryption,
-// and the asymmetric encryption uses public key for encryption and a private key for decryption.
+// Already work with RSA public and private keys?
+// Choose RSA(RS256/RS384/RS512/PS256/PS384/PS512) (length of produced token characters is bigger).
+// If you need the separation between public and private key, choose ECDSA(ES256/ES384/ES512) or EdDSA.
+// ECDSA and EdDSA produce smaller tokens than RSA.
+// If you need performance and well-tested algorithm, choose HMAC(HS256/HS384/HS512).
+// The basic difference between symmetric and an asymmetric algorithm
+// is that symmetric uses one shared key for both signing and verifying,
+// and the asymmetric uses private key for signing and a public key for verifying.
 // In general, asymmetric data is more secure because it uses different keys
-// for the encryption and decryption process but it's slower than symmetric ones.
+// for the signing and verifying process but it's slower than symmetric ones.
 var (
 	// None for unsecured JWTs.
 	// An unsecured JWT may be fit for client-side use.
@@ -130,7 +131,7 @@ var (
 	// This is one of the benefits of ECDSA over RSA.
 	// The generated files are in PEM format as well,
 	// so simply pasting them in your source will suffice.
-	// Higher performance than RSA and it generates a smaller token (almost 3 times less).
+	// It generates a smaller token (almost 3 times less).
 	ES256 Alg = &algECDSA{"ES256", crypto.SHA256, 32, 256}
 	ES384 Alg = &algECDSA{"ES384", crypto.SHA384, 48, 384}
 	ES512 Alg = &algECDSA{"ES512", crypto.SHA512, 66, 521}

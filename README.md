@@ -23,7 +23,10 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
    * [Decode custom Claims](#decode-custom-claims)
    * [JSON Required Tag](#json-required-tag)
 * [Block a Token](#block-a-token)
-* [Choose the right algorithm](#choose-the-right-algorithm)
+* [JSON Web Algorithms](#json-web-algorithms)
+   * [Choose the right Algorithm](#choose-the-right-algorithm)
+   * [Generate keys](#generate-keys)
+   * [Load and parse keys](#load-and-parse-keys)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
    * [Basic](_examples/basic/main.go)
@@ -254,7 +257,124 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
 blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
 ```
 
-## Choose the right algorithm
+## JSON Web Algorithms
+
+There are several types of signing algorithms available according to the JWA(JSON Web Algorithms) spec. The specification requires a single algorithm to be supported by all conforming implementations:
+
+- HMAC using SHA-256, called `HS256` in the JWA spec.
+
+The specification also defines a series of recommended algorithms:
+
+- RSASSA PKCS1 v1.5 using SHA-256, called `RS256` in the JWA spec.
+- ECDSA using P-256 and SHA-256, called `ES256` in the JWA spec.
+
+This `kataras/jwt` implementation supports all of the above plus `RSA-PSS` and the new `Ed25519`. Navigate to the [alg.go](alg.go) source file for details. In-short:
+
+|Algorithm              | `jwt.Sign`                               | `jwt.Verify`        |
+|-----------------------|------------------------------------------|---------------------|
+| [jwt.HS256 / HS384 / HS512](alg.go#L81-L83) | []byte             | The same sign key   |
+| [jwt.RS256 / RS384 / RS512](alg.go#L96-L98) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)    | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)    |
+| [jwt.PS256 / PS384 / PS512](alg.go#L112-L114) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)  | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)  |
+| [jwt.ES256 / ES384 / ES512](alg.go#L134-L136) | [*ecdsa.PrivateKey](https://golang.org/pkg/crypto/ecdsa/#PrivateKey)  | [*ecdsa.PublicKey](https://golang.org/pkg/crypto/ecdsa/#PublicKey)  |
+| [jwt.EdDSA](alg.go#L146)             | [ed25519.PrivateKey](https://golang.org/pkg/crypto/ed25519/#PrivateKey) | [ed25519.PublicKey](https://golang.org/pkg/crypto/ed25519/#PublicKey) |
+
+### Choose the right Algorithm
+
+Choosing the best algorithm for your application needs is up to you, however, my recommendations follows.
+
+- Already work with RSA public and private keys? Choose RSA(RS256/RS384/RS512/PS256/PS384/PS512) (length of produced token characters is bigger).
+- If you need the separation between public and private key, choose ECDSA(ES256/ES384/ES512) or EdDSA. ECDSA and EdDSA produce smaller tokens than RSA.
+- If you need performance and well-tested algorithm, choose HMAC(HS256/HS384/HS512) - **the most common method**.
+
+The basic difference between symmetric and an asymmetric algorithm
+is that symmetric uses one shared key for both signing and verifying a token,
+and the asymmetric uses private key for signing and a public key for verifying.
+In general, asymmetric data is more secure because it uses different keys
+for the signing and verifying process but it's slower than symmetric ones.
+
+### Generate keys
+
+Keys can be generated via [OpenSSL](https://www.openssl.org) or through Go's standard library.
+
+```go
+import (
+   "crypto/rand"
+   "crypto/rsa"
+   "crypto/elliptic"
+   "crypto/ed25519"
+)
+```
+
+```go
+// Generate RSA
+bitSize := 2048
+privateKey, _ := rsa.GenerateKey(rand.Reader, bitSize)
+publicKey := &privateKey.PublicKey
+
+// Generace ECDSA
+c := elliptic.P256()
+privateKey, _ := ecdsa.GenerateKey(c, rand.Reader)
+publicKey := &privateKey.PublicKey
+
+// Generate EdDSA
+publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
+```
+
+### Load and Parse keys
+
+This package contains all the helpers you need to load and parse PEM-formatted keys.
+
+All the available helpers:
+
+```go
+// RSA
+MustLoadRSA(privFile, pubFile string) (*rsa.PrivateKey, *rsa.PublicKey)
+LoadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error)
+LoadPublicKeyRSA(filename string) (*rsa.PublicKey, error) 
+ParsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error)
+ParsePublicKeyRSA(key []byte) (*rsa.PublicKey, error)
+```
+
+```go
+// ECDSA
+MustLoadECDSA(privFile, pubFile string) (*ecdsa.PrivateKey, *ecdsa.PublicKey)
+LoadPrivateKeyECDSA(filename string) (*ecdsa.PrivateKey, error)
+LoadPublicKeyECDSA(filename string) (*ecdsa.PublicKey, error) 
+ParsePrivateKeyECDSA(key []byte) (*ecdsa.PrivateKey, error)
+ParsePublicKeyECDSA(key []byte) (*ecdsa.PublicKey, error)
+```
+
+```go
+// EdDSA
+MustLoadEdDSA(privFile, pubFile string) (ed25519.PrivateKey, ed25519.PublicKey)
+LoadPrivateKeyEdDSA(filename string) (ed25519.PrivateKey, error)
+LoadPublicKeyEdDSA(filename string) (ed25519.PublicKey, error)
+ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error)
+ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error)
+```
+
+Example Code:
+
+```go
+import "github.com/kataras/jwt"
+```
+
+```go
+privateKey, publicKey := jwt.MustLoadEdDSA("./private_key.pem", "./public_key.pem")
+```
+
+```go
+claims := jwt.Map{"foo": "bar"}
+maxAge := jwt.MaxAge(15 * time.Minute)
+
+token, err := jwt.Sign(jwt.EdDSA, privateKey, claims, maxAge)
+```
+
+```go
+verifiedToken, err := Verify(EdDSA, publicKey, token)
+```
+
+> Embedded keys? No problem, just integrate the `jwt.ReadFile` variable which is just a type of `func(filename string) ([]byte, error)`.
 
 ## References
 

@@ -42,10 +42,9 @@ func TestEncodeDecodeTokenRSAGo(t *testing.T) {
 }
 
 func generateTestFilesRSA() error {
-	reader := rand.Reader
 	bitSize := 2048
 
-	privateKey, err := rsa.GenerateKey(reader, bitSize)
+	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
 	if err != nil {
 		return err
 	}
