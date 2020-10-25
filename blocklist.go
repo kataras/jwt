@@ -71,6 +71,10 @@ func (b *Blocklist) ValidateToken(token []byte, _ Claims, err error) error {
 // This method can be used when the client-side does not clear the token
 // on a user logout operation.
 func (b *Blocklist) InvalidateToken(token []byte, expiry int64) {
+	if len(token) == 0 {
+		return
+	}
+
 	b.mu.Lock()
 	b.entries[BytesToString(token)] = expiry
 	b.mu.Unlock()

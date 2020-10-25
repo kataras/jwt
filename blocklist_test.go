@@ -27,6 +27,15 @@ func TestBlocklist(t *testing.T) {
 		t.Fatalf("expected error: ErrBlock but got: %v", err)
 	}
 
+	if err = b.ValidateToken(token, Claims{}, ErrExpired); err != ErrExpired {
+		t.Fatalf("expected error: ErrExpired as it respects the previous one but got: %v", err)
+	}
+
+	if b.Has(token) {
+		t.Fatalf("expected token to be removed as the validate token's error was ErrExpired")
+	}
+
+	b.InvalidateToken(token, sc.Expiry)
 	if removed := b.GC(); removed != 0 {
 		t.Fatalf("expected nothing to be removed because the expiration is before current time but got: %d", removed)
 	}
@@ -39,5 +48,23 @@ func TestBlocklist(t *testing.T) {
 
 	if err = b.ValidateToken(token, Claims{}, nil); err != nil {
 		t.Fatalf("expected no error as this token is now not blocked")
+	}
+
+	b.InvalidateToken([]byte{}, 1)
+	if got := b.Count(); got != 0 {
+		t.Fatalf("expected zero entries as the token was empty but got: %d", got)
+	}
+
+	if b.Has([]byte{}) {
+		t.Fatalf("expected Has to always return false as the given token was empty")
+	}
+
+	// Test GC expired.
+	b.InvalidateToken([]byte("expired one"), 1)
+	if got := b.Count(); got != 1 {
+		t.Fatalf("expected upsert not append")
+	}
+	if removed := b.GC(); removed != 1 {
+		t.Fatalf("expected one token to be removed as it's expired")
 	}
 }

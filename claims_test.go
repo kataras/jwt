@@ -32,8 +32,13 @@ func TestValidateClaimsIssuedAt(t *testing.T) {
 	claims := Claims{
 		IssuedAt: now.Unix(),
 	}
+	past := now.Add(-2 * time.Minute)
+	// t.Logf("Now: %s", now.String())
+	// t.Logf("Before now: %s", past.String())
+	// t.Logf("Now Unix: %d", now.Unix())
+	// t.Logf("Before now Unix: %d", past.Unix())
 
-	if err := validateClaims(now.Truncate(2*time.Minute), claims); err != ErrIssuedInTheFuture {
+	if err := validateClaims(past, claims); err != ErrIssuedInTheFuture {
 		t.Fatalf("expected token error: %v but got: %v", ErrIssuedInTheFuture, err)
 	}
 }
