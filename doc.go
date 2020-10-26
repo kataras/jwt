@@ -15,11 +15,11 @@ Project Home:
 
 Examples Directory:
 
-	https://github.com/kataras/jwt/tree/master/_examples
+	https://github.com/kataras/jwt/tree/main/_examples
 
 Benchmarks:
 
-	https://github.com/kataras/jwt/tree/master/_benchmarks
+	https://github.com/kataras/jwt/tree/main/_benchmarks
 
 Getting Started:
 

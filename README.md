@@ -1,6 +1,6 @@
 # JWT
 
-[![build status](https://img.shields.io/travis/com/kataras/jwt/master.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://github.com/kataras/jwt/search?q=filename:_test.go) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
+[![build status](https://img.shields.io/travis/kataras/jwt/main.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://github.com/kataras/jwt/search?q=filename:_test.go) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
 Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl).
 
