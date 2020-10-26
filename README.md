@@ -1,8 +1,10 @@
 # JWT
 
-[![build status](https://img.shields.io/travis/com/kataras/jwt/master.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
+[![build status](https://img.shields.io/travis/com/kataras/jwt/master.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://github.com/kataras/jwt/search?q=filename:_test.go) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
 Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl).
+
+[![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
 
 ## Installation
 
@@ -404,7 +406,7 @@ verifiedToken, err := Verify(EdDSA, publicKey, token)
 Here is what helped me to implement JWT in Go:
 
 - The JWT RFC: https://tools.ietf.org/html/rfc7519
-- The JWE (protected & encrypted JWT) RFC: https://tools.ietf.org/html/rfc7516#section-3
+- The JWE (protected & encrypted JWT) RFC: https://tools.ietf.org/html/rfc7516#section-3 (JWE is currently outside the scope of this library)
 - The official JWT book, all you need to learn: https://auth0.com/resources/ebooks/jwt-handbook
 - Create Your JWTs From Scratch (PHP): https://dzone.com/articles/create-your-jwts-from-scratch
 - How to make your own JWT (Javascript): https://medium.com/code-wave/how-to-make-your-own-jwt-c1a32b5c3898
