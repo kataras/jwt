@@ -169,6 +169,9 @@ func ParsePrivateKeyECDSA(key []byte) (*ecdsa.PrivateKey, error) {
 // Pass the result to the `Verify` function.
 func ParsePublicKeyECDSA(key []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(key)
+	if block == nil {
+		return nil, fmt.Errorf("public key: malformed or missing PEM format (ECDSA)")
+	}
 
 	parsedKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {

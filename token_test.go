@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var testAlg, testSecret = HS256, []byte("secret")
+var testAlg, testSecret = HS256, []byte("sercrethatmaycontainch@r$")
 var invalidKey = "inv"
 
 func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey PublicKey, expectedToken []byte) {

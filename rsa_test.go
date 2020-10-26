@@ -43,6 +43,22 @@ func TestEncodeDecodeTokenRSAGo(t *testing.T) {
 	testEncodeDecodeToken(t, RS256, privateKey, publicKey, expectedToken)
 }
 
+func TestMustLoadRSA(t *testing.T) {
+	catchPanic(t, false, func() {
+		MustLoadRSA("./_testfiles/rsapss_private_key.pem", "./_testfiles/rsapss_public_key.pem")
+		MustLoadRSA("./_testfiles/rsa_private_key.pem", "./_testfiles/rsa_public_key.pem")
+	})
+	catchPanic(t, true, func() {
+		// test invalid keys.
+		MustLoadRSA("./_testfiles/ecdsa_private_key.pem", "./_testfiles/ecdsa_public_key.pem")
+		MustLoadRSA("./_testfiles/ed25519_private_key.pem", "./_testfiles/ed25519_public_key.pem")
+		// test malformed pem file.
+		MustLoadRSA("./_testfiles/invalid_pem.pem", "./_testfiles/invalid_pem.pem")
+		// test not found file.
+		MustLoadRSA("./invalid.pem", "./invalid.pem")
+	})
+}
+
 func generateTestFilesRSA() error {
 	bitSize := 2048
 

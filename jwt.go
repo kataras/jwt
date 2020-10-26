@@ -27,10 +27,6 @@ var ReadFile = ioutil.ReadFile
 // This variable can be modified to enable custom encoder behavior
 // for a signed payload.
 var Marshal = func(v interface{}) ([]byte, error) {
-	if v == nil {
-		return nil, nil
-	}
-
 	if b, ok := v.([]byte); ok {
 		return b, nil
 	}

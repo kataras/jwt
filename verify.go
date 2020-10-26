@@ -44,9 +44,6 @@ func Verify(
 
 	err = validateClaims(Clock(), claims)
 	for _, validator := range validators {
-		if validator == nil {
-			continue
-		}
 		// A token validator can skip the builtin validation and return a nil error,
 		// in that case the previous error is skipped.
 		if err = validator.ValidateToken(token, claims, err); err != nil {

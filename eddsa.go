@@ -126,7 +126,12 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 		return nil, err
 	}
 
-	privateKey := ed25519.NewKeyFromSeed(asn1PrivKey.PrivateKey[2:])
+	seed := asn1PrivKey.PrivateKey[2:]
+	if l := len(seed); l != ed25519.SeedSize {
+		return nil, fmt.Errorf("private key: bad seed length: %d", l)
+	}
+
+	privateKey := ed25519.NewKeyFromSeed(seed)
 	return privateKey, nil
 }
 
