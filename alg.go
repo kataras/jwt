@@ -19,11 +19,12 @@ var (
 type Alg interface {
 	// Name should return the "alg" JWT field.
 	Name() string
-	// Sign should return the signed data based on the given
-	// full header and payload data and a private key.
+	// Sign should accept the private key given on jwt.Sign and
+	// the base64-encoded header and payload data.
+	// Should return the signature.
 	Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error)
 	// Verify should verify the JWT "signature" (base64-decoded) against
-	// the header and payload data's one based on the given public key.
+	// the header and payload (base64-encoded).
 	Verify(key PublicKey, headerAndPayload []byte, signature []byte) error
 	// Note:
 	// some signing algorithms may be asymmetric,

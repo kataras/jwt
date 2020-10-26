@@ -25,6 +25,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [Block a Token](#block-a-token)
 * [JSON Web Algorithms](#json-web-algorithms)
    * [Choose the right Algorithm](#choose-the-right-algorithm)
+   * [Use your own Algorithm](#use-your-own-algorithm)
    * [Generate keys](#generate-keys)
    * [Load and parse keys](#load-and-parse-keys)
 * [Benchmarks](_benchmarks)
@@ -276,7 +277,7 @@ The specification also defines a series of recommended algorithms:
 - RSASSA PKCS1 v1.5 using SHA-256, called `RS256` in the JWA spec.
 - ECDSA using P-256 and SHA-256, called `ES256` in the JWA spec.
 
-This `kataras/jwt` implementation supports all of the above plus `RSA-PSS` and the new `Ed25519`. Navigate to the [alg.go](alg.go) source file for details. In-short:
+The implementation supports **all** of the above plus `RSA-PSS` and the new `Ed25519`. Navigate to the [alg.go](alg.go) source file for details. In-short:
 
 |Algorithm              | `jwt.Sign`                               | `jwt.Verify`        |
 |-----------------------|------------------------------------------|---------------------|
@@ -299,6 +300,11 @@ is that symmetric uses one shared key for both signing and verifying a token,
 and the asymmetric uses private key for signing and a public key for verifying.
 In general, asymmetric data is more secure because it uses different keys
 for the signing and verifying process but it's slower than symmetric ones.
+
+
+### Use your own Algorithm
+
+If you ever need to use your own JSON Web algorithm, just implement the [Alg](alg.go#L19-L28) interface. Pass it on `jwt.Sign` and `jwt.Verify` functions and you're ready to GO.
 
 ### Generate keys
 
