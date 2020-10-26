@@ -6,7 +6,11 @@ import (
 )
 
 func TestUnmarshalWithRequired(t *testing.T) {
-	token, err := Sign(testAlg, testSecret, Map{"username": "kataras"})
+	type Nested struct {
+		Name string `json:"name,required"`
+	}
+
+	token, err := Sign(testAlg, testSecret, Map{"username": "kataras", "age": 27, "nested": Map{"name": ""}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,6 +22,7 @@ func TestUnmarshalWithRequired(t *testing.T) {
 
 	var claims = struct {
 		Username string `json:"username,required"`
+		Nested   Nested `json:"nested"`
 	}{}
 	err = verifiedToken.Claims(&claims)
 	if err != nil {
@@ -31,6 +36,7 @@ func TestUnmarshalWithRequired(t *testing.T) {
 	var claimsShouldFail = struct {
 		Username string `json:"username,required"`
 		Age      int    `json:"age,required"`
+		Nested   *Nested/* test indirect too */ `json:"nested"`
 	}{}
 	err = verifiedToken.Claims(&claimsShouldFail)
 	// this should pass as we don't set the Unmarshal func yet.
@@ -38,7 +44,7 @@ func TestUnmarshalWithRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	Unmarshal = UnmarshalWithRequired
-	// this should fail now.
+	// this should fail now because nested.name is missing.
 	err = verifiedToken.Claims(&claimsShouldFail)
 	if !errors.Is(err, ErrMissingKey) {
 		t.Fatalf("expected error: ErrMissingKey but got: %v", err)

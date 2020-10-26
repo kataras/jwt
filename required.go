@@ -18,10 +18,8 @@ func meetRequirements(val reflect.Value) (err error) { // see `UnmarshalWithRequ
 	}
 
 	typ := val.Type()
-
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-
 		// skip unexported fields here.
 		if isExported := field.PkgPath == ""; !isExported {
 			continue

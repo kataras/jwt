@@ -3,6 +3,7 @@ package jwt
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"fmt"
 )
 
 type algRSAPSS struct {
@@ -49,5 +50,10 @@ func (a *algRSAPSS) Verify(key PublicKey, headerAndPayload []byte, signature []b
 	}
 
 	hashed := h.Sum(nil)
-	return rsa.VerifyPSS(publicKey, a.opts.Hash, hashed, signature, a.opts)
+
+	if err = rsa.VerifyPSS(publicKey, a.opts.Hash, hashed, signature, a.opts); err != nil {
+		return fmt.Errorf("%w: %v", ErrTokenSignature, err)
+	}
+
+	return nil
 }

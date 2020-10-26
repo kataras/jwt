@@ -37,9 +37,19 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 		}
 	}
 
+	// Test invalid signature.
+	lastPartIdx := bytes.LastIndexByte(token, '.') + 1
+	unexpectedSignature := []byte("DX22uANEy1qEG0m0utEW4YYfyNeuG9FzvRPMxpSaTc")
+	unexpectedSignatureToken := make([]byte, len(token[0:lastPartIdx])+len(unexpectedSignature))
+	copy(unexpectedSignatureToken, token[0:lastPartIdx])
+	copy(unexpectedSignatureToken[len(token[0:lastPartIdx]):], unexpectedSignature)
+	if _, _, _, err := decodeToken(alg, verKey, unexpectedSignatureToken); !errors.Is(err, ErrTokenSignature) {
+		t.Fatalf("[%s] decode token: expected error: ErrTokenSignature but got: %v", alg.Name(), err)
+	}
+
 	if alg != NONE { // test invalid key error for all algorithms.
 		if _, _, _, err := decodeToken(alg, invalidKey, token); !errors.Is(err, ErrInvalidKey) {
-			t.Fatalf("[%s] decode token: expected error: ErrInvalidKey but got: %v", alg.Name(), err)
+			t.Fatalf("[%s] decode token: expected error: ErrInvalidKey but got: %v: %q", alg.Name(), err, token)
 		}
 	}
 

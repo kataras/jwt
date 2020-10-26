@@ -141,6 +141,10 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 		return
 	}
 
+	if maxAge <= time.Second {
+		return
+	}
+
 	now := Clock()
 	if claims["exp"] == nil {
 		claims["exp"] = now.Add(maxAge).Unix()

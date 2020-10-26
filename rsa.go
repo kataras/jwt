@@ -53,7 +53,11 @@ func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte
 	}
 
 	hashed := h.Sum(nil)
-	return rsa.VerifyPKCS1v15(publicKey, a.hasher, hashed, signature)
+	if err = rsa.VerifyPKCS1v15(publicKey, a.hasher, hashed, signature); err != nil {
+		return fmt.Errorf("%w: %v", ErrTokenSignature, err)
+	}
+
+	return nil
 }
 
 // Key Helpers.
