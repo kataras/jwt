@@ -53,17 +53,17 @@ import "github.com/kataras/jwt"
 var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 
 func main() {
-   // Generate a token:
-   myClaims := map[string]interface{}{
-      "foo": "bar",
-   }
-   token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15 * time.Minute))
+    // Generate a token:
+    myClaims := map[string]interface{}{
+        "foo": "bar",
+    }
+    token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15 * time.Minute))
 
-   // Verify and extract claims from a token:
-   verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
+    // Verify and extract claims from a token:
+    verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
 
-   var claims map[string]interface{}
-   err = verifiedToken.Claims(&claims)
+    var claims map[string]interface{}
+    err = verifiedToken.Claims(&claims)
 }
 ```
 
@@ -81,13 +81,13 @@ var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 
 ```go
 type User struct {
-   Username string `json:"username"`
+    Username string `json:"username"`
 }
 ```
 
 ```go
 userClaims := User {
-   Username:"kataras",
+    Username:"kataras",
 }
 
 token, err := jwt.Sign(jwt.HS256, sharedkey, userClaims, jwt.MaxAge(15 *time.Minute))
@@ -119,9 +119,9 @@ customClaims := jwt.Map{"foo": "bar"}
 
 now := time.Now()
 standardClaims := jwt.Claims{
-   Expiry:   now.Add(15 * time.Minute).Unix(),
-   IssuedAt: now.Unix(), 
-   Issuer:   "my-app",
+    Expiry:   now.Add(15 * time.Minute).Unix(),
+    IssuedAt: now.Unix(), 
+    Issuer:   "my-app",
 }
 
 token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, standardClaims)
@@ -137,55 +137,55 @@ The `jwt.Claims` we've shown above, looks like this:
 
 ```go
 type Claims struct {
-   // The opposite of the exp claim. A number representing a specific
-   // date and time in the format “seconds since epoch” as defined by POSIX.
-   // This claim sets the exact moment from which this JWT is considered valid.
-   // The current time (see `Clock` package-level variable)
-   // must be equal to or later than this date and time.
-   NotBefore int64 `json:"nbf,omitempty"`
+    // The opposite of the exp claim. A number representing a specific
+    // date and time in the format “seconds since epoch” as defined by POSIX.
+    // This claim sets the exact moment from which this JWT is considered valid.
+    // The current time (see `Clock` package-level variable)
+    // must be equal to or later than this date and time.
+    NotBefore int64 `json:"nbf,omitempty"`
 
-   // A number representing a specific date and time (in the same
-   // format as exp and nbf) at which this JWT was issued.
-   IssuedAt int64 `json:"iat,omitempty"`
+    // A number representing a specific date and time (in the same
+    // format as exp and nbf) at which this JWT was issued.
+    IssuedAt int64 `json:"iat,omitempty"`
 
-   // A number representing a specific date and time in the
-   // format “seconds since epoch” as defined by POSIX6.
-   // This claims sets the exact moment from which
-   // this JWT is considered invalid. This implementation
-   // allow for a certain skew between clocks
-   // (by considering this JWT to be valid for a few minutes
-   // after the expiration date, modify the `Clock` variable).
-   Expiry int64 `json:"exp,omitempty"`
+    // A number representing a specific date and time in the
+    // format “seconds since epoch” as defined by POSIX6.
+    // This claims sets the exact moment from which
+    // this JWT is considered invalid. This implementation
+    // allow for a certain skew between clocks
+    // (by considering this JWT to be valid for a few minutes
+    // after the expiration date, modify the `Clock` variable).
+    Expiry int64 `json:"exp,omitempty"`
 
-   // A string representing a unique identifier for this JWT.
-   // This claim may be used to differentiate JWTs with
-   // other similar content (preventing replays, for instance).
-   ID string `json:"jti,omitempty"`
+    // A string representing a unique identifier for this JWT.
+    // This claim may be used to differentiate JWTs with
+    // other similar content (preventing replays, for instance).
+    ID string `json:"jti,omitempty"`
 
-   // A string or URI that uniquely identifies the party
-   // that issued the JWT.
-   // Its interpretation is application specific
-   // (there is no central authority managing issuers).
-   Issuer string `json:"iss,omitempty"`
+    // A string or URI that uniquely identifies the party
+    // that issued the JWT.
+    // Its interpretation is application specific
+    // (there is no central authority managing issuers).
+    Issuer string `json:"iss,omitempty"`
 
-   // A string or URI that uniquely identifies the party
-   // that this JWT carries information about.
-   // In other words, the claims contained in this JWT
-   // are statements about this party.
-   // The JWT spec specifies that this claim must be unique in
-   // the context of the issuer or,
-   // in cases where that is not possible, globally unique. Handling of
-   // this claim is application specific.
-   Subject string `json:"sub,omitempty"`
+    // A string or URI that uniquely identifies the party
+    // that this JWT carries information about.
+    // In other words, the claims contained in this JWT
+    // are statements about this party.
+    // The JWT spec specifies that this claim must be unique in
+    // the context of the issuer or,
+    // in cases where that is not possible, globally unique. Handling of
+    // this claim is application specific.
+    Subject string `json:"sub,omitempty"`
 
-   // Either a single string or URI or an array of such
-   // values that uniquely identify the intended recipients of this JWT.
-   // In other words, when this claim is present, the party reading
-   // the data in this JWT must find itself in the aud claim or
-   // disregard the data contained in the JWT.
-   // As in the case of the iss and sub claims, this claim is
-   // application specific.
-   Audience []string `json:"aud,omitempty"`
+    // Either a single string or URI or an array of such
+    // values that uniquely identify the intended recipients of this JWT.
+    // In other words, when this claim is present, the party reading
+    // the data in this JWT must find itself in the aud claim or
+    // disregard the data contained in the JWT.
+    // As in the case of the iss and sub claims, this claim is
+    // application specific.
+    Audience []string `json:"aud,omitempty"`
 }
 ```
 
@@ -201,11 +201,11 @@ The `VerifiedToken` carries the token decoded information:
 
 ```go
 type VerifiedToken struct {
-	Token          []byte // The original token.
-	Header         []byte // The header (decoded) part.
-	Payload        []byte // The payload (decoded) part.
-	Signature      []byte // The signature (decoded) part.
-	StandardClaims Claims // Standard claims extracted from the payload.
+    Token          []byte // The original token.
+    Header         []byte // The header (decoded) part.
+    Payload        []byte // The payload (decoded) part.
+    Signature      []byte // The signature (decoded) part.
+    StandardClaims Claims // Standard claims extracted from the payload.
 }
 ```
 
@@ -215,7 +215,7 @@ To extract any custom claims, given on the `Sign` method, we use the result of t
 
 ```go
 var claims = struct {
-	Foo string `json:"foo"`
+    Foo string `json:"foo"`
 }{} // or a map.
 
 err := verifiedToken.Claims(&claims)
@@ -235,7 +235,7 @@ The first thing we have to do is to change the default `jwt.Unmarshal` variable 
 
 ```go
 func init() {
-	jwt.Unmarshal = jwt.UnmarshalWithRequired
+    jwt.Unmarshal = jwt.UnmarshalWithRequired
 }
 ```
 
@@ -243,7 +243,7 @@ The second thing, is to add the `,required` json tag field to our struct, e.g.
 
 ```go
 type userClaims struct {
-	Username string `json:"username,required"`
+    Username string `json:"username,required"`
 }
 ```
 
@@ -279,15 +279,15 @@ In-short, you just need to call the `jwt.GCM` once, on your application's `init`
 
 ```go
 func init() {
-   var (
-      // Replace it with your own 16, 24, or 32 bytes length key.
-      // Keep it secret.
-      key           = jwt.MustGenerateRandom(32)
-      // Additional Data is optional. Could be nil.
-      addtionalData = []byte("adata")
-   )
+    var (
+        // Replace it with your own 16, 24, or 32 bytes length key.
+        // Keep it secret.
+        key           = jwt.MustGenerateRandom(32)
+        // Additional Data is optional. Could be nil.
+        addtionalData = []byte("adata")
+    )
 
-   GCM(key, addtionalData)
+    jwt.GCM(key, addtionalData)
 }
 
 // [Use the Sign and Verify methods as usual...]
@@ -340,10 +340,10 @@ Keys can be generated via [OpenSSL](https://www.openssl.org) or through Go's sta
 
 ```go
 import (
-   "crypto/rand"
-   "crypto/rsa"
-   "crypto/elliptic"
-   "crypto/ed25519"
+    "crypto/rand"
+    "crypto/rsa"
+    "crypto/elliptic"
+    "crypto/ed25519"
 )
 ```
 
