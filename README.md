@@ -271,7 +271,7 @@ blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expi
 
 ## Encryption
 
-[JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `Encrypt` and `Decrpyt` package-level functions can be modified to support any type of encryption. By default no encryption is used.
+[JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `Encrypt` and `Decrypt` package-level functions can be modified to support any type of encryption. By default no encryption is used.
 
 The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
 
