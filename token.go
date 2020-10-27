@@ -150,6 +150,13 @@ func createPayload(claims interface{}) ([]byte, error) {
 		return nil, err
 	}
 
+	if Encrypt != nil {
+		payload, err = Encrypt(payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return Base64Encode(payload), nil
 }
 

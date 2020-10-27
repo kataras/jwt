@@ -4,7 +4,8 @@ package jwt
 // The claims is the payload, the actual body of the token, should
 // contain information about a specific authorized client.
 // Note that the payload part is not encrypted,
-// therefore it should NOT contain any private information.
+// therefore it should NOT contain any private information
+// (unless Encrypt/Decrypt functions are set, see GCM function too).
 // See the `Verify` function to decode and verify the result token.
 //
 // Example Code to pass only standard Claims:

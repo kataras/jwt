@@ -19,12 +19,13 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 ## Table of Contents
 
 * [Getting started](#getting-started)
-* [Sign a token](#sign-a-token)
+* [Sign a Token](#sign-a-token)
    * [The standard Claims](#the-standard-jwt-claims)
-* [Verify a token](#verify-a-token)
+* [Verify a Token](#verify-a-token)
    * [Decode custom Claims](#decode-custom-claims)
    * [JSON Required Tag](#json-required-tag)
 * [Block a Token](#block-a-token)
+* [Encryption](#encryption)
 * [JSON Web Algorithms](#json-web-algorithms)
    * [Choose the right Algorithm](#choose-the-right-algorithm)
    * [Use your own Algorithm](#use-your-own-algorithm)
@@ -268,6 +269,32 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
 blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
 ```
 
+## Encryption
+
+[JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `Encrypt` and `Decrpyt` package-level functions can be modified to support any type of encryption. By default no encryption is used.
+
+The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
+
+In-short, you just need to call the `jwt.GCM` once, on your application's `init` function before any `Sign` or `Verify` calls and you are ready to GO. No other code changes are required.
+
+```go
+func init() {
+   var (
+      // Replace it with your own 16, 24, or 32 bytes length key.
+      // Keep it secret.
+      key           = jwt.MustGenerateRandom(32)
+      // Additional Data is optional. Could be nil.
+      addtionalData = []byte("adata")
+   )
+
+   GCM(key, addtionalData)
+}
+
+// [Use the Sign and Verify methods as usual...]
+```
+
+Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
+
 ## JSON Web Algorithms
 
 There are several types of signing algorithms available according to the JWA(JSON Web Algorithms) spec. The specification requires a single algorithm to be supported by all conforming implementations:
@@ -302,7 +329,6 @@ is that symmetric uses one shared key for both signing and verifying a token,
 and the asymmetric uses private key for signing and a public key for verifying.
 In general, asymmetric data is more secure because it uses different keys
 for the signing and verifying process but it's slower than symmetric ones.
-
 
 ### Use your own Algorithm
 
@@ -406,7 +432,6 @@ verifiedToken, err := Verify(EdDSA, publicKey, token)
 Here is what helped me to implement JWT in Go:
 
 - The JWT RFC: https://tools.ietf.org/html/rfc7519
-- The JWE (protected & encrypted JWT) RFC: https://tools.ietf.org/html/rfc7516#section-3 (JWE is currently outside the scope of this library)
 - The official JWT book, all you need to learn: https://auth0.com/resources/ebooks/jwt-handbook
 - Create Your JWTs From Scratch (PHP): https://dzone.com/articles/create-your-jwts-from-scratch
 - How to make your own JWT (Javascript): https://medium.com/code-wave/how-to-make-your-own-jwt-c1a32b5c3898

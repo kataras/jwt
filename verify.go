@@ -36,6 +36,13 @@ func Verify(
 		return nil, err
 	}
 
+	if Decrypt != nil {
+		payload, err = Decrypt(payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var claims Claims
 	err = json.Unmarshal(payload, &claims) // use the standard one instead of the custom, no need to support "required" feature here.
 	if err != nil {

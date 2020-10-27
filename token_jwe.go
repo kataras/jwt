@@ -1,7 +1,7 @@
 package jwt
 
 /* TODO? Add support for JWS and JWE.
-Currently, Out of this package's scope, more complexity will be added to the package.
+Currently, Out of this package's scope, more complexity will be added to the package (see gcm.go file instead).
 If and only if it's requested by many users: add support for protected and encrypted tokens.
 https://tools.ietf.org/html/rfc7516#section-3
 Chapters 4 and 5 of the official JWT handbook (v0.14.1)
