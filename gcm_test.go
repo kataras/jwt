@@ -7,8 +7,7 @@ import (
 )
 
 func TestGCM(t *testing.T) {
-	t.Cleanup(func() { Encrypt, Decrypt = nil, nil })
-
+	// Get a plain, we will compare it later on.
 	plainToken, err := Sign(testAlg, testSecret, Map{"foo": "bar", "age": 27}, Claims{Issuer: "issuer"})
 	if err != nil {
 		t.Fatal(err)
@@ -21,12 +20,12 @@ func TestGCM(t *testing.T) {
 		expectedToken = []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.QmT4pOOamAy7TwdqeF6RpHplP21yMNulO5fVQqva2arIZExIerYfVtLwihoKShSTMtCXeKFlLRNlrRa7hav3DZg.en_w-8wf5nL_s7J1qiG3l0HasomYCe7qme4UfhDYOiw")
 	)
 
-	err = GCM(key, addtionalData)
+	encrypt, decrypt, err := GCM(key, addtionalData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	encryptedToken, err := Sign(testAlg, testSecret, Map{"foo": "bar", "age": 27}, Claims{Issuer: "issuer"})
+	encryptedToken, err := SignEncrypted(testAlg, testSecret, encrypt, Map{"foo": "bar", "age": 27}, Claims{Issuer: "issuer"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +41,7 @@ func TestGCM(t *testing.T) {
 	}
 
 	// Test if encryption & decryption work as expected.
-	verifiedToken, err := Verify(testAlg, testSecret, encryptedToken)
+	verifiedToken, err := VerifyEncrypted(testAlg, testSecret, decrypt, encryptedToken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,21 +63,27 @@ func TestGCM(t *testing.T) {
 	}
 
 	// Test try to decrypt unencrypted (failure).
-	verifiedToken, err = Verify(testAlg, testSecret, plainToken)
+	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, plainToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
 	}
 
 	// Test encrypted but different key (same additionalData).
-	GCM(MustGenerateRandom(32), []byte("data"))
-	verifiedToken, err = Verify(testAlg, testSecret, encryptedToken)
+	encrypt, decrypt, err = GCM(MustGenerateRandom(32), []byte("data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, encryptedToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
 	}
 
 	// Test fail because of different additionalData.
-	GCM(key, []byte("a_data"))
-	verifiedToken, err = Verify(testAlg, testSecret, encryptedToken)
+	encrypt, decrypt, err = GCM(key, []byte("a_data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, encryptedToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
 	}

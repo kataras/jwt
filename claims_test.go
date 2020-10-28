@@ -109,7 +109,7 @@ func TestMaxAgeMap(t *testing.T) {
 	)
 
 	Clock = func() time.Time {
-		return now
+		return time.Date(2020, 10, 26, 1, 1, 1, 1, time.Local) // dupl the value just to resolve the test race cond.
 	}
 
 	claims := make(Map)

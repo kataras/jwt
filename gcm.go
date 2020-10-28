@@ -24,24 +24,25 @@ var ErrDecrypt = errors.New("decrypt: payload authentication failed")
 // Can be set to nil to ignore.
 //
 // Usage:
-// var secretEncryptionKey = MustGenerateRandom(32)
-// func init() {
-//   GCM(secretEncryptionKey, nil)
-// }
-// [...]
-// And call `Sign` and `Verify` as usual.
-func GCM(key, additionalData []byte) error {
+//  var encKey = MustGenerateRandom(32)
+//  var sigKey = MustGenerateRandom(32)
+//
+//  encrypt, decrypt, err := GCM(encKey, nil)
+//  if err != nil { ... }
+//  token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
+//  verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
+func GCM(key, additionalData []byte) (encrypt, decrypt InjectFunc, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	encrypter := func(payload []byte) ([]byte, error) {
+	encrypt = func(payload []byte) ([]byte, error) {
 		nonce := make([]byte, gcm.NonceSize())
 		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 			return nil, err
@@ -51,7 +52,7 @@ func GCM(key, additionalData []byte) error {
 		return ciphertext, nil
 	}
 
-	decrypter := func(ciphertext []byte) ([]byte, error) {
+	decrypt = func(ciphertext []byte) ([]byte, error) {
 		nonce := ciphertext[:gcm.NonceSize()]
 		ciphertext = ciphertext[gcm.NonceSize():]
 
@@ -63,8 +64,5 @@ func GCM(key, additionalData []byte) error {
 		return plainPayload, nil
 	}
 
-	Encrypt = encrypter
-	Decrypt = decrypter
-
-	return nil
+	return
 }

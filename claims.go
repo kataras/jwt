@@ -56,6 +56,8 @@ type Claims struct {
 	Audience []string `json:"aud,omitempty"`
 }
 
+// See TokenValidator and its implementations
+// for further validation options.
 func validateClaims(t time.Time, claims Claims) error {
 	now := t.Round(time.Second).Unix()
 

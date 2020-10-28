@@ -20,23 +20,25 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 
 * [Getting started](#getting-started)
 * [Sign a Token](#sign-a-token)
-   * [The standard Claims](#the-standard-jwt-claims)
+    * [The standard Claims](#the-standard-jwt-claims)
 * [Verify a Token](#verify-a-token)
-   * [Decode custom Claims](#decode-custom-claims)
-   * [JSON Required Tag](#json-required-tag)
+    * [Decode custom Claims](#decode-custom-claims)
+    * [JSON Required Tag](#json-required-tag)
+        * [Standard Claims Validators](#standard-claims-validators)
 * [Block a Token](#block-a-token)
 * [Encryption](#encryption)
 * [JSON Web Algorithms](#json-web-algorithms)
-   * [Choose the right Algorithm](#choose-the-right-algorithm)
-   * [Use your own Algorithm](#use-your-own-algorithm)
-   * [Generate keys](#generate-keys)
-   * [Load and parse keys](#load-and-parse-keys)
+    * [Choose the right Algorithm](#choose-the-right-algorithm)
+    * [Use your own Algorithm](#use-your-own-algorithm)
+    * [Generate keys](#generate-keys)
+    * [Load and parse keys](#load-and-parse-keys)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
-   * [Basic](_examples/basic/main.go)
-   * [HTTP Middleware](_examples/middleware/main.go)
-   * [Blocklist](_examples/blocklist/main.go)
-   * [JSON Required Tag](_examples/required/main.go)
+    * [Basic](_examples/basic/main.go)
+    * [HTTP Middleware](_examples/middleware/main.go)
+    * [Blocklist](_examples/blocklist/main.go)
+    * [JSON Required Tag](_examples/required/main.go)
+    * [Custom Validations](_examples/custom-validations/main.go)
 * [References](#references)
 * [License](#license)
 
@@ -47,23 +49,43 @@ Sign and generate a token with the `Sign` method, returns the token in compact f
 ```go
 package main
 
-import "github.com/kataras/jwt"
+import (
+	"time"
+
+	"github.com/kataras/jwt"
+)
 
 // Keep it secret.
 var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 
+type FooClaims struct {
+	Foo string `json:"foo"`
+}
+
 func main() {
-    // Generate a token:
-    myClaims := map[string]interface{}{
-        "foo": "bar",
-    }
-    token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15 * time.Minute))
+	// Generate a token which expires at 15 minutes from now:
+	myClaims := FooClaims{
+		Foo: "bar",
+	} // can be a map too.
 
-    // Verify and extract claims from a token:
-    verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
+	token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15*time.Minute))
+	if err != nil {
+		panic(err)
+	}
 
-    var claims map[string]interface{}
-    err = verifiedToken.Claims(&claims)
+	// Verify and extract claims from a token:
+	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
+	if err != nil {
+		panic(err)
+	}
+
+	var claims FooClaims
+	err = verifiedToken.Claims(&claims)
+	if err != nil {
+		panic(err)
+	}
+
+	print(claims.Foo)
 }
 ```
 
@@ -249,6 +271,47 @@ type userClaims struct {
 
 That's all, the `VerifiedToken.Claims` method will throw an `ErrMissingKey` if the given token's payload does not meet the requirements.
 
+### Standard Claims Validators
+
+A more performance-wise alternative to `json:"XXX,required"` is to add validators to check the standard claims values through a `TokenValidator` or to check the custom claims manually after the `VerifiedToken.Claims` method.
+
+The `TokenValidator` interface looks like this:
+
+```go
+type TokenValidator interface {
+	ValidateToken(token []byte, standardClaims Claims, err error) error
+}
+```
+
+The last argument of `Verify`/`VerifyEncrypted` optionally accepts one or more `TokenValidator`. Available builtin validators:
+- `Leeway(time.Duration)`
+- `Expected`
+- `Blocklist`
+
+The `Leeway` adds validation for a leeway expiration time.
+If the token was not expired then a comparison between
+this "leeway" and the token's "exp" one is expected to pass instead (now+leeway > exp).
+Example of use case: disallow tokens that are going to be expired in 3 seconds from now,
+this is useful to make sure that the token is valid when the when the user fires a database call:
+
+```go
+verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, jwt.Leeway(3*time.Second))
+if err != nil {
+   // err == jwt.ErrExpired
+}
+```
+
+The `Expected` performs simple checks between standard claims values. For example, disallow tokens that their `"iss"` claim does not match the `"my-app"` value:
+
+```go
+verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, jwt.Expected{
+    Issuer: "my-app",
+})
+if err != nil {
+    // errors.Is(jwt.ErrExpected, err)
+}
+```
+
 ## Block a Token
 
 When a user logs out, the client app should delete the token from its memory. This would stop the client from being able to make authorized requests. But if the token is still valid and somebody else has access to it, the token could still be used. Therefore, a server-side invalidation is indeed useful for cases like that. When the server receives a logout request, take the token from the request and store it to the `Blocklist` through its `InvalidateToken` method. For each authorized request the `jwt.Verify` will check the `Blocklist` to see if the token has been invalidated. To keep the search space small, the expired tokens are automatically removed from the Blocklist's in-memory storage.
@@ -275,22 +338,31 @@ blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expi
 
 The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
 
-In-short, you just need to call the `jwt.GCM` once, on your application's `init` function before any `Sign` or `Verify` calls and you are ready to GO. No other code changes are required.
+In-short, you need to call the `jwt.GCM` and pass its result to the `SignEncrypted` and `VerifyEncrypted`:
 
 ```go
-func init() {
-    var (
-        // Replace it with your own 16, 24, or 32 bytes length key.
-        // Keep it secret.
-        key           = jwt.MustGenerateRandom(32)
-        // Additional Data is optional. Could be nil.
-        addtionalData = []byte("adata")
-    )
+// Replace with your own keys and keep them secret.
+// The "encKey" is used for the encryption and
+// the "sigKey" is used for the selected JSON Web Algorithm
+// (shared/symmetric HMAC in that case).
+var (
+    encKey = MustGenerateRandom(32)
+    sigKey = MustGenerateRandom(32)
+)
 
-    jwt.GCM(key, addtionalData)
+func main(){
+    encrypt, decrypt, err := GCM(encKey, nil)
+    if err != nil {
+        // [handle error...]
+    }
+    // Encrypt and Sign the claims:
+    token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
+    // [...]
+
+    // Verify and decrypt the claims:
+    verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
+    // [...]
 }
-
-// [Use the Sign and Verify methods as usual...]
 ```
 
 Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode

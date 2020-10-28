@@ -32,6 +32,13 @@ package jwt
 //  type User struct { Username string `json:"username"` }
 //  token, err := jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute))
 func Sign(alg Alg, key PrivateKey, claims interface{}, opts ...SignOption) ([]byte, error) {
+	return SignEncrypted(alg, key, nil, claims, opts...)
+}
+
+// SignEncrypted same as `Sign` but it encrypts the payload part with the given "encrypt" function.
+// The "encrypt" function is called AFTER Marshal.
+// Look the `GCM` function for details.
+func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, opts ...SignOption) ([]byte, error) {
 	if len(opts) > 0 {
 		var standardClaims Claims
 		for _, opt := range opts {
@@ -41,7 +48,19 @@ func Sign(alg Alg, key PrivateKey, claims interface{}, opts ...SignOption) ([]by
 		claims = Merge(claims, standardClaims)
 	}
 
-	return encodeToken(alg, key, claims)
+	payload, err := Marshal(claims)
+	if err != nil {
+		return nil, err
+	}
+
+	if encrypt != nil {
+		payload, err = encrypt(payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return encodeToken(alg, key, payload)
 }
 
 // SignOption is just a helper which sets the standard claims at the `Sign` function.

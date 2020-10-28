@@ -17,13 +17,18 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 		"username": "kataras",
 	}
 
+	payload, err := Marshal(claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if alg != NONE { // test invalid key error for all algorithms.
-		if _, err := encodeToken(alg, invalidKey, claims); !errors.Is(err, ErrInvalidKey) {
+		if _, err := encodeToken(alg, invalidKey, payload); !errors.Is(err, ErrInvalidKey) {
 			t.Fatalf("[%s] encode token: expected error: ErrInvalidKey but got: %v", alg.Name(), err)
 		}
 	}
 
-	token, err := encodeToken(alg, signKey, claims)
+	token, err := encodeToken(alg, signKey, payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +85,12 @@ func BenchmarkEncodeToken(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := encodeToken(testAlg, testSecret, claims)
+		payload, err := Marshal(claims)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		_, err = encodeToken(testAlg, testSecret, payload)
 		if err != nil {
 			b.Fatal(err)
 		}

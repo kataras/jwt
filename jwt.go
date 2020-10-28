@@ -66,16 +66,6 @@ func defaultUnmarshal(payload []byte, dest interface{}) error {
 	return dec.Decode(&dest)
 }
 
-var (
-	// Encrypt is called AFTER Marshal on Sign.
-	// Can be used to further modify the final token's body part.
-	// Look the `GCM` function for a real implementation of this type.
-	// Defaults to nil.
-	Encrypt func(plainPayload []byte) ([]byte, error) = nil
-	// Decrypt is called AFTER base64-decode and BEFORE Unmarshal on Verify.
-	// Can be used to add an extra level of decoding of the received payload.
-	// Look the `GCM` function for a real implementation of this type.
-	//
-	// Defaults to nil.
-	Decrypt func(encryptedPayload []byte) ([]byte, error) = nil
-)
+// InjectFunc can be used to further modify the final token's body part.
+// Look the `GCM` function for a real implementation of this type.
+type InjectFunc func(plainPayload []byte) ([]byte, error)

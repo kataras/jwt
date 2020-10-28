@@ -23,13 +23,9 @@ type (
 	PublicKey interface{}
 )
 
-func encodeToken(alg Alg, key PrivateKey, claims interface{}) ([]byte, error) {
+func encodeToken(alg Alg, key PrivateKey, payload []byte) ([]byte, error) {
 	header := createHeader(alg.Name())
-
-	payload, err := createPayload(claims)
-	if err != nil {
-		return nil, fmt.Errorf("encodeToken: payload: %w", err)
-	}
+	payload = Base64Encode(payload)
 
 	headerPayload := joinParts(header, payload)
 
@@ -142,22 +138,6 @@ func createHeaderRaw(alg string) []byte {
 	}
 
 	return []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
-}
-
-func createPayload(claims interface{}) ([]byte, error) {
-	payload, err := Marshal(claims)
-	if err != nil {
-		return nil, err
-	}
-
-	if Encrypt != nil {
-		payload, err = Encrypt(payload)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return Base64Encode(payload), nil
 }
 
 func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {

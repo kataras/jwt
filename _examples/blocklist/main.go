@@ -39,11 +39,7 @@ func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 		"foo": "bar",
 	}
 
-	standardClaims := jwt.Claims{
-		MaxAge: 15 * time.Minute,
-	}
-
-	token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, standardClaims)
+	token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, jwt.MaxAge(15*time.Minute))
 	if err != nil {
 		log.Printf("Generate token failure: %v", err)
 		http.Error(w, "failure: sign and encode the token", http.StatusInternalServerError)

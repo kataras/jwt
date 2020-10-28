@@ -21,12 +21,14 @@ import "encoding/json"
 //  [handle error...]
 //  var claims map[string]interface{}
 //  verifiedToken.Claims(&claims)
-func Verify(
-	alg Alg,
-	key PublicKey,
-	token []byte,
-	validators ...TokenValidator,
-) (*VerifiedToken, error) {
+func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
+	return VerifyEncrypted(alg, key, nil, token, validators...)
+}
+
+// VerifyEncrypted same as `Verify` but it decrypts the payload part with the given "decrypt" function.
+// The "decrypt" function is called AFTER base64-decode and BEFORE Unmarshal.
+// Look the `GCM` function for details.
+func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
 	if len(token) == 0 {
 		return nil, ErrMissing
 	}
@@ -36,8 +38,8 @@ func Verify(
 		return nil, err
 	}
 
-	if Decrypt != nil {
-		payload, err = Decrypt(payload)
+	if decrypt != nil {
+		payload, err = decrypt(payload)
 		if err != nil {
 			return nil, err
 		}
@@ -72,18 +74,31 @@ func Verify(
 	return verifiedTok, nil
 }
 
-// TokenValidator provides further token and claims validation.
-type TokenValidator interface {
-	// ValidateToken accepts the token, the claims extracted from that
-	// and any error that may caused by claims validation (e.g. ErrExpired)
-	// or the previous validator.
-	// A token validator can skip the builtin validation and return a nil error.
-	// Usage:
-	//  func(v *myValidator) ValidateToken(token []byte, claims Claims, err error) error {
-	//    if err!=nil { return err } <- to respect the previous error
-	//    // otherwise return nil or any custom error.
-	//  }
-	ValidateToken(token []byte, claims Claims, err error) error
+type (
+	// TokenValidator provides further token and claims validation.
+	TokenValidator interface {
+		// ValidateToken accepts the token, the claims extracted from that
+		// and any error that may caused by claims validation (e.g. ErrExpired)
+		// or the previous validator.
+		// A token validator can skip the builtin validation and return a nil error.
+		// Usage:
+		//  func(v *myValidator) ValidateToken(token []byte, standardClaims Claims, err error) error {
+		//    if err!=nil { return err } <- to respect the previous error
+		//    // otherwise return nil or any custom error.
+		//  }
+		//
+		// Look `Blocklist`, `Expected` and `Leeway` for builtin implementations.
+		ValidateToken(token []byte, standardClaims Claims, err error) error
+	}
+
+	// TokenValidatorFunc is the interface-as-function shortcut for a TokenValidator.
+	TokenValidatorFunc func(token []byte, standardClaims Claims, err error) error
+)
+
+// ValidateToken completes the ValidateToken interface.
+// It calls itself.
+func (fn TokenValidatorFunc) ValidateToken(token []byte, standardClaims Claims, err error) error {
+	return fn(token, standardClaims, err)
 }
 
 // VerifiedToken holds the information about a verified token.
