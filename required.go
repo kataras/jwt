@@ -11,6 +11,19 @@ import (
 // Check with errors.Is.
 var ErrMissingKey = errors.New("token is missing a required field")
 
+// HasRequiredJSONTag reports whether a specific value of "i"
+// contains one or more `json:"xxx,required"` struct fields tags.
+//
+// Can be used to precalculate the unmarshaller (see `UnmarshalWithRequired`) too.
+func HasRequiredJSONTag(field reflect.StructField) bool {
+	if isExported := field.PkgPath == ""; !isExported {
+		return false
+	}
+
+	tag := field.Tag.Get("json")
+	return strings.Contains(tag, ",required")
+}
+
 func meetRequirements(val reflect.Value) (err error) { // see `UnmarshalWithRequired`.
 	val = reflect.Indirect(val)
 	if val.Kind() != reflect.Struct {
@@ -33,7 +46,7 @@ func meetRequirements(val reflect.Value) (err error) { // see `UnmarshalWithRequ
 			continue
 		}
 
-		if tag := field.Tag.Get("json"); tag != "" && strings.Contains(tag, ",required") {
+		if HasRequiredJSONTag(field) {
 			if val.Field(i).IsZero() {
 				return fmt.Errorf("%w: %q", ErrMissingKey, field.Name)
 			}

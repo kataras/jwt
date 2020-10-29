@@ -26,12 +26,14 @@ func TestSignOption(t *testing.T) {
 	}
 	expectedStdClaims := Claims{Issuer: "issuer", Expiry: exp, IssuedAt: iat}
 
+	prevClock := Clock
+	t.Cleanup(func() {
+		Clock = prevClock
+	})
+
 	Clock = func() time.Time {
 		return now
 	}
-	t.Cleanup(func() {
-		Clock = time.Now
-	})
 
 	token, err := Sign(testAlg, testSecret, Map{"foo": "bar"}, expectedStdClaims, MaxAge(time.Second))
 

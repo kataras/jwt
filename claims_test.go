@@ -8,13 +8,27 @@ import (
 
 func TestValidateClaims(t *testing.T) {
 	now := time.Now()
+	expiresAt := now.Add(time.Minute)
 	claims := Claims{
-		Expiry:    now.Add(time.Minute).Unix(),
+		Expiry:    expiresAt.Unix(),
 		NotBefore: now.Unix(),
 		IssuedAt:  now.Unix(),
 	}
 	if err := validateClaims(now, claims); err != nil {
 		t.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Second)
+	if got := claims.Timeleft(); got >= time.Minute {
+		t.Fatalf("expected timeleft to be lower than a minute but got: %s", got)
+	}
+
+	if expected, got := time.Minute, claims.Age(); expected != got {
+		t.Fatalf("expected claim's total age to be: %v but got: %v", expected, got)
+	}
+
+	if expected, got := expiresAt.Unix(), claims.ExpiresAt().Unix(); expected != got {
+		t.Fatalf("expected expires at to match: %d but got: %d", expected, got)
 	}
 }
 
@@ -97,8 +111,9 @@ func TestMaxAge(t *testing.T) {
 }
 
 func TestMaxAgeMap(t *testing.T) {
+	prevClock := Clock
 	t.Cleanup(func() {
-		Clock = time.Now
+		Clock = prevClock
 	})
 
 	var (

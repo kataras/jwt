@@ -56,6 +56,24 @@ type Claims struct {
 	Audience []string `json:"aud,omitempty"`
 }
 
+// Age returns the total age of the claims,
+// the result of issued at - expired time.
+func (c Claims) Age() time.Duration {
+	return c.ExpiresAt().Sub(time.Unix(c.IssuedAt, 0))
+}
+
+// ExpiresAt returns the time this token will be expired (round in second).
+// It's a shortcut of time.Unix(c.Expiry).
+func (c Claims) ExpiresAt() time.Time {
+	return time.Unix(c.Expiry, 0)
+}
+
+// Timeleft returns the remaining time to be expired (round in second).
+func (c Claims) Timeleft() time.Duration {
+	return time.Duration(c.Expiry-Clock().Unix()) * time.Second
+	// return c.ExpiresAt().Sub(Clock())
+}
+
 // See TokenValidator and its implementations
 // for further validation options.
 func validateClaims(t time.Time, claims Claims) error {
