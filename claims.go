@@ -59,7 +59,8 @@ type Claims struct {
 // Age returns the total age of the claims,
 // the result of issued at - expired time.
 func (c Claims) Age() time.Duration {
-	return c.ExpiresAt().Sub(time.Unix(c.IssuedAt, 0))
+	return time.Duration(c.Expiry-c.IssuedAt) * time.Second
+	// return c.ExpiresAt().Sub(time.Unix(c.IssuedAt, 0))
 }
 
 // ExpiresAt returns the time this token will be expired (round in second).
