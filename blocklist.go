@@ -16,6 +16,7 @@ var ErrBlocked = errors.New("token is blocked")
 // The most common way to invalidate a token, e.g. on user logout,
 // is to make the client-side remove the token itself.
 type Blocklist struct {
+	Clock   func() time.Time
 	entries map[string]int64 // key = token | value = expiration unix seconds (to remove expired).
 	// ^ we could make it a map[*VerifiedToken]struct{} too
 	// but let's have a more general usage here.
@@ -38,6 +39,7 @@ func NewBlocklist(gcEvery time.Duration) *Blocklist {
 func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist {
 	b := &Blocklist{
 		entries: make(map[string]int64),
+		Clock:   Clock,
 	}
 
 	if gcEvery > 0 {
@@ -117,7 +119,7 @@ func (b *Blocklist) Has(token []byte) bool {
 // to called every half or a whole hour.
 // A good value for a GC cron task is the Token's max age.
 func (b *Blocklist) GC() int {
-	now := Clock().Round(time.Second).Unix()
+	now := b.Clock().Round(time.Second).Unix()
 	var markedForDeletion []string
 
 	b.mu.RLock()

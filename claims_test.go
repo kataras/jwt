@@ -112,9 +112,12 @@ func TestMaxAge(t *testing.T) {
 
 func TestMaxAgeMap(t *testing.T) {
 	prevClock := Clock
-	t.Cleanup(func() {
+	defer func() {
 		Clock = prevClock
-	})
+	}()
+	Clock = func() time.Time {
+		return time.Date(2020, 10, 26, 1, 1, 1, 1, time.Local) // dupl the value just to resolve the test race cond.
+	}
 
 	var (
 		maxAge      = 10 * time.Minute
@@ -122,10 +125,6 @@ func TestMaxAgeMap(t *testing.T) {
 		expectedExp = now.Add(maxAge).Unix()
 		expectedIat = now.Unix()
 	)
-
-	Clock = func() time.Time {
-		return time.Date(2020, 10, 26, 1, 1, 1, 1, time.Local) // dupl the value just to resolve the test race cond.
-	}
 
 	claims := make(Map)
 	MaxAgeMap(maxAge, claims)

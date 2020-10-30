@@ -14,4 +14,4 @@ script:
 after_script:
   - cd ./_benchmarks
   - go get ./...
-  - go test -bench=.
+  - go test -timeout=2s -bench=.
