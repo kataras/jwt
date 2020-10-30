@@ -5,5 +5,13 @@ os:
   - osx
 go:
   - 1.15.x
+go_import_path: github.com/kataras/jwt
+env:
+ global:
+   - GO111MODULE=on
 script:
-  - go run test -v -cover
+  - go test -count=1 -v -cover -race ./...
+after_script:
+  - cd ./_benchmarks
+  - go get ./...
+  - go test -bench=.
