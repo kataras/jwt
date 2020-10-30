@@ -9,7 +9,7 @@ import (
 // between standard claims values.
 //
 // Usage:
-//  expecteed := Expected{
+//  expected := Expected{
 //	  Issuer: "my-app",
 //  }
 //  verifiedToken, err := Verify(..., expected)

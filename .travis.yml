@@ -5,3 +5,5 @@ os:
   - osx
 go:
   - 1.15.x
+script:
+  - go run test -v -cover
