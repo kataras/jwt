@@ -26,12 +26,13 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [JSON Required Tag](#json-required-tag)
         * [Standard Claims Validators](#standard-claims-validators)
 * [Block a Token](#block-a-token)
-* [Encryption](#encryption)
+* [Token Pair](#token-pair)
 * [JSON Web Algorithms](#json-web-algorithms)
     * [Choose the right Algorithm](#choose-the-right-algorithm)
     * [Use your own Algorithm](#use-your-own-algorithm)
     * [Generate keys](#generate-keys)
     * [Load and parse keys](#load-and-parse-keys)
+* [Encryption](#encryption)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
     * [Basic](_examples/basic/main.go)
@@ -332,40 +333,33 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
 blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
 ```
 
-## Encryption
+## Token Pair
 
-[JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `SignEncrypted` and `VerifyEncrypted` package-level functions can be called to apply any type of encryption.
-
-The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
-
-In-short, you need to call the `jwt.GCM` and pass its result to the `jwt.SignEncrypted` and `jwt.VerifyEncrypted`:
+A Token pair helps us to handle refresh tokens. It is a structure which holds both Access Token and Refresh Token. Refresh Token is long-live and access token is short-live. The server sends both of them at the first contact. The client uses the access token to access an API. The client can renew its access token by hitting a special REST endpoint to the server. The server verifies the refresh token and the access token which should return `ErrExpired`, if it's expired or going to be expired in some time from now (`Leeway`), and renders a new generated token to the client. There are countless resources online if you want to learn more. This `jwt` package offers just a helper structure which holds both the access and refresh tokens and it's ready to be sent and received to and from a client.
 
 ```go
-// Replace with your own keys and keep them secret.
-// The "encKey" is used for the encryption and
-// the "sigKey" is used for the selected JSON Web Algorithm
-// (shared/symmetric HMAC in that case).
-var (
-    encKey = MustGenerateRandom(32)
-    sigKey = MustGenerateRandom(32)
-)
-
-func main(){
-    encrypt, decrypt, err := GCM(encKey, nil)
-    if err != nil {
-        // [handle error...]
-    }
-    // Encrypt and Sign the claims:
-    token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
-    // [...]
-
-    // Verify and decrypt the claims:
-    verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
-    // [...]
+type ClientClaims struct {
+    ClientID string `json:"client_id"`
 }
 ```
 
-Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
+```go
+accessClaims := ClientClaims{ClientID: "client-id"}
+accessToken, err := jwt.Sign(alg, secret, accessClaims, jwt.MaxAge(10*time.Minute))
+if err != nil {
+    // [handle error...]
+}
+
+refreshClaims := jwt.Claims{Subject: "client", Issuer: "my-app"}
+refreshToken, err := jwt.Sign(alg, secret, refreshClaims, jwt.MaxAge(time.Hour))
+if err != nil {
+    // [handle error...]
+}
+
+tokenPair := jwt.NewTokenPair(accessToken, refreshToken)
+```
+
+The `tokenPair` is JSON-compatible value, you can render it to a client and read it from a client HTTP request.
 
 ## JSON Web Algorithms
 
@@ -499,6 +493,41 @@ verifiedToken, err := Verify(EdDSA, publicKey, token)
 
 > Embedded keys? No problem, just integrate the `jwt.ReadFile` variable which is just a type of `func(filename string) ([]byte, error)`.
 
+## Encryption
+
+[JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `SignEncrypted` and `VerifyEncrypted` package-level functions can be called to apply any type of encryption.
+
+The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
+
+In-short, you need to call the `jwt.GCM` and pass its result to the `jwt.SignEncrypted` and `jwt.VerifyEncrypted`:
+
+```go
+// Replace with your own keys and keep them secret.
+// The "encKey" is used for the encryption and
+// the "sigKey" is used for the selected JSON Web Algorithm
+// (shared/symmetric HMAC in that case).
+var (
+    encKey = MustGenerateRandom(32)
+    sigKey = MustGenerateRandom(32)
+)
+
+func main(){
+    encrypt, decrypt, err := GCM(encKey, nil)
+    if err != nil {
+        // [handle error...]
+    }
+    // Encrypt and Sign the claims:
+    token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
+    // [...]
+
+    // Verify and decrypt the claims:
+    verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
+    // [...]
+}
+```
+
+Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
+
 ## References
 
 Here is what helped me to implement JWT in Go:
@@ -510,6 +539,7 @@ Here is what helped me to implement JWT in Go:
 - Encode and Decode keys: https://golang.org/src/crypto/x509/x509_test.go (and its variants)
 - The inspiration behind the "Blacklist" feature (I prefer to chose the word "Blocklist" instead): https://blog.indrek.io/articles/invalidate-jwt/
 - We need JWT in the modern web: https://medium.com/swlh/why-do-we-need-the-json-web-token-jwt-in-the-modern-web-8490a7284482
+- Best Practices of using JWT with GraphQL: https://hasura.io/blog/best-practices-of-using-jwt-with-graphql/
 
 ## License
 
