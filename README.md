@@ -40,6 +40,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [Blocklist](_examples/blocklist/main.go)
     * [JSON Required Tag](_examples/required/main.go)
     * [Custom Validations](_examples/custom-validations/main.go)
+    * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/jwt-new-features/middleware/jwt)
 * [References](#references)
 * [License](#license)
 
@@ -335,7 +336,7 @@ blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expi
 
 ## Token Pair
 
-A Token pair helps us to handle refresh tokens. It is a structure which holds both Access Token and Refresh Token. Refresh Token is long-live and access token is short-live. The server sends both of them at the first contact. The client uses the access token to access an API. The client can renew its access token by hitting a special REST endpoint to the server. The server verifies the refresh token and the access token which should return `ErrExpired`, if it's expired or going to be expired in some time from now (`Leeway`), and renders a new generated token to the client. There are countless resources online if you want to learn more. This `jwt` package offers just a helper structure which holds both the access and refresh tokens and it's ready to be sent and received to and from a client.
+A Token pair helps us to handle refresh tokens. It is a structure which holds both Access Token and Refresh Token. Refresh Token is long-live and access token is short-live. The server sends both of them at the first contact. The client uses the access token to access an API. The client can renew its access token by hitting a special REST endpoint to the server. The server verifies the refresh token and **optionally** the access token which should return `ErrExpired`, if it's expired or going to be expired in some time from now (`Leeway`), and renders a new generated token to the client. There are countless resources online and different kind of methods for using a refresh token. This `jwt` package offers just a helper structure which holds both the access and refresh tokens and it's ready to be sent and received to and from a client.
 
 ```go
 type ClientClaims struct {
