@@ -25,9 +25,9 @@ func main() {
 	log.Printf("Server listening on: http://localhost:8080")
 
 	// http://localhost:8080
-	// http://localhost:8080/protected
-	// http://localhost:8080/protected?block=yes
-	// http://localhost:8080/protected (ErrBlocked)
+	// http://localhost:8080/protected?token=$token
+	// http://localhost:8080/protected?token=$token&block=true
+	// http://localhost:8080/protected?token=$token (ErrBlocked)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -77,7 +77,7 @@ func verifyTokenHandler(blocklist *jwt.Blocklist) http.HandlerFunc {
 		}
 
 		if shouldBlock {
-			blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
+			blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims)
 			log.Printf(`The token has been blocked now.
 Navigate to http://localhost:8080/protected?token=%s and you should see an ErrBlocked`, token)
 			unauthorized(w)

@@ -331,8 +331,10 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
 ```
 **3.** Call the `blocklist.InvalidateToken` whenever you want to block a specific authorized token. The method accepts the token and the expiration time should be removed from the blocklist.
 ```go
-blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims.Expiry)
+blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims)
 ```
+
+By default the unique identifier is retrieved through the `"jti"` (`Claims{ID}`) and if that it's empty then the raw token is used as the map key instead. To change that behavior simply modify the `blocklist.GetKey` field before the `InvalidateToken` method.
 
 ## Token Pair
 

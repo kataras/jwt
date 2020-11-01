@@ -36,7 +36,7 @@ type Claims struct {
 	Expiry int64 `json:"exp,omitempty"`
 	// A string representing a unique identifier for this JWT. This claim may be
 	// used to differentiate JWTs with other similar content (preventing replays, for instance). It is
-	// up to the implementation to guarantee uniqueness
+	// up to the implementation to guarantee uniqueness.
 	ID string `json:"jti,omitempty"`
 	// A string or URI that uniquely identifies the party
 	// that issued the JWT. Its interpretation is application specific (there is no central authority

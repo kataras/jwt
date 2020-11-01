@@ -15,9 +15,17 @@ var ErrBlocked = errors.New("token is blocked")
 // immediately invalidated by the server-side.
 // The most common way to invalidate a token, e.g. on user logout,
 // is to make the client-side remove the token itself.
+//
+// The end-developer is free to design a custom database for blocked tokens (e.g. redis),
+// as long as it implements the TokenValidator interface it is a valid option for the Verify function.
 type Blocklist struct {
-	Clock   func() time.Time
-	entries map[string]int64 // key = token | value = expiration unix seconds (to remove expired).
+	Clock func() time.Time
+	// GetKey is a function which can be used how to extract
+	// the unique identifier for a token, by default
+	// it checks if the "jti" is not empty, if it's then the key is the token itself.
+	GetKey func(token []byte, claims Claims) string
+
+	entries map[string]int64 // key = token or its ID | value = expiration unix seconds (to remove expired).
 	// ^ we could make it a map[*VerifiedToken]struct{} too
 	// but let's have a more general usage here.
 	mu sync.RWMutex
@@ -40,6 +48,7 @@ func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist 
 	b := &Blocklist{
 		entries: make(map[string]int64),
 		Clock:   Clock,
+		GetKey:  defaultGetKey,
 	}
 
 	if gcEvery > 0 {
@@ -49,18 +58,27 @@ func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist 
 	return b
 }
 
+func defaultGetKey(token []byte, c Claims) string {
+	if c.ID != "" {
+		return c.ID
+	}
+
+	return BytesToString(token)
+}
+
 // ValidateToken completes the `TokenValidator` interface.
 // Returns ErrBlocked if the "token" was blocked by this Blocklist.
-func (b *Blocklist) ValidateToken(token []byte, _ Claims, err error) error {
+func (b *Blocklist) ValidateToken(token []byte, c Claims, err error) error {
+	key := b.GetKey(token, c)
 	if err != nil {
 		if err == ErrExpired {
-			b.Del(token)
+			b.Del(key)
 		}
 
 		return err // respect the previous error.
 	}
 
-	if b.Has(token) {
+	if b.Has(key) {
 		return ErrBlocked
 	}
 
@@ -72,20 +90,22 @@ func (b *Blocklist) ValidateToken(token []byte, _ Claims, err error) error {
 // Next request will be blocked, even if the token was not yet expired.
 // This method can be used when the client-side does not clear the token
 // on a user logout operation.
-func (b *Blocklist) InvalidateToken(token []byte, expiry int64) {
+func (b *Blocklist) InvalidateToken(token []byte, c Claims) {
 	if len(token) == 0 {
 		return
 	}
 
+	key := b.GetKey(token, c)
+
 	b.mu.Lock()
-	b.entries[BytesToString(token)] = expiry
+	b.entries[key] = c.Expiry
 	b.mu.Unlock()
 }
 
-// Del removes a "token" from the blocklist.
-func (b *Blocklist) Del(token []byte) {
+// Del removes a token based on its "key" from the blocklist.
+func (b *Blocklist) Del(key string) {
 	b.mu.Lock()
-	delete(b.entries, BytesToString(token))
+	delete(b.entries, key)
 	b.mu.Unlock()
 }
 
@@ -98,16 +118,16 @@ func (b *Blocklist) Count() int {
 	return n
 }
 
-// Has reports whether the given "token" is blocked by the server.
+// Has reports whether the given "key" is blocked by the server.
 // This method is called before the token verification,
 // so even if was expired it is removed from the blocklist.
-func (b *Blocklist) Has(token []byte) bool {
-	if len(token) == 0 {
+func (b *Blocklist) Has(key string) bool {
+	if len(key) == 0 {
 		return false
 	}
 
 	b.mu.RLock()
-	_, ok := b.entries[BytesToString(token)]
+	_, ok := b.entries[key]
 	b.mu.RUnlock()
 
 	return ok
