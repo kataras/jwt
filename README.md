@@ -41,6 +41,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [JSON Required Tag](_examples/required/main.go)
     * [Custom Validations](_examples/custom-validations/main.go)
     * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/jwt-new-features/middleware/jwt)
+    * [Advanced: Redis Blocklist](https://github.com/kataras/iris/tree/jwt-new-features/middleware/jwt/blocklist/redis/blocklist.go)
 * [References](#references)
 * [License](#license)
 

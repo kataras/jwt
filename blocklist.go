@@ -78,7 +78,7 @@ func (b *Blocklist) ValidateToken(token []byte, c Claims, err error) error {
 		return err // respect the previous error.
 	}
 
-	if b.Has(key) {
+	if has, _ := b.Has(key); has {
 		return ErrBlocked
 	}
 
@@ -90,9 +90,9 @@ func (b *Blocklist) ValidateToken(token []byte, c Claims, err error) error {
 // Next request will be blocked, even if the token was not yet expired.
 // This method can be used when the client-side does not clear the token
 // on a user logout operation.
-func (b *Blocklist) InvalidateToken(token []byte, c Claims) {
+func (b *Blocklist) InvalidateToken(token []byte, c Claims) error {
 	if len(token) == 0 {
-		return
+		return ErrMissing
 	}
 
 	key := b.GetKey(token, c)
@@ -100,37 +100,41 @@ func (b *Blocklist) InvalidateToken(token []byte, c Claims) {
 	b.mu.Lock()
 	b.entries[key] = c.Expiry
 	b.mu.Unlock()
+
+	return nil
 }
 
 // Del removes a token based on its "key" from the blocklist.
-func (b *Blocklist) Del(key string) {
+func (b *Blocklist) Del(key string) error {
 	b.mu.Lock()
 	delete(b.entries, key)
 	b.mu.Unlock()
+
+	return nil
 }
 
 // Count returns the total amount of blocked tokens.
-func (b *Blocklist) Count() int {
+func (b *Blocklist) Count() (int64, error) {
 	b.mu.RLock()
 	n := len(b.entries)
 	b.mu.RUnlock()
 
-	return n
+	return int64(n), nil
 }
 
 // Has reports whether the given "key" is blocked by the server.
 // This method is called before the token verification,
 // so even if was expired it is removed from the blocklist.
-func (b *Blocklist) Has(key string) bool {
+func (b *Blocklist) Has(key string) (bool, error) {
 	if len(key) == 0 {
-		return false
+		return false, ErrMissing
 	}
 
 	b.mu.RLock()
 	_, ok := b.entries[key]
 	b.mu.RUnlock()
 
-	return ok
+	return ok, nil
 }
 
 // GC iterates over all entries and removes expired tokens.

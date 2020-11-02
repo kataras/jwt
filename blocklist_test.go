@@ -19,12 +19,12 @@ func TestBlocklist(t *testing.T) {
 	}
 
 	b.InvalidateToken(token, sc)
-	if !b.Has(key) {
+	if has, _ := b.Has(key); !has {
 		t.Fatalf("expected token to be in the list")
 	}
 
-	if b.Count() != 1 {
-		t.Fatalf("expected list to contain a single token entry")
+	if count, _ := b.Count(); count != 1 {
+		t.Fatalf("expected list to contain a single token entry but got: %d", count)
 	}
 
 	if err = b.ValidateToken(token, Claims{ID: key}, nil); err != ErrBlocked {
@@ -35,7 +35,7 @@ func TestBlocklist(t *testing.T) {
 		t.Fatalf("expected error: ErrExpired as it respects the previous one but got: %v", err)
 	}
 
-	if b.Has(key) {
+	if has, _ := b.Has(key); has {
 		t.Fatalf("expected token to be removed as the validate token's error was ErrExpired")
 	}
 
@@ -46,7 +46,7 @@ func TestBlocklist(t *testing.T) {
 
 	b.Del(key)
 
-	if count := b.Count(); count != 0 {
+	if count, _ := b.Count(); count != 0 {
 		t.Fatalf("expected count to be zero but got: %d", count)
 	}
 
@@ -55,17 +55,17 @@ func TestBlocklist(t *testing.T) {
 	}
 
 	b.InvalidateToken([]byte{}, Claims{Expiry: 1})
-	if got := b.Count(); got != 0 {
+	if got, _ := b.Count(); got != 0 {
 		t.Fatalf("expected zero entries as the token was empty but got: %d", got)
 	}
 
-	if b.Has("") {
+	if has, _ := b.Has(""); has {
 		t.Fatalf("expected Has to always return false as the given token was empty")
 	}
 
 	// Test GC expired.
 	b.InvalidateToken([]byte("expired one"), Claims{Expiry: 1})
-	if got := b.Count(); got != 1 {
+	if got, _ := b.Count(); got != 1 {
 		t.Fatalf("expected upsert not append")
 	}
 	if removed := b.GC(); removed != 1 {
@@ -81,7 +81,7 @@ func TestBlocklist(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	cancel()
 
-	if got := b.Count(); got != 0 {
+	if got, _ := b.Count(); got != 0 {
 		t.Fatalf("expected all entries to be removed but: %d", got)
 	}
 }
