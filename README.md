@@ -1,10 +1,12 @@
 # JWT
 
-[![build status](https://img.shields.io/travis/kataras/jwt/main.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://github.com/kataras/jwt/search?q=filename:_test.go) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
+[![build status](https://img.shields.io/travis/kataras/jwt/main.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://travis-ci.org/github/kataras/jwt/jobs/740739405#L322) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
-Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl).
+Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
 
 [![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
+
+Please [star](https://github.com/kataras/jwt/stargazers) this open source project to attract more developers so that together we can improve it even more!
 
 ## Installation
 
