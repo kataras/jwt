@@ -2,7 +2,7 @@
 
 [![build status](https://img.shields.io/travis/kataras/jwt/main.svg?style=for-the-badge&logo=travis)](https://travis-ci.org/github/kataras/jwt) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://travis-ci.org/github/kataras/jwt/jobs/740739405#L322) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
-Fast and simple [JWT](https://jwt.io/) implementation written in [Go](https://golang.org/dl). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
+Fast and simple [JWT](https://jwt.io/#libraries-io) implementation written in [Go](https://golang.org/dl). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
 
 [![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
 
@@ -157,6 +157,21 @@ token, err := jwt.Sign(jwt.HS256, sharedKey, customClaims, standardClaims)
 > The `jwt.Map` is just a _type alias_, a _shortcut_, of `map[string]interface{}`.
 
 At all cases, the `iat(IssuedAt)` and `exp(Expiry/MaxAge)` (and `nbf(NotBefore)`) values will be validated automatically on the [`Verify`](#verify-a-token) method.
+
+Example Code to Sign & Verify a non-JSON payload:
+
+```go
+token, err := jwt.Sign(jwt.HS256, sharedkey, []byte("raw payload - no json here"))
+```
+
+> If the payload is not a JSON one, then merging with standard claims is not possible, therefore options like `jwt.MaxAge` are not available.
+
+```go
+verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, jwt.Plain)
+// verifiedToken.Payload == raw contents
+```
+
+> Again, if the received payload is not a JSON one, options like `jwt.Expected` or `jwt.NewBlocklist` are not available as well.
 
 ### The standard JWT Claims
 

@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 )
@@ -32,5 +33,22 @@ func TestVerify(t *testing.T) {
 	_, err = Verify(testAlg, []byte("othersecret"), testToken, tokenValidatorTest{})
 	if err != ErrTokenSignature {
 		t.Fatalf("expected verify error: %v but got: %v", ErrTokenSignature, err)
+	}
+}
+
+func TestPlainTokenValidator(t *testing.T) {
+	payload := []byte("test raw\ncontents")
+	token, err := Sign(testAlg, testSecret, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifiedToken, err := Verify(testAlg, testSecret, token, Plain) // The user MUST enforce this option to allow raw payloads, it's a security feature.
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(verifiedToken.Payload, payload) {
+		t.Fatalf("expected raw payload to match: %q but got: %q", payload, verifiedToken.Payload)
 	}
 }

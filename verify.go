@@ -1,6 +1,9 @@
 package jwt
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // Verify decodes, verifies and validates the standard JWT claims
 // of the given "token" using the algorithm and
@@ -45,22 +48,25 @@ func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, v
 		}
 	}
 
-	var claims Claims
-	err = json.Unmarshal(payload, &claims) // use the standard one instead of the custom, no need to support "required" feature here.
-	if err != nil {
-		return nil, err
+	var standardClaims Claims
+	standardClaimsErr := json.Unmarshal(payload, &standardClaims) // Use the standard one instead of the custom, no need to support "required" feature here.
+	// Do not exist on this error now, the payload may not be a JSON one.
+	if standardClaimsErr != nil {
+		err = errPayloadNotJSON // allow validators to catch this error.
+	} else {
+		err = validateClaims(Clock(), standardClaims)
 	}
 
-	err = validateClaims(Clock(), claims)
 	for _, validator := range validators {
 		// A token validator can skip the builtin validation and return a nil error,
 		// in that case the previous error is skipped.
-		if err = validator.ValidateToken(token, claims, err); err != nil {
+		if err = validator.ValidateToken(token, standardClaims, err); err != nil {
 			break
 		}
 	}
 
 	if err != nil {
+		// Exit on parsing standard claims error(when Plain is missing) or standard claims validation error or custom validators.
 		return nil, err
 	}
 
@@ -69,10 +75,29 @@ func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, v
 		Header:         header,
 		Payload:        payload,
 		Signature:      signature,
-		StandardClaims: claims,
+		StandardClaims: standardClaims,
+		// We could store the standard claims error when Plain token validator is applied
+		// but there is no a single case of its usability, so we don't, unless is requested.
 	}
 	return verifiedTok, nil
 }
+
+var errPayloadNotJSON = errors.New("payload is not a type of JSON") // malformed JSON or it's not a JSON at all.
+
+// Plain can be provided as a Token Validator at `Verify` and `VerifyEncrypted` functions
+// to allow tokens with plain payload (no JSON or malformed JSON) to be successfully validated.
+//
+// Usage:
+//  verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token, jwt.Plain)
+//  [handle error...]
+//  [verifiedToken.Payload...]
+var Plain = TokenValidatorFunc(func(token []byte, standardClaims Claims, err error) error {
+	if err == errPayloadNotJSON {
+		return nil // skip this error entirely.
+	}
+
+	return err
+})
 
 type (
 	// TokenValidator provides further token and claims validation.
