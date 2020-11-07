@@ -167,7 +167,7 @@ token, err := jwt.Sign(jwt.HS256, sharedkey, []byte("raw payload - no json here"
 > If the payload is not a JSON one, then merging with standard claims is not possible, therefore options like `jwt.MaxAge` are not available.
 
 ```go
-verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, jwt.Plain)
+verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, jwt.Plain)
 // verifiedToken.Payload == raw contents
 ```
 
