@@ -77,6 +77,29 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 	}
 }
 
+func TestCompareHeader(t *testing.T) {
+	var tests = []struct {
+		alg    string
+		header string
+		ok     bool
+	}{
+		{HS256.Name(), `{"alg":"HS256","typ":"JWT"}`, true},
+		{HS256.Name(), `{"typ":"JWT","alg":"HS256"}`, true},
+		{RS256.Name(), `{"alg":"HS256","typ":"JWT"}`, false},
+		{"", `{"alg":"HS256","typ":"JWT"`, false},
+		{HS256.Name(), "", false},
+		{HS256.Name(), `{"alg":"HS256","typ":"JWT`, false},
+		{HS256.Name(), `{"typ":"JWT","ALG":"HS256"}`, false},
+	}
+
+	for i, tt := range tests {
+		ok := compareHeader(tt.alg, []byte(tt.header))
+		if tt.ok != ok {
+			t.Fatalf("[%d] expected %v but got %v", i, tt.ok, ok)
+		}
+	}
+}
+
 func BenchmarkEncodeToken(b *testing.B) {
 	var claims = map[string]interface{}{
 		"username": "kataras",

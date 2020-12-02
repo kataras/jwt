@@ -61,8 +61,7 @@ func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, []byte, []byte, 
 		return nil, nil, nil, err
 	}
 	// validate header equality.
-	expectedHeader := createHeaderRaw(alg.Name())
-	if !bytes.Equal(expectedHeader, headerDecoded) {
+	if !compareHeader(alg.Name(), headerDecoded) {
 		return nil, nil, nil, ErrTokenAlg
 	}
 
@@ -97,8 +96,13 @@ func joinParts(parts ...[]byte) []byte {
 // key = alg, value = the base64encoded full header
 // (when kid or any other extra headers are not required to be inside).
 type fixedHeader struct {
-	raw     []byte
+	// the json raw byte value.
+	raw []byte
+	// the base64 encoded value of raw.
 	encoded []byte
+	// same as raw but reversed order, e.g. first type then alg.
+	// Useful to validate external jwt tokens that are not using the standard form order.
+	reversed []byte
 }
 
 var fixedHeaders = map[string]*fixedHeader{
@@ -118,8 +122,9 @@ var fixedHeaders = map[string]*fixedHeader{
 func init() {
 	for k := range fixedHeaders {
 		fixedHeaders[k] = &fixedHeader{
-			raw:     createHeaderRaw(k),
-			encoded: createHeader(k),
+			raw:      createHeaderRaw(k),
+			encoded:  createHeader(k),
+			reversed: createHeaderReversed(k),
 		}
 	}
 }
@@ -138,6 +143,35 @@ func createHeaderRaw(alg string) []byte {
 	}
 
 	return []byte(`{"alg":"` + alg + `","typ":"JWT"}`)
+}
+
+func createHeaderReversed(alg string) []byte {
+	if header := fixedHeaders[alg]; header != nil {
+		return header.reversed
+	}
+
+	return []byte(`{"typ":"JWT","alg":"` + alg + `"}`)
+}
+
+// Note that this check is fully hard coded for known
+// algorithms and it is fully hard coded in terms of
+// its serialized format.
+func compareHeader(alg string, headerDecoded []byte) bool {
+	if len(headerDecoded) < 25 /* 28 but allow custom short algs*/ {
+		return false
+	}
+
+	// Fast check if the order is reversed.
+	// The specification says otherwise but
+	// some other programming languages' libraries
+	// don't actually follow the correct order.
+	if headerDecoded[2] == 't' {
+		expectedHeader := createHeaderReversed(alg)
+		return bytes.Equal(expectedHeader, headerDecoded)
+	}
+
+	expectedHeader := createHeaderRaw(alg)
+	return bytes.Equal(expectedHeader, headerDecoded)
 }
 
 func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {
