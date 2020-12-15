@@ -3,6 +3,7 @@ package jwt
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -50,5 +51,77 @@ func TestPlainTokenValidator(t *testing.T) {
 
 	if !bytes.Equal(verifiedToken.Payload, payload) {
 		t.Fatalf("expected raw payload to match: %q but got: %q", payload, verifiedToken.Payload)
+	}
+}
+
+func TestVerifyWithSingleAudienceString_CustomClaims(t *testing.T) {
+	type customClaims struct {
+		Key      string `json:"key"`
+		Audience string `json:"aud"` // test custom struct with a single string as audience (see #3).
+	}
+
+	tok := customClaims{"test key", "api"}
+	token, err := Sign(testAlg, testSecret, tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifiedToken, err := Verify(testAlg, testSecret, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got customClaims
+	err = verifiedToken.Claims(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(got, tok) {
+		t.Fatalf("expected:\n%#+v\n\nbut got:\n%#+v", tok, got)
+	}
+}
+
+func TestVerifyWithSingleAudienceString_CustomClaimsAndStandard(t *testing.T) {
+	type customClaims struct {
+		Key string `json:"key"`
+	}
+
+	standardClaims := Claims{Audience: []string{"api"}}
+
+	custom := customClaims{"test key"}
+	token, err := Sign(testAlg, testSecret, custom, standardClaims)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifiedToken, err := Verify(testAlg, testSecret, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var gotCustom customClaims
+	err = verifiedToken.Claims(&gotCustom)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(gotCustom, custom) {
+		t.Fatalf("expected:\n%#+v\n\nbut got:\n%#+v", custom, gotCustom)
+	}
+
+	var gotStandard Claims
+	err = verifiedToken.Claims(&gotStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// here we validate the Audience.UnmarshalJSON
+	if !reflect.DeepEqual(gotStandard, standardClaims) {
+		t.Fatalf("expected:\n%#+v\n\nbut got:\n%#+v", standardClaims, gotStandard)
+	}
+
+	if !reflect.DeepEqual(verifiedToken.StandardClaims, standardClaims) {
+		t.Fatalf("expected:\n%#+v\n\nbut got:\n%#+v", standardClaims, gotStandard)
 	}
 }

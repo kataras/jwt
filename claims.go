@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -53,7 +54,33 @@ type Claims struct {
 	// claim is present, the party reading the data in this JWT must find itself in the aud claim or
 	// disregard the data contained in the JWT. As in the case of the iss and sub claims, this claim
 	// is application specific.
-	Audience []string `json:"aud,omitempty"`
+	Audience Audience `json:"aud,omitempty"`
+}
+
+// Audience represents the "aud" standard JWT claim.
+// See the `Claims` structure for details.
+type Audience []string
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+// The audience is expected to be single string an array of strings.
+func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
+	// Fixes #3.
+	if len(data) > 0 {
+		switch data[0] {
+		case '"': // it's a single string.
+			var audString string
+			err = json.Unmarshal(data, &audString)
+			if err == nil {
+				*aud = []string{audString}
+			}
+		case '[': // it's an array of strings.
+			var audStrings []string
+			err = json.Unmarshal(data, &audStrings)
+			*aud = audStrings
+		}
+	}
+
+	return
 }
 
 // Age returns the total age of the claims,
@@ -129,6 +156,7 @@ func (c Claims) ApplyClaims(dest *Claims) {
 
 	if v := c.Audience; len(v) > 0 {
 		dest.Audience = v
+		// dest.RawAudience, _ = json.Marshal(v) // lint: ignore
 	}
 }
 

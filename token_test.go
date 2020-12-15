@@ -100,6 +100,19 @@ func TestCompareHeader(t *testing.T) {
 	}
 }
 
+func TestDecodeWithoutVerify(t *testing.T) {
+	input := testToken
+	tok, err := Decode(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPayload := []byte(`{"username":"kataras"}`)
+
+	if !bytes.Equal(tok.Payload, expectedPayload) {
+		t.Fatalf("expected payload part to be:\n%q\\nnbut got:\n %q", expectedPayload, tok.Payload)
+	}
+}
+
 func BenchmarkEncodeToken(b *testing.B) {
 	var claims = map[string]interface{}{
 		"username": "kataras",

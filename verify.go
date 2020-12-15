@@ -82,6 +82,31 @@ func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, v
 	return verifiedTok, nil
 }
 
+// VerifiedToken holds the information about a verified token.
+// Look `Verify` for more.
+type VerifiedToken struct {
+	Token          []byte // The original token.
+	Header         []byte // The header (decoded) part.
+	Payload        []byte // The payload (decoded) part.
+	Signature      []byte // The signature (decoded) part.
+	StandardClaims Claims // Any standard claims extracted from the payload.
+}
+
+// Claims decodes the token's payload to the "dest".
+// If the application requires custom claims, this is the method to Go.
+//
+// It calls the `Unmarshal(t.Payload, dest)` package-level function .
+// When called, it decodes the token's payload (aka claims)
+// to the "dest" pointer of a struct or map value.
+// Note that the `StandardClaims` field is always set,
+// as it contains the standard JWT claims,
+// and validated at the `Verify` function itself,
+// therefore NO FURTHER STEP is required
+// to validate the "exp", "iat" and "nbf" claims.
+func (t *VerifiedToken) Claims(dest interface{}) error {
+	return Unmarshal(t.Payload, dest)
+}
+
 var errPayloadNotJSON = errors.New("payload is not a type of JSON") // malformed JSON or it's not a JSON at all.
 
 // Plain can be provided as a Token Validator at `Verify` and `VerifyEncrypted` functions
@@ -124,29 +149,4 @@ type (
 // It calls itself.
 func (fn TokenValidatorFunc) ValidateToken(token []byte, standardClaims Claims, err error) error {
 	return fn(token, standardClaims, err)
-}
-
-// VerifiedToken holds the information about a verified token.
-// Look `Verify` for more.
-type VerifiedToken struct {
-	Token          []byte // The original token.
-	Header         []byte // The header (decoded) part.
-	Payload        []byte // The payload (decoded) part.
-	Signature      []byte // The signature (decoded) part.
-	StandardClaims Claims // Any standard claims extracted from the payload.
-}
-
-// Claims decodes the token's payload to the "dest".
-// If the application requires custom claims, this is the method to Go.
-//
-// It calls the `Unmarshal(t.Payload, dest)` package-level function .
-// When called, it decodes the token's payload (aka claims)
-// to the "dest" pointer of a struct or map value.
-// Note that the `StandardClaims` field is always set,
-// as it contains the standard JWT claims,
-// and validated at the `Verify` function itself,
-// therefore NO FURTHER STEP is required
-// to validate the "exp", "iat" and "nbf" claims.
-func (t *VerifiedToken) Claims(dest interface{}) error {
-	return Unmarshal(t.Payload, dest)
 }

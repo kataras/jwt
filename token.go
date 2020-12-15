@@ -205,30 +205,55 @@ func Base64Decode(src []byte) ([]byte, error) {
 	return buf[:n], err
 }
 
-/* Good idea but costs in performance, it's better
-to load the original key before it's passed to the public token API.
-So instead of the below, it's better to export some helper functions,
-e.g. for loading key pairs from PEM files.
-Now, the question is to have all those helpers in the main package?
-Or:
-1) create different subpackages (e.g. jwt/rsa, jwt/ecdsa, jwt/eddsa)
-1.1) this introduce another question: maybe it's better to move the alg impl on their packages?
-2) have them inside the main package, in the alg's source file (so they're easier to lookup),
-and also have common prefix names so their API is easy visible to end-developers, e.g.
-LoadPrivateKeyRSA/ECDSA/EdDSA(filename) - ParsePrivateKeyRSA/ECDSA/EdDSA(keyBytes) and
-LoadPublicKeyRSA/ECDSA/EdDSA(filename)  - ParsePublicKeyRSA/ECDSA/EdDSA(keyBytes) and
-MustLoadRSA/ECDSA/EdDSA(privateFilename, publicFilename string) as a shortcut for the above.
-
-^ The 2nd option was chosen.
-
-func (key PrivateKey) parse(alg string) interface{} {
-	switch alg {
-	case HS256.Name(), HS384.Name(), HS512.Name(): // expect string or []byte
-	case RS256.Name(), RS384.Name(), RS512.Name(), PS256.Name(), PS384.Name(), PS512.Name():
-	case ES256.Name(), ES384.Name(), ES512.Name():
-	case EdDSA.Name():
-	default:
-		return key
+// Decode decodes the token of compact form WITHOUT verification and validation.
+//
+// This function is only useful to read a token's claims
+// when the source is trusted and no algorithm verification or direct signature and
+// content validation is required.
+//
+// Use `Verify/VerifyEncrypted` functions instead.
+func Decode(token []byte) (*UnverifiedToken, error) {
+	parts := bytes.Split(token, sep)
+	if len(parts) != 3 {
+		return nil, ErrTokenForm
 	}
+
+	header := parts[0]
+	payload := parts[1]
+	signature := parts[2]
+
+	headerDecoded, err := Base64Decode(header)
+	if err != nil {
+		return nil, err
+	}
+
+	signatureDecoded, err := Base64Decode(signature)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err = Base64Decode(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	tok := &UnverifiedToken{
+		Header:    headerDecoded,
+		Payload:   payload,
+		Signature: signatureDecoded,
+	}
+	return tok, nil
 }
-*/
+
+// UnverifiedToken contains the compact form token parts.
+// Look its `Claims` method to decode to a custom structure.
+type UnverifiedToken struct {
+	Header    []byte
+	Payload   []byte
+	Signature []byte
+}
+
+// Claims decodes the `Payload` field to the "dest".
+func (t *UnverifiedToken) Claims(dest interface{}) error {
+	return Unmarshal(t.Payload, dest)
+}
