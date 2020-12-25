@@ -17,6 +17,13 @@ type Map = map[string]interface{}
 // Usage: now := Clock()
 var Clock = time.Now
 
+// CompareHeader is the function which compares and validates
+// the decoded header against the defined signature algorithm.
+// Defaults to a fast and simple implementation but it can be modified
+// to support custom usage when third-party jwt signers signs the token
+// (e.g. from a java spring application).
+var CompareHeader = compareHeader
+
 // ReadFile can be used to customize the way the
 // Must/Load Key function helpers are loading the filenames from.
 // Example of usage: embedded key pairs.
