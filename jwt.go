@@ -22,7 +22,10 @@ var Clock = time.Now
 // Defaults to a fast and simple implementation but it can be modified
 // to support custom usage when third-party jwt signers signs the token
 // (e.g. from a java spring application).
-var CompareHeader = compareHeader
+//
+// This affects every token of the current program.
+// Use the `VerifyWithHeaderValidator` function to implement per-token validation instead.
+var CompareHeader HeaderValidator = compareHeader
 
 // ReadFile can be used to customize the way the
 // Must/Load Key function helpers are loading the filenames from.

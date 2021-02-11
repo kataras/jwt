@@ -32,13 +32,27 @@ package jwt
 //  type User struct { Username string `json:"username"` }
 //  token, err := jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute))
 func Sign(alg Alg, key PrivateKey, claims interface{}, opts ...SignOption) ([]byte, error) {
-	return SignEncrypted(alg, key, nil, claims, opts...)
+	return signToken(alg, key, nil, claims, nil, opts...)
 }
 
 // SignEncrypted same as `Sign` but it encrypts the payload part with the given "encrypt" function.
 // The "encrypt" function is called AFTER Marshal.
 // Look the `GCM` function for details.
 func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, opts ...SignOption) ([]byte, error) {
+	return signToken(alg, key, encrypt, claims, nil, opts...)
+}
+
+// SignWithHeader same as `Sign` but accepts a custom json header structure too.
+func SignWithHeader(alg Alg, key PrivateKey, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
+	return signToken(alg, key, nil, claims, customHeader, opts...)
+}
+
+// SignEncryptedWithHeader same as `SignEncrypted` but accepts a custom json header structure too.
+func SignEncryptedWithHeader(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
+	return signToken(alg, key, encrypt, claims, customHeader, opts...)
+}
+
+func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
 	if len(opts) > 0 {
 		var standardClaims Claims
 		for _, opt := range opts {
@@ -60,7 +74,7 @@ func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface
 		}
 	}
 
-	return encodeToken(alg, key, payload)
+	return encodeToken(alg, key, payload, customHeader)
 }
 
 // SignOption is just a helper which sets the standard claims at the `Sign` function.

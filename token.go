@@ -23,8 +23,18 @@ type (
 	PublicKey interface{}
 )
 
-func encodeToken(alg Alg, key PrivateKey, payload []byte) ([]byte, error) {
-	header := createHeader(alg.Name())
+func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader interface{}) ([]byte, error) {
+	var header []byte
+	if customHeader != nil {
+		h, err := createCustomHeader(customHeader)
+		if err != nil {
+			return nil, err
+		}
+		header = h
+	} else {
+		header = createHeader(alg.Name())
+	}
+
 	payload = Base64Encode(payload)
 
 	headerPayload := joinParts(header, payload)
@@ -44,9 +54,11 @@ func encodeToken(alg Alg, key PrivateKey, payload []byte) ([]byte, error) {
 // BUT, for security reason the algorithm MUST explicitly match
 // (even if we perform hash comparison later on).
 //
+// If the "compareHeaderFunc" is nil then it compares using the `CompareHeader` package-level function variable.
+//
 // Decodes and verifies the given compact "token".
 // It returns the header, payoad and signature parts (decoded).
-func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, []byte, []byte, error) {
+func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderValidator) ([]byte, []byte, []byte, error) {
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
 		return nil, nil, nil, ErrTokenForm
@@ -60,9 +72,16 @@ func decodeToken(alg Alg, key PublicKey, token []byte) ([]byte, []byte, []byte, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
 	// validate header equality.
-	if !CompareHeader(alg.Name(), headerDecoded) {
-		return nil, nil, nil, ErrTokenAlg
+	if compareHeaderFunc != nil {
+		if err := compareHeaderFunc(alg.Name(), headerDecoded); err != nil {
+			return nil, nil, nil, err
+		}
+	} else {
+		if err := CompareHeader(alg.Name(), headerDecoded); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	signatureDecoded, err := Base64Decode(signature)
@@ -137,6 +156,15 @@ func createHeader(alg string) []byte {
 	return Base64Encode([]byte(`{"alg":"` + alg + `","typ":"JWT"}`))
 }
 
+func createCustomHeader(header interface{}) ([]byte, error) {
+	b, err := Marshal(header)
+	if err != nil {
+		return nil, err
+	}
+
+	return Base64Encode(b), nil
+}
+
 func createHeaderRaw(alg string) []byte {
 	if header := fixedHeaders[alg]; header != nil {
 		return header.raw
@@ -153,12 +181,16 @@ func createHeaderReversed(alg string) []byte {
 	return []byte(`{"typ":"JWT","alg":"` + alg + `"}`)
 }
 
+// HeaderValidator is a function which can be used to customize how the header is validated,
+// by default it makes sure the algorithm is the same as the "alg" field.
+type HeaderValidator func(alg string, headerDecoded []byte) error
+
 // Note that this check is fully hard coded for known
 // algorithms and it is fully hard coded in terms of
 // its serialized format.
-func compareHeader(alg string, headerDecoded []byte) bool {
+func compareHeader(alg string, headerDecoded []byte) error {
 	if len(headerDecoded) < 25 /* 28 but allow custom short algs*/ {
-		return false
+		return ErrTokenAlg
 	}
 
 	// Fast check if the order is reversed.
@@ -167,11 +199,19 @@ func compareHeader(alg string, headerDecoded []byte) bool {
 	// don't actually follow the correct order.
 	if headerDecoded[2] == 't' {
 		expectedHeader := createHeaderReversed(alg)
-		return bytes.Equal(expectedHeader, headerDecoded)
+		if !bytes.Equal(expectedHeader, headerDecoded) {
+			return ErrTokenAlg
+		}
+
+		return nil
 	}
 
 	expectedHeader := createHeaderRaw(alg)
-	return bytes.Equal(expectedHeader, headerDecoded)
+	if !bytes.Equal(expectedHeader, headerDecoded) {
+		return ErrTokenAlg
+	}
+
+	return nil
 }
 
 func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {

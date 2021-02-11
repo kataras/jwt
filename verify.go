@@ -25,18 +25,32 @@ import (
 //  var claims map[string]interface{}
 //  verifiedToken.Claims(&claims)
 func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
-	return VerifyEncrypted(alg, key, nil, token, validators...)
+	return verifyToken(alg, key, nil, token, nil, validators...)
 }
 
 // VerifyEncrypted same as `Verify` but it decrypts the payload part with the given "decrypt" function.
 // The "decrypt" function is called AFTER base64-decode and BEFORE Unmarshal.
 // Look the `GCM` function for details.
 func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
+	return verifyToken(alg, key, decrypt, token, nil, validators...)
+}
+
+// VerifyWithHeaderValidator same as `Verify` but it accepts a custom header validator too.
+func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValidator HeaderValidator, validators ...TokenValidator) (*VerifiedToken, error) {
+	return verifyToken(alg, key, nil, token, headerValidator, validators...)
+}
+
+// VerifyEncryptedWithHeaderValidator same as `VerifyEncrypted` but it accepts a custom header validator too.
+func VerifyEncryptedWithHeaderValidator(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, headerValidator HeaderValidator, validators ...TokenValidator) (*VerifiedToken, error) {
+	return verifyToken(alg, key, decrypt, token, headerValidator, validators...)
+}
+
+func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, headerValidator HeaderValidator, validators ...TokenValidator) (*VerifiedToken, error) {
 	if len(token) == 0 {
 		return nil, ErrMissing
 	}
 
-	header, payload, signature, err := decodeToken(alg, key, token)
+	header, payload, signature, err := decodeToken(alg, key, token, headerValidator)
 	if err != nil {
 		return nil, err
 	}

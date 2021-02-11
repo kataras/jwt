@@ -23,12 +23,12 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 	}
 
 	if alg != NONE { // test invalid key error for all algorithms.
-		if _, err := encodeToken(alg, invalidKey, payload); !errors.Is(err, ErrInvalidKey) {
+		if _, err := encodeToken(alg, invalidKey, payload, nil); !errors.Is(err, ErrInvalidKey) {
 			t.Fatalf("[%s] encode token: expected error: ErrInvalidKey but got: %v", alg.Name(), err)
 		}
 	}
 
-	token, err := encodeToken(alg, signKey, payload)
+	token, err := encodeToken(alg, signKey, payload, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,17 +48,17 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 	unexpectedSignatureToken := make([]byte, len(token[0:lastPartIdx])+len(unexpectedSignature))
 	copy(unexpectedSignatureToken, token[0:lastPartIdx])
 	copy(unexpectedSignatureToken[len(token[0:lastPartIdx]):], unexpectedSignature)
-	if _, _, _, err := decodeToken(alg, verKey, unexpectedSignatureToken); !errors.Is(err, ErrTokenSignature) {
+	if _, _, _, err := decodeToken(alg, verKey, unexpectedSignatureToken, nil); !errors.Is(err, ErrTokenSignature) {
 		t.Fatalf("[%s] decode token: expected error: ErrTokenSignature but got: %v", alg.Name(), err)
 	}
 
 	if alg != NONE { // test invalid key error for all algorithms.
-		if _, _, _, err := decodeToken(alg, invalidKey, token); !errors.Is(err, ErrInvalidKey) {
+		if _, _, _, err := decodeToken(alg, invalidKey, token, nil); !errors.Is(err, ErrInvalidKey) {
 			t.Fatalf("[%s] decode token: expected error: ErrInvalidKey but got: %v: %q", alg.Name(), err, token)
 		}
 	}
 
-	header, payload, _, err := decodeToken(alg, verKey, token)
+	header, payload, _, err := decodeToken(alg, verKey, token, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,9 +93,13 @@ func TestCompareHeader(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		ok := compareHeader(tt.alg, []byte(tt.header))
-		if tt.ok != ok {
-			t.Fatalf("[%d] expected %v but got %v", i, tt.ok, ok)
+		err := compareHeader(tt.alg, []byte(tt.header))
+		if tt.ok && err != nil {
+			t.Fatalf("[%d] expected to pass but got error: %v", i, err)
+		}
+
+		if !tt.ok && err == nil {
+			t.Fatalf("[%d] expected to fail", i)
 		}
 	}
 }
@@ -126,7 +130,7 @@ func BenchmarkEncodeToken(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		_, err = encodeToken(testAlg, testSecret, payload)
+		_, err = encodeToken(testAlg, testSecret, payload, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
