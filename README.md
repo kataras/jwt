@@ -38,6 +38,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
     * [Basic](_examples/basic/main.go)
+    * [Custom Header](_examples/custom-header/main.go)
     * [HTTP Middleware](_examples/middleware/main.go)
     * [Blocklist](_examples/blocklist/main.go)
     * [JSON Required Tag](_examples/required/main.go)
@@ -139,6 +140,8 @@ claims := map[string]interface{}{
 token, err := jwt.Sign(jwt.HS256, sharedKey, claims)
 ```
 
+> See `SignWithHeader` too.
+
 Example Code to merge map claims with standard claims:
 
 ```go
@@ -238,6 +241,8 @@ Verifying a Token is done through the `Verify` package-level function.
 ```go
 verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
 ```
+
+> See `VerifyWithHeaderValidator` too.
 
 The `VerifiedToken` carries the token decoded information: 
 
