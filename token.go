@@ -9,18 +9,18 @@ import (
 
 var (
 	// ErrMissing indicates that a given token to `Verify` is empty.
-	ErrMissing = errors.New("token is empty")
+	ErrMissing = errors.New("jwt: token is empty")
 	// ErrTokenForm indicates that the extracted token has not the expected form .
-	ErrTokenForm = errors.New("invalid token form")
+	ErrTokenForm = errors.New("jwt: invalid token form")
 	// ErrTokenAlg indicates that the given algorithm does not match the extracted one.
-	ErrTokenAlg = errors.New("unexpected token algorithm")
+	ErrTokenAlg = errors.New("jwt: unexpected token algorithm")
 )
 
 type (
 	// PrivateKey is a generic type, this key is responsible for signing the token.
-	PrivateKey interface{}
+	PrivateKey = interface{}
 	// PublicKey is a generic type, this key is responsible to verify the token.
-	PublicKey interface{}
+	PublicKey = interface{}
 )
 
 func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader interface{}) ([]byte, error) {

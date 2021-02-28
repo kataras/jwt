@@ -23,7 +23,7 @@ var _ TokenValidator = Expected{}
 //    if errors.Is(ErrExpected, err) {
 //
 //  }
-var ErrExpected = errors.New("field not match")
+var ErrExpected = errors.New("jwt: field not match")
 
 // ValidateToken completes the TokenValidator interface.
 // It performs simple checks against the expected "e" and the verified "c" claims.

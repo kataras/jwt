@@ -8,11 +8,11 @@ import (
 
 var (
 	// ErrExpired indicates that token is used after expiry time indicated in "exp" claim.
-	ErrExpired = errors.New("token expired")
+	ErrExpired = errors.New("jwt: token expired")
 	// ErrNotValidYet indicates that token is used before time indicated in "nbf" claim.
-	ErrNotValidYet = errors.New("token not valid yet")
+	ErrNotValidYet = errors.New("jwt: token not valid yet")
 	// ErrIssuedInTheFuture indicates that the "iat" claim is in the future.
-	ErrIssuedInTheFuture = errors.New("token issued in the future")
+	ErrIssuedInTheFuture = errors.New("jwt: token issued in the future")
 )
 
 // Claims holds the standard JWT claims (payload fields).

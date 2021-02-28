@@ -56,6 +56,9 @@ func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, 
 	if len(opts) > 0 {
 		var standardClaims Claims
 		for _, opt := range opts {
+			if opt == nil {
+				continue
+			}
 			opt.ApplyClaims(&standardClaims)
 		}
 

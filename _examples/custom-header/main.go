@@ -1,5 +1,7 @@
 package main
 
+// Check the https://github.com/kataras/jwt/blob/main/kid_keys.go too.
+
 import (
 	"fmt"
 	"log"
