@@ -9,7 +9,7 @@ import (
 
 // ErrBlocked indicates that the token has not yet expired
 // but was blocked by the server's Blocklist.
-var ErrBlocked = errors.New("token is blocked")
+var ErrBlocked = errors.New("jwt: token is blocked")
 
 // Blocklist is an in-memory storage of tokens that should be
 // immediately invalidated by the server-side.

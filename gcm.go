@@ -9,7 +9,7 @@ import (
 )
 
 // ErrDecrypt indicates a failure on payload decryption.
-var ErrDecrypt = errors.New("decrypt: payload authentication failed")
+var ErrDecrypt = errors.New("jwt: decrypt: payload authentication failed")
 
 // GCM sets the `Encrypt` and `Decrypt` package-level functions
 // to provide encryption over the token's payload on Sign and decryption on Verify

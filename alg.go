@@ -10,9 +10,9 @@ import (
 
 var (
 	// ErrTokenSignature indicates that the verification failed.
-	ErrTokenSignature = errors.New("invalid token signature")
+	ErrTokenSignature = errors.New("jwt: invalid token signature")
 	// ErrInvalidKey indicates that an algorithm required secret key is not a valid type.
-	ErrInvalidKey = errors.New("invalid key")
+	ErrInvalidKey = errors.New("jwt: invalid key")
 )
 
 // Alg represents a signing and verifying algorithm.

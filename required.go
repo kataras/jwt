@@ -9,7 +9,7 @@ import (
 
 // ErrMissingKey when token does not contain a required JSON field.
 // Check with errors.Is.
-var ErrMissingKey = errors.New("token is missing a required field")
+var ErrMissingKey = errors.New("jwt: token is missing a required field")
 
 // HasRequiredJSONTag reports whether a specific value of "i"
 // contains one or more `json:"xxx,required"` struct fields tags.

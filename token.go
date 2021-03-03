@@ -9,18 +9,18 @@ import (
 
 var (
 	// ErrMissing indicates that a given token to `Verify` is empty.
-	ErrMissing = errors.New("token is empty")
+	ErrMissing = errors.New("jwt: token is empty")
 	// ErrTokenForm indicates that the extracted token has not the expected form .
-	ErrTokenForm = errors.New("invalid token form")
+	ErrTokenForm = errors.New("jwt: invalid token form")
 	// ErrTokenAlg indicates that the given algorithm does not match the extracted one.
-	ErrTokenAlg = errors.New("unexpected token algorithm")
+	ErrTokenAlg = errors.New("jwt: unexpected token algorithm")
 )
 
 type (
 	// PrivateKey is a generic type, this key is responsible for signing the token.
-	PrivateKey interface{}
+	PrivateKey = interface{}
 	// PublicKey is a generic type, this key is responsible to verify the token.
-	PublicKey interface{}
+	PublicKey = interface{}
 )
 
 func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader interface{}) ([]byte, error) {
@@ -78,9 +78,20 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 		compareHeaderFunc = CompareHeader
 	}
 
-	pubKey, err := compareHeaderFunc(alg.Name(), headerDecoded)
+	// algorithm can be specified hard-coded
+	// or extracted per token if a custom header validator given.
+	algName := ""
+	if alg != nil {
+		algName = alg.Name()
+	}
+
+	dynamicAlg, pubKey, err := compareHeaderFunc(algName, headerDecoded)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	if alg == nil {
+		alg = dynamicAlg
 	}
 
 	// Override the key given, which could be a nil if this "pubKey" always expected on success.
@@ -187,16 +198,19 @@ func createHeaderReversed(alg string) []byte {
 
 // HeaderValidator is a function which can be used to customize how the header is validated,
 // by default it makes sure the algorithm is the same as the "alg" field.
+//
+// If the "alg" is empty then this function should return a non-nil algorithm
+// based on the token contents.
 // It should return a nil PublicKey and a non-nil error on validation failure.
 // On success, if public key is not nil then it overrides the VerifyXXX method's one.
-type HeaderValidator func(alg string, headerDecoded []byte) (PublicKey, error)
+type HeaderValidator func(alg string, headerDecoded []byte) (Alg, PublicKey, error)
 
 // Note that this check is fully hard coded for known
 // algorithms and it is fully hard coded in terms of
 // its serialized format.
-func compareHeader(alg string, headerDecoded []byte) (PublicKey, error) {
+func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
 	if len(headerDecoded) < 25 /* 28 but allow custom short algs*/ {
-		return nil, ErrTokenAlg
+		return nil, nil, ErrTokenAlg
 	}
 
 	// Fast check if the order is reversed.
@@ -206,18 +220,18 @@ func compareHeader(alg string, headerDecoded []byte) (PublicKey, error) {
 	if headerDecoded[2] == 't' {
 		expectedHeader := createHeaderReversed(alg)
 		if !bytes.Equal(expectedHeader, headerDecoded) {
-			return nil, ErrTokenAlg
+			return nil, nil, ErrTokenAlg
 		}
 
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	expectedHeader := createHeaderRaw(alg)
 	if !bytes.Equal(expectedHeader, headerDecoded) {
-		return nil, ErrTokenAlg
+		return nil, nil, ErrTokenAlg
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {

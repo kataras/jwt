@@ -121,7 +121,7 @@ func (t *VerifiedToken) Claims(dest interface{}) error {
 	return Unmarshal(t.Payload, dest)
 }
 
-var errPayloadNotJSON = errors.New("payload is not a type of JSON") // malformed JSON or it's not a JSON at all.
+var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malformed JSON or it's not a JSON at all.
 
 // Plain can be provided as a Token Validator at `Verify` and `VerifyEncrypted` functions
 // to allow tokens with plain payload (no JSON or malformed JSON) to be successfully validated.
