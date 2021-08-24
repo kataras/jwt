@@ -23,6 +23,11 @@ type (
 	PublicKey = interface{}
 )
 
+type HeaderMap struct {
+	Typ `json:"typ"`
+	Alg `json:"alg"`
+}
+
 func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader interface{}) ([]byte, error) {
 	var header []byte
 	if customHeader != nil {
@@ -213,21 +218,9 @@ func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
 		return nil, nil, ErrTokenAlg
 	}
 
-	// Fast check if the order is reversed.
-	// The specification says otherwise but
-	// some other programming languages' libraries
-	// don't actually follow the correct order.
-	if headerDecoded[2] == 't' {
-		expectedHeader := createHeaderReversed(alg)
-		if !bytes.Equal(expectedHeader, headerDecoded) {
-			return nil, nil, ErrTokenAlg
-		}
-
-		return nil, nil, nil
-	}
-
-	expectedHeader := createHeaderRaw(alg)
-	if !bytes.Equal(expectedHeader, headerDecoded) {
+	var headerMap HeaderMap
+	json.Unmarshal(headerDecoded, &headerMap)
+	if headerMap.Alg != alg {
 		return nil, nil, ErrTokenAlg
 	}
 
