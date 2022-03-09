@@ -1,3 +1,4 @@
+//go:build safe
 // +build safe
 
 package jwt

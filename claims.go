@@ -57,6 +57,32 @@ type Claims struct {
 	Audience Audience `json:"aud,omitempty"`
 }
 
+type claimsSecondChance struct {
+	NotBefore json.Number `json:"nbf,omitempty"`
+	IssuedAt  json.Number `json:"iat,omitempty"`
+	Expiry    json.Number `json:"exp,omitempty"`
+	ID        string      `json:"jti,omitempty"`
+	Issuer    string      `json:"iss,omitempty"`
+	Subject   string      `json:"sub,omitempty"`
+	Audience  Audience    `json:"aud,omitempty"`
+}
+
+func (c claimsSecondChance) toClaims() Claims {
+	nbf, _ := c.NotBefore.Float64() // some authorities generates floats for unix timestamp (1-35 seconds), with the leeway of 1 minute we really don't care.
+	iat, _ := c.IssuedAt.Float64()
+	exp, _ := c.Expiry.Float64()
+
+	return Claims{
+		NotBefore: int64(nbf),
+		IssuedAt:  int64(iat),
+		Expiry:    int64(exp),
+		ID:        c.ID,
+		Issuer:    c.Issuer,
+		Subject:   c.Subject,
+		Audience:  c.Audience,
+	}
+}
+
 // Audience represents the "aud" standard JWT claim.
 // See the `Claims` structure for details.
 type Audience []string

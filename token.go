@@ -196,6 +196,10 @@ func createHeaderReversed(alg string) []byte {
 	return []byte(`{"typ":"JWT","alg":"` + alg + `"}`)
 }
 
+func createHeaderWithoutTyp(alg string) []byte {
+	return []byte(`{"alg":"` + alg + `"}`)
+}
+
 // HeaderValidator is a function which can be used to customize how the header is validated,
 // by default it makes sure the algorithm is the same as the "alg" field.
 //
@@ -209,7 +213,14 @@ type HeaderValidator func(alg string, headerDecoded []byte) (Alg, PublicKey, err
 // algorithms and it is fully hard coded in terms of
 // its serialized format.
 func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
-	if len(headerDecoded) < 25 /* 28 but allow custom short algs*/ {
+	if n := len(headerDecoded); n < 25 /* 28 but allow custom short algs*/ {
+		if n == 15 { // header without "typ": "JWT".
+			expectedHeader := createHeaderWithoutTyp(alg)
+			if bytes.Equal(expectedHeader, headerDecoded) {
+				return nil, nil, nil
+			}
+		}
+
 		return nil, nil, ErrTokenAlg
 	}
 

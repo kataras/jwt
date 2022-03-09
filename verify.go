@@ -66,7 +66,12 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 	standardClaimsErr := json.Unmarshal(payload, &standardClaims) // Use the standard one instead of the custom, no need to support "required" feature here.
 	// Do not exist on this error now, the payload may not be a JSON one.
 	if standardClaimsErr != nil {
-		err = errPayloadNotJSON // allow validators to catch this error.
+		var secondChange claimsSecondChance // try again with a different structure, which always converted to the standard jwt claims.
+		if err = json.Unmarshal(payload, &secondChange); err != nil {
+			err = errPayloadNotJSON // allow validators to catch this error.
+		}
+
+		standardClaims = secondChange.toClaims()
 	} else {
 		err = validateClaims(Clock(), standardClaims)
 	}
