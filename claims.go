@@ -3,6 +3,7 @@ package jwt
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -62,8 +63,8 @@ type claimsSecondChance struct {
 	IssuedAt  json.Number `json:"iat,omitempty"`
 	Expiry    json.Number `json:"exp,omitempty"`
 	ID        string      `json:"jti,omitempty"`
-	Issuer    string      `json:"iss,omitempty"`
-	Subject   string      `json:"sub,omitempty"`
+	Issuer    interface{} `json:"iss,omitempty"`
+	Subject   interface{} `json:"sub,omitempty"`
 	Audience  Audience    `json:"aud,omitempty"`
 }
 
@@ -77,9 +78,21 @@ func (c claimsSecondChance) toClaims() Claims {
 		IssuedAt:  int64(iat),
 		Expiry:    int64(exp),
 		ID:        c.ID,
-		Issuer:    c.Issuer,
-		Subject:   c.Subject,
+		Issuer:    getStr(c.Issuer),
+		Subject:   getStr(c.Subject),
 		Audience:  c.Audience,
+	}
+}
+
+func getStr(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+
+	if s, ok := v.(string); ok {
+		return s
+	} else {
+		return fmt.Sprintf("%v", v)
 	}
 }
 

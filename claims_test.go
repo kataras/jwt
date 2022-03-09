@@ -147,3 +147,18 @@ func TestMaxAgeMap(t *testing.T) {
 	// test no panic if nil.
 	MaxAgeMap(maxAge, nil)
 }
+
+func TestClaimsSubAsInt(t *testing.T) {
+	secret := "secret"
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEyMywibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.QzFnWiase0tPyeNzn8ecl-kVfDVEZ1ctbf9ztM0Qjqg"
+
+	verifiedToken, err := Verify(HS256, []byte(secret), []byte(token))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedClaims := Claims{NotBefore: 0, IssuedAt: 1516239022, Expiry: 0, ID: "", Issuer: "", Subject: "123", Audience: nil}
+	if !reflect.DeepEqual(verifiedToken.StandardClaims, expectedClaims) {
+		t.Fatalf("expected: %#+v but got: %#+v\n", expectedClaims, verifiedToken.StandardClaims)
+	}
+}
