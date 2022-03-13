@@ -139,22 +139,12 @@ type fixedHeader struct {
 	reversed []byte
 }
 
-var fixedHeaders = map[string]*fixedHeader{
-	NONE.Name():  nil,
-	HS256.Name(): nil,
-	HS384.Name(): nil,
-	HS512.Name(): nil,
-	RS256.Name(): nil,
-	RS384.Name(): nil,
-	RS512.Name(): nil,
-	ES256.Name(): nil,
-	ES384.Name(): nil,
-	ES512.Name(): nil,
-	EdDSA.Name(): nil,
-}
+var fixedHeaders = make(map[string]*fixedHeader, len(allAlgs))
 
 func init() {
-	for k := range fixedHeaders {
+	for _, alg := range allAlgs {
+		k := alg.Name()
+
 		fixedHeaders[k] = &fixedHeader{
 			raw:      createHeaderRaw(k),
 			encoded:  createHeader(k),

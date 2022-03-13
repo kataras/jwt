@@ -1,0 +1,65 @@
+Port: 80
+
+# JWT Keys Configuration.
+WebKeys:
+  - ID: "user" # a unique identifier of the token, e.g. a user token.
+    Alg: "RS256" # the algorithm's name.
+    # the private key contents (for sign,
+    # can be optional when verifying on this server-side is all you need)
+    # be careful with the tab indentation.
+    # openssl genrsa -out private-key.pem 3072
+    Private: |+
+      -----BEGIN RSA PRIVATE KEY-----
+      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
+      -----END RSA PRIVATE KEY-----
+    # the public key contents (for verify)
+    # be careful with the tab indentation.
+    # openssl rsa -in private-key.pem -pubout -out public-key.pem
+    Public: |+
+      -----BEGIN PUBLIC KEY-----
+      MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAr1rpUuK7/BC72kWifnsS
+      YmQ/9MtCbDpc9OGBpK6xGWjMmr3jrZZ/m+4klgxfDe/pLU7762gL5gY9RHdOV1+k
+      1pKZH5wdHl/rBOP8VKP3dKc80PykTXWYIdIKFBN5rO22rPPT7WbP27ND2wJlANZN
+      qhx866JXqNUTWfZt5uXKiHvl9D9+4c0JRPixpEC9BiZWMFHhn4QfBNIj6kSuNcXI
+      wPG/4RhAB9tQvMY8lVWCr4sPybbLUy2G4TiqRqJIejqaMs51aGE0bWYFqDRnXX7l
+      AbUNvJ9co84AV3eGnQhV/IfixU/KvsZK0Rkt0JJ1vu4hth07L+LAmvx2YAUytICW
+      gpYxE7AdDAiVi3k/NJSriVoMzGGsrJ8PoDG3WY4zjGpmpwV0kp7K4cqnxnWXjDnz
+      1r5dS/yvhauL3oAF8mN87lrRaWZqPBvC8GUQv4PPsWFrnxhJtUuAJSbl5Ugp8QOw
+      dTaT8oLguop5ksYYq9KH7hxzK85lnZfCLj+bkGptZRZxAgMBAAE=
+      -----END PUBLIC KEY-----

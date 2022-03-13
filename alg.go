@@ -31,6 +31,14 @@ type Alg interface {
 	// so we accept the headerAndPayload as it's, instead of a Sign's result.
 }
 
+// AlgParser is an optional interface that an "Alg" can complete
+// so parsing keys can be easier to be found based on the algorithm used.
+//
+// See kid_keys.go.
+type AlgParser interface {
+	Parse(private, public []byte) (PrivateKey, PublicKey, error)
+}
+
 // The builtin signing available algorithms.
 // Author's recommendation of choosing the best algorithm for your application:
 // Already work with RSA public and private keys?
@@ -146,4 +154,18 @@ var (
 	// It is fairly new algorithm, this has its benefits and its downsides.
 	// Its standard library, which this jwt package use, added on go1.13.
 	EdDSA Alg = &algEdDSA{"EdDSA"}
+
+	allAlgs = []Alg{
+		NONE,
+		RS256,
+		RS384,
+		RS512,
+		PS256,
+		PS384,
+		PS512,
+		ES256,
+		ES384,
+		ES512,
+		EdDSA,
+	}
 )

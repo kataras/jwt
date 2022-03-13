@@ -1,6 +1,11 @@
 package jwt
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 var (
 	// ErrEmptyKid fires when the header is missing a "kid" field.
@@ -43,7 +48,86 @@ type (
 	//  err := keys.VerifyToken("api", token, &myClaims)
 	//  }
 	Keys map[string]*Key
+
+	// KeysConfiguration for multiple keys sign and validate.
+	// Look the MustLoad/Load method.
+	//
+	// Example at: _examples/multiple-kids.
+	KeysConfiguration []struct {
+		ID string `json:"id" yaml:"ID" toml:"ID" ini:"id"`
+		// Alg declares the algorithm name.
+		// Available values:
+		//  * HS256
+		//  * HS384
+		//  * HS512
+		//  * RS256
+		//  * RS384
+		//  * RS512
+		//  * PS256
+		//  * PS384
+		//  * PS512
+		//  * ES256
+		//  * ES384
+		//  * ES512
+		//  * EdDSA
+		Alg     string `json:"alg" yaml:"Alg" toml:"Alg" ini:"alg"`
+		Private string `json:"private" yaml:"Private" toml:"Private" ini:"private"`
+		Public  string `json:"public" yaml:"Public" toml:"Public" ini:"public"`
+	}
 )
+
+// MustLoad same as Load but it panics if errored.
+func (c KeysConfiguration) MustLoad() Keys {
+	keys, err := c.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	return keys
+}
+
+// Load returns the keys parsed through the json, yaml, toml or ini configuration.
+func (c KeysConfiguration) Load() (Keys, error) {
+	parsedKeys := make(Keys, len(c))
+
+	for _, entry := range c {
+		alg := RS256
+
+		for _, algo := range allAlgs {
+			if strings.ToLower(algo.Name()) == strings.ToLower(entry.Alg) {
+				alg = algo
+				break
+			}
+		}
+
+		p := &Key{
+			ID:  entry.ID,
+			Alg: alg,
+		}
+
+		if public, err := strconv.Unquote(entry.Public); err == nil {
+			entry.Public = public
+		}
+		if private, err := strconv.Unquote(entry.Private); err == nil {
+			entry.Private = private
+		}
+
+		if parser, ok := alg.(AlgParser); ok {
+			var err error
+			p.Private, p.Public, err = parser.Parse([]byte(entry.Private), []byte(entry.Public))
+			if err != nil {
+				return nil, fmt.Errorf("jwt: load keys: parse: %w", err)
+			}
+		} else {
+			p.Private = entry.Private
+			p.Public = entry.Public
+		}
+
+		parsedKeys[entry.ID] = p
+	}
+
+	return parsedKeys, nil
+}
 
 // Get returns the key based on its id.
 func (keys Keys) Get(kid string) (*Key, bool) {

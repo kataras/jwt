@@ -11,6 +11,24 @@ type algRSAPSS struct {
 	opts *rsa.PSSOptions
 }
 
+func (a *algRSAPSS) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
+	if len(private) > 0 {
+		privateKey, err = ParsePrivateKeyRSA(private)
+		if err != nil {
+			return nil, nil, fmt.Errorf("RSA-PSS: private key: %v", err)
+		}
+	}
+
+	if len(public) > 0 {
+		publicKey, err = ParsePublicKeyRSA(public)
+		if err != nil {
+			return nil, nil, fmt.Errorf("RSA-PSS: public key: %v", err)
+		}
+	}
+
+	return
+}
+
 func (a *algRSAPSS) Name() string {
 	return a.name
 }

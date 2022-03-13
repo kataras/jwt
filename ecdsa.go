@@ -17,6 +17,24 @@ type algECDSA struct {
 	curveBits int
 }
 
+func (a *algECDSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
+	if len(private) > 0 {
+		privateKey, err = ParsePrivateKeyECDSA(private)
+		if err != nil {
+			return nil, nil, fmt.Errorf("ECDSA: private key: %v", err)
+		}
+	}
+
+	if len(public) > 0 {
+		publicKey, err = ParsePublicKeyECDSA(public)
+		if err != nil {
+			return nil, nil, fmt.Errorf("ECDSA: public key: %v", err)
+		}
+	}
+
+	return
+}
+
 func (a *algECDSA) Name() string {
 	return a.name
 }

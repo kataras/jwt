@@ -11,6 +11,24 @@ type algEdDSA struct {
 	name string
 }
 
+func (a *algEdDSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
+	if len(private) > 0 {
+		privateKey, err = ParsePrivateKeyEdDSA(private)
+		if err != nil {
+			return nil, nil, fmt.Errorf("EdDSA: private key: %v", err)
+		}
+	}
+
+	if len(public) > 0 {
+		publicKey, err = ParsePublicKeyEdDSA(public)
+		if err != nil {
+			return nil, nil, fmt.Errorf("EdDSA: public key: %v", err)
+		}
+	}
+
+	return
+}
+
 func (a *algEdDSA) Name() string {
 	return a.name
 }

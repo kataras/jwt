@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	_ "crypto/sha256" // ignore:lint
 	_ "crypto/sha512"
+	"fmt"
 	"os"
 )
 
@@ -18,10 +19,14 @@ func (a *algHMAC) Name() string {
 	return a.name
 }
 
+// func (a *algHMAC) Parse(secret string) (string, error) {
+// 	return secret, nil
+// }
+
 func (a *algHMAC) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	secret, ok := key.([]byte)
 	if !ok {
-		return nil, ErrInvalidKey
+		return nil, fmt.Errorf("expected a string: %w", ErrInvalidKey)
 	}
 
 	// We can improve its performance (if we store the secret on the same structure)
