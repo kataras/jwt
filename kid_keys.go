@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -32,6 +33,7 @@ type (
 		Alg     Alg
 		Public  PublicKey
 		Private PrivateKey
+		MaxAge  time.Duration // optional.
 	}
 
 	// Keys is a map which holds the key id and a key pair.
@@ -73,6 +75,11 @@ type (
 		Alg     string `json:"alg" yaml:"Alg" toml:"Alg" ini:"alg"`
 		Private string `json:"private" yaml:"Private" toml:"Private" ini:"private"`
 		Public  string `json:"public" yaml:"Public" toml:"Public" ini:"public"`
+		// Token expiration. Optional.
+		// If greater than zero then the MaxAge token validation
+		// will be appended to the "VerifyToken" and the token is invalid
+		// after expiration of its sign time.
+		MaxAge time.Duration `json:"max_age" yaml:"MaxAge" toml:"MaxAge" ini:"max_age"`
 	}
 )
 
@@ -101,8 +108,9 @@ func (c KeysConfiguration) Load() (Keys, error) {
 		}
 
 		p := &Key{
-			ID:  entry.ID,
-			Alg: alg,
+			ID:     entry.ID,
+			Alg:    alg,
+			MaxAge: entry.MaxAge,
 		}
 
 		if public, err := strconv.Unquote(entry.Public); err == nil {
@@ -181,6 +189,10 @@ func (keys Keys) SignToken(kid string, claims interface{}, opts ...SignOption) (
 	k, ok := keys.Get(kid)
 	if !ok {
 		return nil, ErrUnknownKid
+	}
+
+	if k.MaxAge > 0 {
+		opts = append([]SignOption{MaxAge(k.MaxAge)}, opts...)
 	}
 
 	return SignWithHeader(k.Alg, k.Private, claims, HeaderWithKid{
