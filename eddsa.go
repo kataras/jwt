@@ -2,8 +2,11 @@ package jwt
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
+	"errors"
 	"fmt"
 )
 
@@ -12,17 +15,27 @@ type algEdDSA struct {
 }
 
 func (a *algEdDSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
-	if len(private) > 0 {
-		privateKey, err = ParsePrivateKeyEdDSA(private)
-		if err != nil {
-			return nil, nil, fmt.Errorf("EdDSA: private key: %v", err)
-		}
-	}
-
 	if len(public) > 0 {
 		publicKey, err = ParsePublicKeyEdDSA(public)
 		if err != nil {
-			return nil, nil, fmt.Errorf("EdDSA: public key: %v", err)
+			if errors.Is(err, errPEMMalformed) {
+				err = nil
+				publicKey = ed25519.PublicKey(public)
+			} else {
+				return nil, nil, fmt.Errorf("EdDSA: public key: %v", err)
+			}
+		}
+	}
+
+	if len(private) > 0 {
+		privateKey, err = ParsePrivateKeyEdDSA(private)
+		if err != nil {
+			if errors.Is(err, errPEMMalformed) {
+				err = nil
+				privateKey = ed25519.PrivateKey(private)
+			} else {
+				return nil, nil, fmt.Errorf("EdDSA: private key: %v", err)
+			}
 		}
 	}
 
@@ -137,7 +150,7 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 
 	block, _ := pem.Decode(key)
 	if block == nil {
-		return nil, fmt.Errorf("private key: malformed or missing PEM format (EdDSA)")
+		return nil, fmt.Errorf("private key: %w (EdDSA)", errPEMMalformed)
 	}
 
 	if _, err := asn1.Unmarshal(block.Bytes, &asn1PrivKey); err != nil {
@@ -153,6 +166,8 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 	return privateKey, nil
 }
 
+var errPEMMalformed = errors.New("pem malformed")
+
 // ParsePublicKeyEdDSA decodes and parses the
 // PEM-encoded ed25519 public key's raw contents.
 // Pass the result to the `Verify` function.
@@ -166,7 +181,7 @@ func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 
 	block, _ := pem.Decode(key)
 	if block == nil {
-		return nil, fmt.Errorf("public key: malformed or missing PEM format (EdDSA)")
+		return nil, fmt.Errorf("public key: %w (EdDSA)", errPEMMalformed)
 	}
 
 	if _, err := asn1.Unmarshal(block.Bytes, &asn1PubKey); err != nil {
@@ -175,4 +190,33 @@ func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 
 	publicKey := ed25519.PublicKey(asn1PubKey.PublicKey.Bytes)
 	return publicKey, nil
+}
+
+// GenerateEdDSA generates random public and private keys for ed25519.
+func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
+	if err != nil {
+		return nil, nil, err
+	}
+	privatePEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: privBytes,
+		},
+	)
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	publicPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: pubBytes,
+		})
+
+	return publicPEM, privatePEM, nil
 }

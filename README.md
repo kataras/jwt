@@ -459,6 +459,8 @@ publicKey := &privateKey.PublicKey
 publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
 ```
 
+> Converting keys to PEM files is kind of easy task using the Go Programming Language, take a quick look at the [PEM example for ed25519](_examples/generate-ed25519/main.go).
+
 ### Load and Parse keys
 
 This package contains all the helpers you need to load and parse PEM-formatted keys.

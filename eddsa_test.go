@@ -5,6 +5,7 @@ import (
 )
 
 func TestEncodeDecodeTokenEdDSA(t *testing.T) {
+
 	privateKey, err := LoadPrivateKeyEdDSA("./_testfiles/ed25519_private_key.pem")
 	if err != nil {
 		t.Fatalf("EdDSA: private key: %v", err)

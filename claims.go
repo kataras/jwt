@@ -40,6 +40,9 @@ type Claims struct {
 	// used to differentiate JWTs with other similar content (preventing replays, for instance). It is
 	// up to the implementation to guarantee uniqueness.
 	ID string `json:"jti,omitempty"`
+	// Origin JWT Token ID. This key is not part of the RFC.
+	// May be the parent token's id. Useful for tokens invalidation.
+	OriginID string `json:"origin_jti,omitempty"`
 	// A string or URI that uniquely identifies the party
 	// that issued the JWT. Its interpretation is application specific (there is no central authority
 	// managing issuers).
@@ -63,6 +66,7 @@ type claimsSecondChance struct {
 	IssuedAt  json.Number `json:"iat,omitempty"`
 	Expiry    json.Number `json:"exp,omitempty"`
 	ID        string      `json:"jti,omitempty"`
+	OriginID  string      `json:"origin_jti,omitempty"`
 	Issuer    interface{} `json:"iss,omitempty"`
 	Subject   interface{} `json:"sub,omitempty"`
 	Audience  Audience    `json:"aud,omitempty"`
@@ -78,6 +82,7 @@ func (c claimsSecondChance) toClaims() Claims {
 		IssuedAt:  int64(iat),
 		Expiry:    int64(exp),
 		ID:        c.ID,
+		OriginID:  c.OriginID,
 		Issuer:    getStr(c.Issuer),
 		Subject:   getStr(c.Subject),
 		Audience:  c.Audience,
@@ -183,6 +188,10 @@ func (c Claims) ApplyClaims(dest *Claims) {
 
 	if v := c.ID; v != "" {
 		dest.ID = v
+	}
+
+	if v := c.OriginID; v != "" {
+		dest.OriginID = v
 	}
 
 	if v := c.Issuer; v != "" {
