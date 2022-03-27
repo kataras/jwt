@@ -34,6 +34,8 @@ type (
 		Public  PublicKey
 		Private PrivateKey
 		MaxAge  time.Duration // optional.
+		Encrypt InjectFunc    // optional.
+		Decrypt InjectFunc    // optional.
 	}
 
 	// Keys is a map which holds the key id and a key pair.
@@ -75,11 +77,20 @@ type (
 		Alg     string `json:"alg" yaml:"Alg" toml:"Alg" ini:"alg"`
 		Private string `json:"private" yaml:"Private" toml:"Private" ini:"private"`
 		Public  string `json:"public" yaml:"Public" toml:"Public" ini:"public"`
-		// Token expiration. Optional.
+		// MaxAge sets the token expiration. It is optional.
 		// If greater than zero then the MaxAge token validation
 		// will be appended to the "VerifyToken" and the token is invalid
 		// after expiration of its sign time.
 		MaxAge time.Duration `json:"max_age" yaml:"MaxAge" toml:"MaxAge" ini:"max_age"`
+
+		// EncryptionKey enables encryption on the generated token. It is optional.
+		// Encryption using the Galois Counter mode of operation with
+		// AES cipher symmetric-key cryptographic.
+		//
+		// The value should be the AES key,
+		// either 16, 24, or 32 bytes to select
+		// AES-128, AES-192, or AES-256.
+		EncryptionKey string `json:"encryption_key" yaml:"EncryptionKey" toml:"EncryptionKey" ini:"encryption_key"`
 	}
 )
 
@@ -131,6 +142,16 @@ func (c KeysConfiguration) Load() (Keys, error) {
 			p.Public = entry.Public
 		}
 
+		if entry.EncryptionKey != "" {
+			encrypt, decrypt, err := GCM([]byte(entry.EncryptionKey), nil)
+			if err != nil {
+				return nil, fmt.Errorf("jwt: load keys: build encryption: %w", err)
+			}
+
+			p.Encrypt = encrypt
+			p.Decrypt = decrypt
+		}
+
 		parsedKeys[entry.ID] = p
 	}
 
@@ -155,33 +176,33 @@ func (keys Keys) Register(alg Alg, kid string, pubKey PublicKey, privKey Private
 
 // ValidateHeader validates the given json header value (base64 decoded) based on the "keys".
 // Keys structure completes the `HeaderValidator` interface.
-func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
+func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKey, InjectFunc, error) {
 	var h HeaderWithKid
 
 	err := Unmarshal(headerDecoded, &h)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if h.Kid == "" {
-		return nil, nil, ErrEmptyKid
+		return nil, nil, nil, ErrEmptyKid
 	}
 
 	key, ok := keys.Get(h.Kid)
 	if !ok {
-		return nil, nil, ErrUnknownKid
+		return nil, nil, nil, ErrUnknownKid
 	}
 
 	if h.Alg != key.Alg.Name() {
-		return nil, nil, ErrTokenAlg
+		return nil, nil, nil, ErrTokenAlg
 	}
 
 	// If for some reason a specific alg was given by the caller then check that as well.
 	if alg != "" && alg != h.Alg {
-		return nil, nil, ErrTokenAlg
+		return nil, nil, nil, ErrTokenAlg
 	}
 
-	return key.Alg, key.Public, nil
+	return key.Alg, key.Public, key.Decrypt, nil
 }
 
 // SignToken signs the "claims" using the given "alg" based a specific key.
@@ -195,7 +216,7 @@ func (keys Keys) SignToken(kid string, claims interface{}, opts ...SignOption) (
 		opts = append([]SignOption{MaxAge(k.MaxAge)}, opts...)
 	}
 
-	return SignWithHeader(k.Alg, k.Private, claims, HeaderWithKid{
+	return SignEncryptedWithHeader(k.Alg, k.Private, k.Encrypt, claims, HeaderWithKid{
 		Kid: kid,
 		Alg: k.Alg.Name(),
 	}, opts...)

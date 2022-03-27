@@ -68,30 +68,30 @@ type Header struct {
 	Alg string `json:"alg"`
 }
 
-func validateHeader(alg string, headerDecoded []byte) (jwt.PublicKey, error) {
+func validateHeader(alg string, headerDecoded []byte) (jwt.Alg, jwt.PublicKey, jwt.InjectFunc, error) {
 	var h Header
 	err := jwt.Unmarshal(headerDecoded, &h)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	if h.Alg != alg {
-		return nil, jwt.ErrTokenAlg
+		return nil, nil, nil, jwt.ErrTokenAlg
 	}
 
 	if h.Kid == "" {
-		return nil, fmt.Errorf("kid is empty")
+		return nil, nil, nil, fmt.Errorf("kid is empty")
 	}
 
 	key, ok := keys[h.Kid]
 	if !ok {
-		return nil, fmt.Errorf("unknown kid")
+		return nil, nil, nil, fmt.Errorf("unknown kid")
 	}
 
 	publicKey, err := jwt.ParsePublicKeyRSA(key)
 	if err != nil {
-		return nil, jwt.ErrTokenAlg
+		return nil, nil, nil, jwt.ErrTokenAlg
 	}
 
-	return publicKey, nil
+	return nil, publicKey, nil, nil
 }

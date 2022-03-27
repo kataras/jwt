@@ -93,7 +93,7 @@ func TestCompareHeader(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		_, _, err := compareHeader(tt.alg, []byte(tt.header))
+		_, _, _, err := compareHeader(tt.alg, []byte(tt.header))
 		if tt.ok && err != nil {
 			t.Fatalf("[%d] expected to pass but got error: %v", i, err)
 		}

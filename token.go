@@ -85,7 +85,7 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 		algName = alg.Name()
 	}
 
-	dynamicAlg, pubKey, err := compareHeaderFunc(algName, headerDecoded)
+	dynamicAlg, pubKey, decrypt, err := compareHeaderFunc(algName, headerDecoded)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -113,6 +113,14 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	if decrypt != nil {
+		payload, err = decrypt(payload)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
 	return headerDecoded, payload, signatureDecoded, nil
 }
 
@@ -196,22 +204,24 @@ func createHeaderWithoutTyp(alg string) []byte {
 // If the "alg" is empty then this function should return a non-nil algorithm
 // based on the token contents.
 // It should return a nil PublicKey and a non-nil error on validation failure.
+// The out InjectFunc is optional. If it's not nil then decryption of the payload
+// using GCM (AES key) is performed before verification.
 // On success, if public key is not nil then it overrides the VerifyXXX method's one.
-type HeaderValidator func(alg string, headerDecoded []byte) (Alg, PublicKey, error)
+type HeaderValidator func(alg string, headerDecoded []byte) (Alg, PublicKey, InjectFunc, error)
 
 // Note that this check is fully hard coded for known
 // algorithms and it is fully hard coded in terms of
 // its serialized format.
-func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
+func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, InjectFunc, error) {
 	if n := len(headerDecoded); n < 25 /* 28 but allow custom short algs*/ {
 		if n == 15 { // header without "typ": "JWT".
 			expectedHeader := createHeaderWithoutTyp(alg)
 			if bytes.Equal(expectedHeader, headerDecoded) {
-				return nil, nil, nil
+				return nil, nil, nil, nil
 			}
 		}
 
-		return nil, nil, ErrTokenAlg
+		return nil, nil, nil, ErrTokenAlg
 	}
 
 	// Fast check if the order is reversed.
@@ -221,18 +231,18 @@ func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, error) {
 	if headerDecoded[2] == 't' {
 		expectedHeader := createHeaderReversed(alg)
 		if !bytes.Equal(expectedHeader, headerDecoded) {
-			return nil, nil, ErrTokenAlg
+			return nil, nil, nil, ErrTokenAlg
 		}
 
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	expectedHeader := createHeaderRaw(alg)
 	if !bytes.Equal(expectedHeader, headerDecoded) {
-		return nil, nil, ErrTokenAlg
+		return nil, nil, nil, ErrTokenAlg
 	}
 
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 func createSignature(alg Alg, key PrivateKey, headerAndPayload []byte) ([]byte, error) {
