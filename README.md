@@ -272,7 +272,7 @@ err := verifiedToken.Claims(&claims)
 By default expiration set and validation is done through `time.Now()`. You can change that behavior through the `jwt.Clock` variable, e.g. 
 
 ```go
-jwt.Clock = time.Now().UTC()
+jwt.Clock = time.Now().UTC
 ```
 
 ### JSON required tag
