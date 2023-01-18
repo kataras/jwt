@@ -2,7 +2,7 @@
 
 [![build status](https://img.shields.io/github/actions/workflow/status/kataras/jwt/ci.yml?style=for-the-badge)](https://github.com/kataras/jwt/actions) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://travis-ci.org/github/kataras/jwt/jobs/740739405#L322) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
-Fast and simple [JWT](https://jwt.io/#libraries-io) implementation written in [Go](https://golang.org/dl). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
+Fast and simple [JWT](https://jwt.io/#libraries-io) implementation written in [Go](https://go.dev/dl/). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
 
 [![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
 
@@ -10,10 +10,10 @@ Please [star](https://github.com/kataras/jwt/stargazers) this open source projec
 
 ## Installation
 
-The only requirement is the [Go Programming Language](https://golang.org/dl).
+The only requirement is the [Go Programming Language](https://go.dev/dl/).
 
 ```sh
-$ go get github.com/kataras/jwt
+$ go get github.com/kataras/jwt@latest
 ```
 
 Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
@@ -44,8 +44,8 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [Blocklist](_examples/blocklist/main.go)
     * [JSON Required Tag](_examples/required/main.go)
     * [Custom Validations](_examples/custom-validations/main.go)
-    * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/jwt-new-features/middleware/jwt)
-    * [Advanced: Redis Blocklist](https://github.com/kataras/iris/tree/jwt-new-features/middleware/jwt/blocklist/redis/blocklist.go)
+    * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/master/middleware/jwt)
+    * [Advanced: Redis Blocklist](https://github.com/kataras/iris/tree/master/middleware/jwt/blocklist/redis/blocklist.go)
 * [References](#references)
 * [License](#license)
 
