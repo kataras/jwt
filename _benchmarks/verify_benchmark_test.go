@@ -5,8 +5,8 @@ import (
 	"time"
 
 	jwtgo "github.com/dgrijalva/jwt-go"
+	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	jwt "github.com/kataras/jwt"
-	josejwt "github.com/square/go-jose/v3/jwt"
 )
 
 func createTestToken() ([]byte, error) {

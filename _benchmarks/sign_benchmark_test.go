@@ -5,9 +5,9 @@ import (
 	"time"
 
 	jwtgo "github.com/dgrijalva/jwt-go"
+	jose "github.com/go-jose/go-jose/v3"
+	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	jwt "github.com/kataras/jwt"
-	jose "github.com/square/go-jose/v3"
-	josejwt "github.com/square/go-jose/v3/jwt"
 )
 
 var testSecret = []byte("sercrethatmaycontainch@r$32chars")
