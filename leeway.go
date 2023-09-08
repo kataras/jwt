@@ -1,6 +1,9 @@
 package jwt
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // Leeway adds validation for a leeway expiration time.
 // If the token was not expired then a comparison between
@@ -13,6 +16,25 @@ func Leeway(leeway time.Duration) TokenValidatorFunc {
 			if Clock().Add(leeway).Round(time.Second).Unix() > standardClaims.Expiry {
 				return ErrExpired
 			}
+		}
+
+		return err
+	}
+}
+
+// Future adds a validation for the "iat" claim.
+// It checks if the token was issued in the future based on now+dur < iat.
+//
+// Example of use case: allow tokens that are going to be issued in the future,
+// for example a token that is going to be issued in 10 seconds from now.
+func Future(dur time.Duration) TokenValidatorFunc {
+	return func(_ []byte, standardClaims Claims, err error) error {
+		if errors.Is(err, ErrIssuedInTheFuture) {
+			if Clock().Add(dur).Round(time.Second).Unix() < standardClaims.IssuedAt {
+				return ErrIssuedInTheFuture
+			}
+
+			return nil
 		}
 
 		return err
