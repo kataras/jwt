@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	jwtgo "github.com/dgrijalva/jwt-go"
 	jose "github.com/go-jose/go-jose/v3"
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
+	jwtgo "github.com/golang-jwt/jwt"
 	jwt "github.com/kataras/jwt"
 )
 

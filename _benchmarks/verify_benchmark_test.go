@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	jwtgo "github.com/dgrijalva/jwt-go"
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
+	jwtgo "github.com/golang-jwt/jwt"
 	jwt "github.com/kataras/jwt"
 )
 
@@ -69,7 +69,7 @@ func BenchmarkVerify_go_jose(b *testing.B) {
 		// Note: the go-jose package's `ParseSigned` does not actually verify the token,
 		// it just decodes it, we have to call its `Claims` method without a destination (2nd arg)
 		// to make it to verify the signature (the fastest way to do it on that package)
-		// unlike the rest (kataras/jwt and dgrijalva/jwt-go).
+		// unlike the rest (kataras/jwt and golang-jwt/jwt).
 		parsedToken, err := josejwt.ParseSigned(tokenString)
 		if err != nil {
 			b.Fatal(err)

@@ -20,7 +20,7 @@ $ go test -bench=.
 
 ## Results
 
-Comparison between: [kataras/jwt](https://github.com/kataras/jwt), [dgrijalva/jwt-go](github.com/dgrijalva/jwt-go) and [go-jose/go-jose](https://github.com/go-jose/go-jose). Higher is better.
+Comparison between: [kataras/jwt](https://github.com/kataras/jwt), [golang-jwt/jwt](github.com/golang-jwt/jwt) and [go-jose/go-jose](https://github.com/go-jose/go-jose). Higher is better.
 
 ![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)
 
