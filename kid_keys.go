@@ -112,7 +112,7 @@ func (c KeysConfiguration) Load() (Keys, error) {
 		alg := RS256
 
 		for _, algo := range allAlgs {
-			if strings.ToLower(algo.Name()) == strings.ToLower(entry.Alg) {
+			if strings.EqualFold(algo.Name(), entry.Alg) {
 				alg = algo
 				break
 			}

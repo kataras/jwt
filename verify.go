@@ -20,10 +20,10 @@ import (
 //
 // Example Code:
 //
-//  verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token)
-//  [handle error...]
-//  var claims map[string]interface{}
-//  verifiedToken.Claims(&claims)
+//	verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token)
+//	[handle error...]
+//	var claims map[string]interface{}
+//	verifiedToken.Claims(&claims)
 func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
 	return verifyToken(alg, key, nil, token, nil, validators...)
 }
@@ -132,9 +132,10 @@ var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malf
 // to allow tokens with plain payload (no JSON or malformed JSON) to be successfully validated.
 //
 // Usage:
-//  verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token, jwt.Plain)
-//  [handle error...]
-//  [verifiedToken.Payload...]
+//
+//	verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token, jwt.Plain)
+//	[handle error...]
+//	[verifiedToken.Payload...]
 var Plain = TokenValidatorFunc(func(token []byte, standardClaims Claims, err error) error {
 	if err == errPayloadNotJSON {
 		return nil // skip this error entirely.

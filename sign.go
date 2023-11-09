@@ -10,27 +10,27 @@ package jwt
 //
 // Example Code to pass only standard Claims:
 //
-//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Claims{...})
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Claims{...})
 //
 // Example Code to pass custom and expiration Claims manually:
 //
-//  now := time.Now()
-//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), map[string]interface{}{
-//    "iat": now.Unix(),
-//    "exp": now.Add(15 * time.Minute).Unix(),
-//    "foo": "bar",
-//  })
+//	now := time.Now()
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), map[string]interface{}{
+//	  "iat": now.Unix(),
+//	  "exp": now.Add(15 * time.Minute).Unix(),
+//	  "foo": "bar",
+//	})
 //
 // Example Code for custom and standard claims using a SignOption:
 //
-//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Map{"foo":"bar"}, jwt.MaxAge(15 * time.Minute))
-//  OR
-//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Map{"foo":"bar"}, jwt.Claims {Expiry: ...})
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Map{"foo":"bar"}, jwt.MaxAge(15 * time.Minute))
+//	OR
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), jwt.Map{"foo":"bar"}, jwt.Claims {Expiry: ...})
 //
 // Example Code for custom type as Claims + standard Claims:
 //
-//  type User struct { Username string `json:"username"` }
-//  token, err := jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute))
+//	type User struct { Username string `json:"username"` }
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute))
 func Sign(alg Alg, key PrivateKey, claims interface{}, opts ...SignOption) ([]byte, error) {
 	return signToken(alg, key, nil, claims, nil, opts...)
 }

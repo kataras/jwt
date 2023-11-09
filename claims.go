@@ -254,16 +254,16 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 //
 // Usage:
 //
-//  claims := Merge(map[string]interface{}{"foo":"bar"}, Claims{
-//    MaxAge: 15 * time.Minute,
-//    Issuer: "an-issuer",
-//  })
-//  Sign(alg, key, claims)
+//	claims := Merge(map[string]interface{}{"foo":"bar"}, Claims{
+//	  MaxAge: 15 * time.Minute,
+//	  Issuer: "an-issuer",
+//	})
+//	Sign(alg, key, claims)
 //
 // Merge is automatically called when:
 //
-//  Sign(alg, key, claims, MaxAge(time.Duration))
-//  Sign(alg, key, claims, Claims{...})
+//	Sign(alg, key, claims, MaxAge(time.Duration))
+//	Sign(alg, key, claims, Claims{...})
 func Merge(claims interface{}, other interface{}) []byte {
 	claimsB, err := Marshal(claims)
 	if err != nil {

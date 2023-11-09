@@ -57,11 +57,12 @@ var Unmarshal = defaultUnmarshal
 // Returns ErrMissingKey if a required value is missing from the payload.
 //
 // Usage:
-//  Unmarshal = UnmarshalWithRequired
-//  [...]
-//  A Go struct like: UserClaims { Username string `json:"username,required" `}
-//  [...]
-//  And `Verify` as usual.
+//
+//	Unmarshal = UnmarshalWithRequired
+//	[...]
+//	A Go struct like: UserClaims { Username string `json:"username,required" `}
+//	[...]
+//	And `Verify` as usual.
 func UnmarshalWithRequired(payload []byte, dest interface{}) error {
 	if err := defaultUnmarshal(payload, dest); err != nil {
 		return err

@@ -1,5 +1,4 @@
 /*
-
 Package jwt aims to provide an implementation of the JSON Web Token standard.
 The library supports the JSON Web Algorithm standard with HMAC, RSA, ECDSA and EdDSA.
 The signing operation can accept multiple claims and merge as one,
@@ -43,7 +42,5 @@ Getting Started:
 	var claims map[string]interface{}
 	err = verifiedToken.Claims(&claims)
 	}
-
-
 */
 package jwt

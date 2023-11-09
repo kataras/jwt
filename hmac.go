@@ -62,16 +62,44 @@ var panicHandler = func(v interface{}) {
 
 // MustGenerateRandom returns a random HMAC key.
 // Usage:
-//  MustGenerateRandom(64)
+//
+//	MustGenerateRandom(64)
 func MustGenerateRandom(n int) []byte {
 	key := make([]byte, n)
 	_, err := rand.Read(key)
+	// _, err := io.ReadFull(rand.Reader, key)
 	if err != nil {
 		panicHandler(err)
 	}
 
 	return key
 }
+
+// AI-generated.
+const (
+	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // 52 possibilities
+	letterIdxBits = 6                                                      // 6 bits to represent 64 possibilities / indexes
+	letterIdxMask = 1<<letterIdxBits - 1                                   // All 1-bits, as many as letterIdxBits
+)
+
+// MustGenerateRandomString returns a random string based on the passed length.
+func MustGenerateRandomString(length int) string {
+	result := make([]byte, length)
+	bufferSize := int(float64(length) * 1.3)
+	for i, j, randomBytes := 0, 0, []byte{}; i < length; j++ {
+		if j%bufferSize == 0 {
+			randomBytes = MustGenerateRandom(bufferSize)
+		}
+		if idx := int(randomBytes[j%length] & letterIdxMask); idx < len(letterBytes) {
+			result[i] = letterBytes[idx]
+			i++
+		}
+	}
+
+	return string(result)
+}
+
+//
 
 // MustLoadHMAC accepts a single filename
 // which its plain text data should contain the HMAC shared key.

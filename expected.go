@@ -9,20 +9,22 @@ import (
 // between standard claims values.
 //
 // Usage:
-//  expected := Expected{
-//	  Issuer: "my-app",
-//  }
-//  verifiedToken, err := Verify(..., expected)
+//
+//	 expected := Expected{
+//		  Issuer: "my-app",
+//	 }
+//	 verifiedToken, err := Verify(..., expected)
 type Expected Claims // We could use the same Claims structure but for concept separation we use a different one.
 
 var _ TokenValidator = Expected{}
 
 // ErrExpected indicates a standard claims post-validation error.
 // Usage:
-//  verifiedToken, err := Verify(...)
-//    if errors.Is(ErrExpected, err) {
 //
-//  }
+//	verifiedToken, err := Verify(...)
+//	  if errors.Is(ErrExpected, err) {
+//
+//	}
 var ErrExpected = errors.New("jwt: field not match")
 
 // ValidateToken completes the TokenValidator interface.

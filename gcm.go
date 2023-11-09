@@ -24,13 +24,14 @@ var ErrDecrypt = errors.New("jwt: decrypt: payload authentication failed")
 // Can be set to nil to ignore.
 //
 // Usage:
-//  var encKey = MustGenerateRandom(32)
-//  var sigKey = MustGenerateRandom(32)
 //
-//  encrypt, decrypt, err := GCM(encKey, nil)
-//  if err != nil { ... }
-//  token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
-//  verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
+//	var encKey = MustGenerateRandom(32)
+//	var sigKey = MustGenerateRandom(32)
+//
+//	encrypt, decrypt, err := GCM(encKey, nil)
+//	if err != nil { ... }
+//	token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
+//	verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
 func GCM(key, additionalData []byte) (encrypt, decrypt InjectFunc, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
