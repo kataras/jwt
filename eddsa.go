@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -219,4 +220,19 @@ func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 		})
 
 	return publicPEM, privatePEM, nil
+}
+
+// GenerateBase64EdDSA generates random public and private keys for ed25519.
+// The keys are returned as base64 encoded strings.
+func GenerateBase64EdDSA() (string, string, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return "", "", err
+	}
+	pub := ed25519.PrivateKey(priv).Public().(ed25519.PublicKey)
+
+	publicKey := base64.StdEncoding.EncodeToString(pub)
+	privateKey := base64.StdEncoding.EncodeToString(priv)
+
+	return publicKey, privateKey, nil
 }
