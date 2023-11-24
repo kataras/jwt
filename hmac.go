@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	_ "crypto/sha256" // ignore:lint
 	_ "crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"os"
 )
@@ -97,6 +98,19 @@ func MustGenerateRandomString(length int) string {
 	}
 
 	return string(result)
+}
+
+// NoPadding is the base64.NoPadding.
+const NoPadding = base64.NoPadding
+
+// MustGenerateRandomBase64 returns a random base64 string based on the passed length.
+//
+// Usage:
+//
+//	MustGenerateRandomBase64(32, jwt.NoPadding)
+func MustGenerateRandomBase64(length int, padding rune) string {
+	b := MustGenerateRandom(length)
+	return base64.StdEncoding.WithPadding(padding).EncodeToString(b)
 }
 
 //
