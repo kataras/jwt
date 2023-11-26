@@ -127,6 +127,16 @@ func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
 	return
 }
 
+// ApplyClaims implements the `SignOption` interface.
+// It sets the Audience field to standard Claims instance.
+//
+// Usage:
+//
+//	jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute), jwt.Audience{"admin", "root"})
+func (aud Audience) ApplyClaims(dest *Claims) {
+	dest.Audience = aud
+}
+
 // Age returns the total age of the claims,
 // the result of issued at - expired time.
 func (c Claims) Age() time.Duration {
