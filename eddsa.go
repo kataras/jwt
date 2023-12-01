@@ -224,6 +224,10 @@ func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 
 // GenerateBase64EdDSA generates random public and private keys for ed25519.
 // The keys are returned as base64 encoded strings.
+//
+// Usage:
+//
+//	publicKey, privateKey, err := GenerateBase64EdDSA()
 func GenerateBase64EdDSA() (string, string, error) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -231,8 +235,8 @@ func GenerateBase64EdDSA() (string, string, error) {
 	}
 	pub := ed25519.PrivateKey(priv).Public().(ed25519.PublicKey)
 
-	publicKey := base64.StdEncoding.EncodeToString(pub)
-	privateKey := base64.StdEncoding.EncodeToString(priv)
+	publicKey := base64.RawStdEncoding.EncodeToString(pub)
+	privateKey := base64.RawStdEncoding.EncodeToString(priv)
 
 	return publicKey, privateKey, nil
 }
