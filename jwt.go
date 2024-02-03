@@ -3,7 +3,7 @@ package jwt
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"time"
 )
@@ -30,8 +30,8 @@ var CompareHeader HeaderValidator = compareHeader
 // ReadFile can be used to customize the way the
 // Must/Load Key function helpers are loading the filenames from.
 // Example of usage: embedded key pairs.
-// Defaults to the `ioutil.ReadFile` which reads the file from the physical disk.
-var ReadFile = ioutil.ReadFile
+// Defaults to the `os.ReadFile` which reads the file from the physical disk.
+var ReadFile = os.ReadFile
 
 // Marshal same as json.Marshal.
 // This variable can be modified to enable custom encoder behavior

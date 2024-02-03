@@ -169,3 +169,14 @@ var (
 		EdDSA,
 	}
 )
+
+// parseAlg returns the algorithm by its name or nil.
+func parseAlg(name string) Alg {
+	for _, alg := range allAlgs {
+		if alg.Name() == name {
+			return alg
+		}
+	}
+
+	return nil
+}

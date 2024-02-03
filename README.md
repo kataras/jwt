@@ -37,6 +37,7 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
 * [Encryption](#encryption)
 * [Benchmarks](_benchmarks)
 * [Examples](_examples)
+    * [Amazon AWS Cognito Verification](_examples/aws-cognito-verify/main.go) **NEW**
     * [Basic](_examples/basic/main.go)
     * [Custom Header](_examples/custom-header/main.go)
     * [Multiple Key IDs](_examples/multiple-kids/main.go)
