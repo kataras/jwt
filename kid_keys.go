@@ -57,7 +57,11 @@ type (
 	// Look the MustLoad/Load method.
 	//
 	// Example at: _examples/multiple-kids.
-	KeysConfiguration []struct {
+	KeysConfiguration []KeyConfiguration
+
+	// KeyConfiguration is a single key configuration.
+	// It's just a representation of the Key struct but with string fields.
+	KeyConfiguration struct {
 		ID string `json:"id" yaml:"ID" toml:"ID" ini:"id"`
 		// Alg declares the algorithm name.
 		// Available values:
@@ -93,6 +97,17 @@ type (
 		EncryptionKey string `json:"encryption_key" yaml:"EncryptionKey" toml:"EncryptionKey" ini:"encryption_key"`
 	}
 )
+
+// Get returns the key configuration based on its id.
+func (c KeysConfiguration) Get(kid string) (KeyConfiguration, bool) {
+	for _, entry := range c {
+		if entry.ID == kid {
+			return entry, true
+		}
+	}
+
+	return KeyConfiguration{}, false
+}
 
 // MustLoad same as Load but it panics if errored.
 func (c KeysConfiguration) MustLoad() Keys {
