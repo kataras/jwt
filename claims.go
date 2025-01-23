@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -125,6 +126,11 @@ func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	return
+}
+
+// String returns the string representation of the audience.
+func (auth Audience) String() string {
+	return strings.Join(auth, " ")
 }
 
 // ApplyClaims implements the `SignOption` interface.
