@@ -2,8 +2,8 @@ package main
 
 import (
 	"crypto/ed25519"
-	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/kataras/jwt"
 )
@@ -14,12 +14,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = ioutil.WriteFile("ed25519_private.pem", priv, 0600)
+	err = os.WriteFile("ed25519_private.pem", priv, 0600)
 	if err != nil {
 		log.Fatalf("ed25519: private: write file: %w", err)
 	}
 
-	err = ioutil.WriteFile("ed25519_public.pem", pub, 0600)
+	err = os.WriteFile("ed25519_public.pem", pub, 0600)
 	if err != nil {
 		log.Fatalf("ed25519: public: write file: %w", err)
 	}

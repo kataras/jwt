@@ -51,6 +51,8 @@ type (
 	//  var c myClaims
 	//  err := keys.VerifyToken("api", token, &myClaims)
 	//  }
+	//  ...
+	// 	keys.JWKS() to generate a JSON Web Key Set to serve on /.well-known/jwks.json.
 	Keys map[string]*Key
 
 	// KeysConfiguration for multiple keys sign and validate.
@@ -221,7 +223,7 @@ func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKe
 }
 
 // SignToken signs the "claims" using the given "alg" based a specific key.
-func (keys Keys) SignToken(kid string, claims interface{}, opts ...SignOption) ([]byte, error) {
+func (keys Keys) SignToken(kid string, claims any, opts ...SignOption) ([]byte, error) {
 	k, ok := keys.Get(kid)
 	if !ok {
 		return nil, ErrUnknownKid
@@ -239,11 +241,31 @@ func (keys Keys) SignToken(kid string, claims interface{}, opts ...SignOption) (
 
 // VerifyToken verifies the "token" using the given "alg" based on the registered public key(s)
 // and sets the custom claims to the destination "claimsPtr".
-func (keys Keys) VerifyToken(token []byte, claimsPtr interface{}, validators ...TokenValidator) error {
+func (keys Keys) VerifyToken(token []byte, claimsPtr any, validators ...TokenValidator) error {
 	verifiedToken, err := VerifyWithHeaderValidator(nil, nil, token, keys.ValidateHeader, validators...)
 	if err != nil {
 		return err
 	}
 
 	return verifiedToken.Claims(&claimsPtr)
+}
+
+// JWKS returns the JSON Web Key Set (JWKS) based on the registered keys (RSA or EdDSA).
+func (keys Keys) JWKS() (*JWKS, error) {
+	jkeys := make([]*JWK, 0, len(keys))
+
+	for _, key := range keys {
+		alg := ""
+		if key.Alg != nil {
+			alg = key.Alg.Name()
+		}
+		jwk, err := GenerateJWK(key.ID, alg, key.Public)
+		if err != nil {
+			return nil, err
+		}
+		jkeys = append(jkeys, jwk)
+	}
+
+	jwks := JWKS{Keys: jkeys}
+	return &jwks, nil
 }

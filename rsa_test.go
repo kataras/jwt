@@ -5,7 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -87,8 +87,8 @@ func generateTestFilesRSA() error {
 	}
 	pubKeyPem := pem.EncodeToMemory(pubKeyBlock)
 
-	if err = ioutil.WriteFile("./_testfiles/rsa_private_key.pem", privKeyPem, 0666); err != nil {
+	if err = os.WriteFile("./_testfiles/rsa_private_key.pem", privKeyPem, 0666); err != nil {
 		return err
 	}
-	return ioutil.WriteFile("./_testfiles/rsa_public_key.pem", pubKeyPem, 0666)
+	return os.WriteFile("./_testfiles/rsa_public_key.pem", pubKeyPem, 0666)
 }

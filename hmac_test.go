@@ -23,9 +23,9 @@ func catchPanic(t *testing.T, shouldPanic bool, fn func()) {
 	t.Helper()
 
 	got := false
-	var val interface{}
+	var val any
 	prevHandler := panicHandler
-	panicHandler = func(v interface{}) {
+	panicHandler = func(v any) {
 		got = true
 		val = v
 	}

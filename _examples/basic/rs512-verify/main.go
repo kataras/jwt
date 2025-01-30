@@ -54,7 +54,7 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse custom claims...
-	var claims map[string]interface{}
+	var claims map[string]any
 	// ^ can be any type, e.g.
 	// var claims = struct {
 	// 	Foo string `json:"foo"`

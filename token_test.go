@@ -13,7 +13,7 @@ var invalidKey = "inv"
 func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey PublicKey, expectedToken []byte) {
 	t.Helper()
 
-	claims := map[string]interface{}{
+	claims := map[string]any{
 		"username": "kataras",
 	}
 
@@ -67,7 +67,7 @@ func testEncodeDecodeToken(t *testing.T, alg Alg, signKey PrivateKey, verKey Pub
 		t.Fatalf("expected header: %q but got: %q", expected, got)
 	}
 
-	var got map[string]interface{}
+	var got map[string]any
 	if err = json.Unmarshal(payload, &got); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestDecodeWithoutVerify(t *testing.T) {
 }
 
 func BenchmarkEncodeToken(b *testing.B) {
-	var claims = map[string]interface{}{
+	var claims = map[string]any{
 		"username": "kataras",
 	}
 
@@ -137,7 +137,7 @@ func BenchmarkEncodeToken(b *testing.B) {
 	}
 }
 
-func compareMap(m1, m2 map[string]interface{}) bool {
+func compareMap(m1, m2 map[string]any) bool {
 	if len(m1) != len(m2) {
 		return false
 	}

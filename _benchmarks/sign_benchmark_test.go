@@ -23,7 +23,7 @@ func BenchmarkSign_Map(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// supports custom types and expiration helper.
 		now := time.Now()
-		claims := map[string]interface{}{
+		claims := map[string]any{
 			"foo": "bar",
 			"exp": now.Add(15 * time.Minute).Unix(),
 			"iat": now.Unix(),
@@ -159,7 +159,7 @@ func BenchmarkSign_go_jose_Map(b *testing.B) {
 		// unlike kataras/jwt which u can use already defined structs.
 		// We will benchmark it with structs (see below test).
 		now := time.Now()
-		claims := map[string]interface{}{
+		claims := map[string]any{
 			"foo": "bar",
 			"exp": now.Add(15 * time.Minute).Unix(),
 			"iat": now.Unix(),

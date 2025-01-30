@@ -24,7 +24,7 @@ func main() {
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
-	token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
+	token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]any{
 		"iat": now.Unix(),
 		"exp": now.Add(15 * time.Minute).Unix(),
 		"foo": "bar",
@@ -47,7 +47,7 @@ func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 func protectedHandler(w http.ResponseWriter, r *http.Request) {
 	verifiedToken := r.Context().Value(tokenContextKey).(*jwt.VerifiedToken)
 
-	var claims map[string]interface{}
+	var claims map[string]any
 	// ^ can be any type, e.g.
 	// var claims = struct {
 	// 	Foo string `json:"foo"`
@@ -108,14 +108,14 @@ func verify2(next http.HandlerFunc) http.HandlerFunc {
 	/*
 		Another idea, when you want a single middleware to support different
 		Go structs (benefit: type safety when access the claims fields):
-		verify2(getClaimsPtr func() interface{}, next http.HandlerFunc) {
+		verify2(getClaimsPtr func() any, next http.HandlerFunc) {
 			// [...]
 			claimsPtr := getClaimsPtr()
 			verifiedToken.Claims(claimsPtr)
 			// [...]
 		}
 		Another idea's usage:
-		verify2(func() interface{} {
+		verify2(func() any {
 			return &userClaims{}
 		}, routeHandler)
 		Inside the handler:

@@ -45,7 +45,7 @@ func BenchmarkVerify_jwt_go(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err := jwtgo.Parse(tokenString, func(token *jwtgo.Token) (interface{}, error) {
+		_, err := jwtgo.Parse(tokenString, func(token *jwtgo.Token) (any, error) {
 			return testSecret, nil
 		})
 		if err != nil {

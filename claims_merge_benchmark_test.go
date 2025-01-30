@@ -117,7 +117,7 @@ func BenchmarkStructToMapReflection(b *testing.B) {
 	}
 }
 
-func structToMapJSON(i interface{}) (Map, error) {
+func structToMapJSON(i any) (Map, error) {
 	if m, ok := i.(Map); ok {
 		return m, nil
 	}
@@ -136,7 +136,7 @@ func structToMapJSON(i interface{}) (Map, error) {
 	return m, nil
 }
 
-func structToMapReflection(i interface{}) (Map, error) {
+func structToMapReflection(i any) (Map, error) {
 	if m, ok := i.(Map); ok {
 		return m, nil
 	}
@@ -147,7 +147,7 @@ func structToMapReflection(i interface{}) (Map, error) {
 	}
 
 	n := v.NumField()
-	m := make(map[string]interface{}, n)
+	m := make(map[string]any, n)
 
 	typ := v.Type()
 	for i := 0; i < n; i++ {

@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// Map is just a type alias, a shortcut of map[string]interface{}.
-type Map = map[string]interface{}
+// Map is just a type alias, a shortcut of map[string]any.
+type Map = map[string]any
 
 // Clock is used to validate tokens expiration if the "exp" (expiration) exists in the payload.
 // It can be overridden to use any other time value, useful for testing.
@@ -36,7 +36,7 @@ var ReadFile = os.ReadFile
 // Marshal same as json.Marshal.
 // This variable can be modified to enable custom encoder behavior
 // for a signed payload.
-var Marshal = func(v interface{}) ([]byte, error) {
+var Marshal = func(v any) ([]byte, error) {
 	if b, ok := v.([]byte); ok {
 		return b, nil
 	}
@@ -45,7 +45,7 @@ var Marshal = func(v interface{}) ([]byte, error) {
 }
 
 // Unmarshal same as json.Unmarshal
-// but with the Decoder unmarshals a number into an interface{} as a
+// but with the Decoder unmarshals a number into an any as a
 // json.Number instead of as a float64.
 // This is the function being called on `VerifiedToken.Claims` method.
 // This variable can be modified to enable custom decoder behavior.
@@ -63,7 +63,7 @@ var Unmarshal = defaultUnmarshal
 //	A Go struct like: UserClaims { Username string `json:"username,required" `}
 //	[...]
 //	And `Verify` as usual.
-func UnmarshalWithRequired(payload []byte, dest interface{}) error {
+func UnmarshalWithRequired(payload []byte, dest any) error {
 	if err := defaultUnmarshal(payload, dest); err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func UnmarshalWithRequired(payload []byte, dest interface{}) error {
 	return meetRequirements(reflect.ValueOf(dest))
 }
 
-func defaultUnmarshal(payload []byte, dest interface{}) error {
+func defaultUnmarshal(payload []byte, dest any) error {
 	dec := json.NewDecoder(bytes.NewReader(payload))
 	dec.UseNumber() // fixes the issue of setting float64 instead of int64 on maps.
 	return dec.Decode(&dest)

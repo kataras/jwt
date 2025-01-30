@@ -50,7 +50,7 @@ var sharedKey = []byte("sercrethatmaycontainch@r$32chars") // OR jwt.MustGenerat
 // generate token to use.
 func getTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// now := time.Now()
-	// token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]interface{}{
+	// token, err := jwt.Sign(jwt.HS256, sharedKey, map[string]any{
 	// 	"iat": now.Unix(),
 	// 	"exp": now.Add(15 * time.Minute).Unix(),
 	// 	"foo": "bar",
@@ -94,7 +94,7 @@ func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse custom claims...
-	var claims map[string]interface{}
+	var claims map[string]any
 	// ^ can be any type, e.g.
 	// var claims = struct {
 	// 	Foo string `json:"foo"`

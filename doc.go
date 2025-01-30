@@ -31,7 +31,7 @@ Getting Started:
 
 	func main() {
 	// Generate a token:
-	myClaims := map[string]interface{}{
+	myClaims := map[string]any{
 		"foo": "bar",
 	}
 	token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.MaxAge(15 * time.Minute))
@@ -39,7 +39,7 @@ Getting Started:
 	// Verify and extract claims from a token:
 	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
 
-	var claims map[string]interface{}
+	var claims map[string]any
 	err = verifiedToken.Claims(&claims)
 	}
 */

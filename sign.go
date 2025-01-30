@@ -15,7 +15,7 @@ package jwt
 // Example Code to pass custom and expiration Claims manually:
 //
 //	now := time.Now()
-//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), map[string]interface{}{
+//	token, err := jwt.Sign(jwt.HS256, []byte("secret"), map[string]any{
 //	  "iat": now.Unix(),
 //	  "exp": now.Add(15 * time.Minute).Unix(),
 //	  "foo": "bar",
@@ -31,28 +31,28 @@ package jwt
 //
 //	type User struct { Username string `json:"username"` }
 //	token, err := jwt.Sign(jwt.HS256, []byte("secret"), User{Username: "kataras"}, jwt.MaxAge(15 * time.Minute))
-func Sign(alg Alg, key PrivateKey, claims interface{}, opts ...SignOption) ([]byte, error) {
+func Sign(alg Alg, key PrivateKey, claims any, opts ...SignOption) ([]byte, error) {
 	return signToken(alg, key, nil, claims, nil, opts...)
 }
 
 // SignEncrypted same as `Sign` but it encrypts the payload part with the given "encrypt" function.
 // The "encrypt" function is called AFTER Marshal.
 // Look the `GCM` function for details.
-func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, opts ...SignOption) ([]byte, error) {
+func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, opts ...SignOption) ([]byte, error) {
 	return signToken(alg, key, encrypt, claims, nil, opts...)
 }
 
 // SignWithHeader same as `Sign` but accepts a custom json header structure too.
-func SignWithHeader(alg Alg, key PrivateKey, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
+func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts ...SignOption) ([]byte, error) {
 	return signToken(alg, key, nil, claims, customHeader, opts...)
 }
 
 // SignEncryptedWithHeader same as `SignEncrypted` but accepts a custom json header structure too.
-func SignEncryptedWithHeader(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
+func SignEncryptedWithHeader(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHeader any, opts ...SignOption) ([]byte, error) {
 	return signToken(alg, key, encrypt, claims, customHeader, opts...)
 }
 
-func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims interface{}, customHeader interface{}, opts ...SignOption) ([]byte, error) {
+func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHeader any, opts ...SignOption) ([]byte, error) {
 	if len(opts) > 0 {
 		var standardClaims Claims
 		for _, opt := range opts {

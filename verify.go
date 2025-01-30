@@ -22,7 +22,7 @@ import (
 //
 //	verifiedToken, err := jwt.Verify(jwt.HS256, []byte("secret"), token)
 //	[handle error...]
-//	var claims map[string]interface{}
+//	var claims map[string]any
 //	verifiedToken.Claims(&claims)
 func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
 	return verifyToken(alg, key, nil, token, nil, validators...)
@@ -122,7 +122,7 @@ type VerifiedToken struct {
 // and validated at the `Verify` function itself,
 // therefore NO FURTHER STEP is required
 // to validate the "exp", "iat" and "nbf" claims.
-func (t *VerifiedToken) Claims(dest interface{}) error {
+func (t *VerifiedToken) Claims(dest any) error {
 	return Unmarshal(t.Payload, dest)
 }
 

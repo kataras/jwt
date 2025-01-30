@@ -68,8 +68,8 @@ type claimsSecondChance struct {
 	Expiry    json.Number `json:"exp,omitempty"`
 	ID        string      `json:"jti,omitempty"`
 	OriginID  string      `json:"origin_jti,omitempty"`
-	Issuer    interface{} `json:"iss,omitempty"`
-	Subject   interface{} `json:"sub,omitempty"`
+	Issuer    any         `json:"iss,omitempty"`
+	Subject   any         `json:"sub,omitempty"`
 	Audience  Audience    `json:"aud,omitempty"`
 }
 
@@ -90,7 +90,7 @@ func (c claimsSecondChance) toClaims() Claims {
 	}
 }
 
-func getStr(v interface{}) string {
+func getStr(v any) string {
 	if v == nil {
 		return ""
 	}
@@ -246,7 +246,7 @@ func MaxAge(maxAge time.Duration) SignOptionFunc {
 
 // MaxAgeMap is a helper to set "exp" and "iat" claims to a map claims.
 // Usage:
-// claims := map[string]interface{}{"foo": "bar"}
+// claims := map[string]any{"foo": "bar"}
 // MaxAgeMap(15 * time.Minute, claims)
 // Sign(alg, key, claims)
 func MaxAgeMap(maxAge time.Duration, claims Map) {
@@ -270,7 +270,7 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 //
 // Usage:
 //
-//	claims := Merge(map[string]interface{}{"foo":"bar"}, Claims{
+//	claims := Merge(map[string]any{"foo":"bar"}, Claims{
 //	  MaxAge: 15 * time.Minute,
 //	  Issuer: "an-issuer",
 //	})
@@ -280,7 +280,7 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 //
 //	Sign(alg, key, claims, MaxAge(time.Duration))
 //	Sign(alg, key, claims, Claims{...})
-func Merge(claims interface{}, other interface{}) []byte {
+func Merge(claims any, other any) []byte {
 	claimsB, err := Marshal(claims)
 	if err != nil {
 		return nil

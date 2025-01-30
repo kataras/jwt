@@ -18,12 +18,12 @@ var (
 
 type (
 	// PrivateKey is a generic type, this key is responsible for signing the token.
-	PrivateKey = interface{}
+	PrivateKey = any
 	// PublicKey is a generic type, this key is responsible to verify the token.
-	PublicKey = interface{}
+	PublicKey = any
 )
 
-func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader interface{}) ([]byte, error) {
+func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader any) ([]byte, error) {
 	var header []byte
 	if customHeader != nil {
 		h, err := createCustomHeader(customHeader)
@@ -169,7 +169,7 @@ func createHeader(alg string) []byte {
 	return Base64Encode([]byte(`{"alg":"` + alg + `","typ":"JWT"}`))
 }
 
-func createCustomHeader(header interface{}) ([]byte, error) {
+func createCustomHeader(header any) ([]byte, error) {
 	b, err := Marshal(header)
 	if err != nil {
 		return nil, err
@@ -325,6 +325,6 @@ type UnverifiedToken struct {
 }
 
 // Claims decodes the `Payload` field to the "dest".
-func (t *UnverifiedToken) Claims(dest interface{}) error {
+func (t *UnverifiedToken) Claims(dest any) error {
 	return Unmarshal(t.Payload, dest)
 }

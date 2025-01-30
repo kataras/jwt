@@ -57,7 +57,7 @@ func (a *algHMAC) Verify(key PublicKey, headerAndPayload []byte, signature []byt
 
 // Key Helper.
 
-var panicHandler = func(v interface{}) {
+var panicHandler = func(v any) {
 	panic(v)
 }
 
