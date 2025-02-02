@@ -244,6 +244,12 @@ func MaxAge(maxAge time.Duration) SignOptionFunc {
 	}
 }
 
+// NoMaxAge is a SignOption to set the expiration "exp", "iat" JWT standard claims to zero.
+func NoMaxAge(c *Claims) {
+	c.Expiry = 0
+	c.IssuedAt = 0
+}
+
 // MaxAgeMap is a helper to set "exp" and "iat" claims to a map claims.
 // Usage:
 // claims := map[string]any{"foo": "bar"}
