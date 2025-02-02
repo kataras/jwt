@@ -84,6 +84,8 @@ func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHe
 //
 // Available SignOptions:
 // - MaxAge(time.Duration)
+// - NoMaxAge()
+// - []Audience{"aud"}
 // - Claims{}
 type SignOption interface {
 	// ApplyClaims should apply standard claims.
