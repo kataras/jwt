@@ -13,8 +13,10 @@ import (
 func Leeway(leeway time.Duration) TokenValidatorFunc {
 	return func(_ []byte, standardClaims Claims, err error) error {
 		if err == nil {
-			if Clock().Add(leeway).Round(time.Second).Unix() > standardClaims.Expiry {
-				return ErrExpired
+			if standardClaims.Expiry > 0 {
+				if Clock().Add(leeway).Round(time.Second).Unix() > standardClaims.Expiry {
+					return ErrExpired
+				}
 			}
 		}
 
