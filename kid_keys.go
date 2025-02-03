@@ -250,9 +250,12 @@ func (keys Keys) VerifyToken(token []byte, claimsPtr any, validators ...TokenVal
 	return verifiedToken.Claims(&claimsPtr)
 }
 
-// JWKS returns the JSON Web Key Set (JWKS) based on the registered keys (RSA or EdDSA).
+// JWKS returns the JSON Web Key Set (JWKS) based on the registered keys.
+// Its result is ready for serving the JWKS on /.well-known/jwks.json.
+//
+// See https://tools.ietf.org/html/rfc7517#section-5 for more.
 func (keys Keys) JWKS() (*JWKS, error) {
-	jkeys := make([]*JWK, 0, len(keys))
+	sets := make([]*JWK, 0, len(keys))
 
 	for _, key := range keys {
 		alg := ""
@@ -263,9 +266,9 @@ func (keys Keys) JWKS() (*JWKS, error) {
 		if err != nil {
 			return nil, err
 		}
-		jkeys = append(jkeys, jwk)
+		sets = append(sets, jwk)
 	}
 
-	jwks := JWKS{Keys: jkeys}
+	jwks := JWKS{Keys: sets}
 	return &jwks, nil
 }

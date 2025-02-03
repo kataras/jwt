@@ -563,6 +563,7 @@ Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
 Here is what helped me to implement JWT in Go:
 
 - The JWT RFC: https://tools.ietf.org/html/rfc7519
+- The JWK RFC: See https://tools.ietf.org/html/rfc7517#section-5
 - The official JWT book, all you need to learn: https://auth0.com/resources/ebooks/jwt-handbook
 - Create Your JWTs From Scratch (PHP): https://dzone.com/articles/create-your-jwts-from-scratch
 - How to make your own JWT (Javascript): https://medium.com/code-wave/how-to-make-your-own-jwt-c1a32b5c3898

@@ -234,10 +234,11 @@ func (c Claims) ApplyClaims(dest *Claims) {
 // See the `Clock` package-level variable to modify
 // the current time function.
 func MaxAge(maxAge time.Duration) SignOptionFunc {
+	if maxAge <= time.Second {
+		return NoMaxAge
+	}
+
 	return func(c *Claims) {
-		if maxAge <= time.Second {
-			return
-		}
 		now := Clock()
 		c.Expiry = now.Add(maxAge).Unix()
 		c.IssuedAt = now.Unix()

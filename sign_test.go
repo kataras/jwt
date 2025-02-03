@@ -10,7 +10,7 @@ import (
 
 func TestSignOption(t *testing.T) {
 	now := time.Date(2020, 10, 26, 1, 1, 1, 1, time.Local)
-	exp := now.Add(time.Second).Unix()
+	exp := now.Add(time.Second * 2).Unix()
 	iat := now.Unix()
 	type claims struct {
 		Foo      string `json:"foo"`
@@ -35,7 +35,7 @@ func TestSignOption(t *testing.T) {
 		return now
 	}
 
-	token, err := Sign(testAlg, testSecret, Map{"foo": "bar"}, expectedStdClaims, MaxAge(time.Second))
+	token, err := Sign(testAlg, testSecret, Map{"foo": "bar"}, expectedStdClaims, MaxAge(time.Second*2))
 
 	if err != nil {
 		t.Fatal(err)
