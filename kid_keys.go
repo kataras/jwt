@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -93,6 +94,8 @@ type (
 		// Encryption using the Galois Counter mode of operation with
 		// AES cipher symmetric-key cryptographic.
 		//
+		// It should be HEX-encoded string value.
+		//
 		// The value should be the AES key,
 		// either 16, 24, or 32 bytes to select
 		// AES-128, AES-192, or AES-256.
@@ -160,7 +163,11 @@ func (c KeysConfiguration) Load() (Keys, error) {
 		}
 
 		if entry.EncryptionKey != "" {
-			encrypt, decrypt, err := GCM([]byte(entry.EncryptionKey), nil)
+			encryptionKey, err := hex.DecodeString(entry.EncryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("jwt: load keys: decode encryption key (hex): %w", err)
+			}
+			encrypt, decrypt, err := GCM([]byte(encryptionKey), nil)
 			if err != nil {
 				return nil, fmt.Errorf("jwt: load keys: build encryption: %w", err)
 			}
