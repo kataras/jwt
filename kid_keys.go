@@ -103,6 +103,28 @@ type (
 	}
 )
 
+// Clone returns a new copy of the KeyConfiguration.
+func (c KeyConfiguration) Clone() KeyConfiguration {
+	return KeyConfiguration{
+		ID:            c.ID,
+		Alg:           c.Alg,
+		Private:       c.Private,
+		Public:        c.Public,
+		MaxAge:        c.MaxAge,
+		EncryptionKey: c.EncryptionKey,
+	}
+}
+
+// Clone returns a new copy of the KeysConfiguration.
+// Load or MustLoad must be called to parse the keys after the clone.
+func (c KeysConfiguration) Clone() KeysConfiguration {
+	cloned := make(KeysConfiguration, len(c))
+	for i, v := range c {
+		cloned[i] = v.Clone()
+	}
+	return cloned
+}
+
 // Get returns the key configuration based on its id.
 func (c KeysConfiguration) Get(kid string) (KeyConfiguration, bool) {
 	for _, entry := range c {
