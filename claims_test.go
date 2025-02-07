@@ -199,9 +199,9 @@ func TestMerge(t *testing.T) {
 			},
 			expected: map[string]interface{}{
 				"custom": "value",
-				"iss":   "test-issuer",
-				"iat":   float64(now),    // JSON numbers are decoded as float64
-				"exp":   float64(expiry),
+				"iss":    "test-issuer",
+				"iat":    float64(now), // JSON numbers are decoded as float64
+				"exp":    float64(expiry),
 			},
 		},
 		{
@@ -215,14 +215,12 @@ func TestMerge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := Merge(tt.claims, tt.other)
-			
-			// 解码结果
+
 			var got map[string]interface{}
 			if err := json.Unmarshal(result, &got); err != nil {
 				t.Fatalf("Failed to unmarshal result: %v", err)
 			}
 
-			// 比较解码后的结果
 			if !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("Merge() = %v, want %v", got, tt.expected)
 			}
@@ -264,9 +262,9 @@ func TestMergeAndSign(t *testing.T) {
 			},
 			expected: map[string]interface{}{
 				"custom": "value",
-				"iss":   "test-issuer",
-				"iat":   fmt.Sprintf("%d", now),
-				"exp":   fmt.Sprintf("%d", expiry),
+				"iss":    "test-issuer",
+				"iat":    fmt.Sprintf("%d", now),
+				"exp":    fmt.Sprintf("%d", expiry),
 			},
 		},
 	}
@@ -274,19 +272,16 @@ func TestMergeAndSign(t *testing.T) {
 	key := []byte("secret")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 合并 claims
+
 			mergedClaims := Merge(tt.claims, tt.other)
 
-			// 使用合并后的 claims 生成 token
 			token, err := Sign(HS256, key, mergedClaims)
 			if err != nil {
 				t.Fatalf("Failed to sign token: %v", err)
 			}
 
-			// 打印生成的 token
 			t.Logf("Generated token: %s", string(token))
 
-			// 验证并解析 token
 			var verifiedClaims map[string]interface{}
 			verifiedToken, err := Verify(HS256, key, token)
 			if err != nil {
@@ -298,7 +293,6 @@ func TestMergeAndSign(t *testing.T) {
 				t.Fatalf("Failed to get claims from token: %v", err)
 			}
 
-			// 将 json.Number 转换为字符串
 			if exp, ok := verifiedClaims["exp"].(json.Number); ok {
 				verifiedClaims["exp"] = exp.String()
 			}
@@ -306,13 +300,11 @@ func TestMergeAndSign(t *testing.T) {
 				verifiedClaims["iat"] = iat.String()
 			}
 
-			// 打印类型信息
 			t.Logf("Expected exp type: %T, value: %v", tt.expected["exp"], tt.expected["exp"])
 			t.Logf("Actual exp type: %T, value: %v", verifiedClaims["exp"], verifiedClaims["exp"])
 			t.Logf("Expected iat type: %T, value: %v", tt.expected["iat"], tt.expected["iat"])
 			t.Logf("Actual iat type: %T, value: %v", verifiedClaims["iat"], verifiedClaims["iat"])
 
-			// 比较解析后的 claims 是否与预期一致
 			if !reflect.DeepEqual(verifiedClaims, tt.expected) {
 				t.Errorf("Claims after merge and verify = %#v, want %#v", verifiedClaims, tt.expected)
 			}
