@@ -296,12 +296,17 @@ func Merge(claims any, other any) []byte {
 		return nil
 	}
 
+	// Return the serialized claims if `other` is nil.
+	if other == nil {
+		return claimsB
+	}
+
 	otherB, err := Marshal(other)
 	if err != nil {
 		return nil
 	}
 
-	if len(otherB) == 0 {
+	if len(otherB) == 0 || string(otherB) == "{}" {
 		return claimsB
 	}
 
