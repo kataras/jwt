@@ -1,7 +1,12 @@
 package jwt
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"strconv"
@@ -102,6 +107,133 @@ type (
 		EncryptionKey string `json:"encryption_key" yaml:"EncryptionKey" toml:"EncryptionKey" ini:"encryption_key"`
 	}
 )
+
+// Configuration converts a Key to a key configuration.
+// It will throw an error if the key includes encryption.
+func (key *Key) Configuration() (KeyConfiguration, error) {
+	if key.Encrypt != nil || key.Decrypt != nil {
+		return KeyConfiguration{}, errors.New("jwt: cannot export keys with encryption")
+	}
+
+	var privatePEM, publicPEM string
+	if key.Private != nil {
+		text, err := EncodePrivateKeyToPEM(key.Private)
+		if err != nil {
+			return KeyConfiguration{}, fmt.Errorf("jwt: %w", err)
+		}
+		privatePEM = text
+	}
+	if key.Public != nil {
+		text, err := EncodePublicKeyToPEM(key.Public)
+		if err != nil {
+			return KeyConfiguration{}, fmt.Errorf("jwt: %w", err)
+		}
+		publicPEM = text
+	}
+
+	config := KeyConfiguration{
+		ID:      key.ID,
+		Alg:     key.Alg.Name(),
+		Private: privatePEM,
+		Public:  publicPEM,
+		MaxAge:  key.MaxAge,
+	}
+
+	return config, nil
+}
+
+// Configuration converts Keys to a keys configuration.
+// It will throw an error if any key includes encryption.
+//
+// Useful to construct a KeysConfiguration
+// from JWKS#PublicKeys() method.
+func (keys Keys) Configuration() (KeysConfiguration, error) {
+	config := make(KeysConfiguration, 0, len(keys))
+	for _, key := range keys {
+		keyConfig, err := key.Configuration()
+		if err != nil {
+			return nil, err
+		}
+		config = append(config, keyConfig)
+	}
+
+	return config, nil
+}
+
+// EncodePrivateKeyToPEM encodes a PrivateKey to a PEM-encoded string.
+func EncodePrivateKeyToPEM(key PrivateKey) (string, error) {
+	var pemBlock *pem.Block
+
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		privBytes := x509.MarshalPKCS1PrivateKey(k)
+		pemBlock = &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privBytes,
+		}
+	case *ecdsa.PrivateKey:
+		privBytes, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal ECDSA private key: %v", err)
+		}
+		pemBlock = &pem.Block{
+			Type:  "EC PRIVATE KEY",
+			Bytes: privBytes,
+		}
+	case ed25519.PrivateKey:
+		privBytes, err := x509.MarshalPKCS8PrivateKey(k)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal Ed25519 private key: %v", err)
+		}
+		pemBlock = &pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: privBytes,
+		}
+	default:
+		return "", fmt.Errorf("unsupported private key type: %T", key)
+	}
+
+	return string(pem.EncodeToMemory(pemBlock)), nil
+}
+
+// EncodePublicKeyToPEM encodes a PublicKey to a PEM-encoded string.
+func EncodePublicKeyToPEM(key PublicKey) (string, error) {
+	var pemBlock *pem.Block
+
+	switch k := key.(type) {
+	case *rsa.PublicKey:
+		pubBytes, err := x509.MarshalPKIXPublicKey(k)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal RSA public key: %v", err)
+		}
+		pemBlock = &pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: pubBytes,
+		}
+	case *ecdsa.PublicKey:
+		pubBytes, err := x509.MarshalPKIXPublicKey(k)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal ECDSA public key: %v", err)
+		}
+		pemBlock = &pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: pubBytes,
+		}
+	case ed25519.PublicKey:
+		pubBytes, err := x509.MarshalPKIXPublicKey(k)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal Ed25519 public key: %v", err)
+		}
+		pemBlock = &pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: pubBytes,
+		}
+	default:
+		return "", fmt.Errorf("unsupported public key type: %T", key)
+	}
+
+	return string(pem.EncodeToMemory(pemBlock)), nil
+}
 
 // Clone returns a new copy of the KeyConfiguration.
 func (c KeyConfiguration) Clone() KeyConfiguration {
