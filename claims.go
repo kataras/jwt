@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -275,12 +276,14 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 	}
 }
 
-// Merge accepts two claim structs or maps
-// and returns a flattened JSON result of both (no checks for duplicatations are maden).
+// Merge merges a variadic number of values into a single JSON object.
+// Each non‑nil value must marshal to a JSON object (i.e. it must start with '{' and end with '}').
+// Nil values and empty objects ("{}") are skipped.
+// Returns an error if any non‑nil value does not marshal to a JSON object.
 //
 // Usage:
 //
-//	claims := Merge(map[string]any{"foo":"bar"}, Claims{
+//	claims, err := Merge(map[string]any{"foo":"bar"}, Claims{
 //	  MaxAge: 15 * time.Minute,
 //	  Issuer: "an-issuer",
 //	})
@@ -290,30 +293,37 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 //
 //	Sign(alg, key, claims, MaxAge(time.Duration))
 //	Sign(alg, key, claims, Claims{...})
-func Merge(claims any, other any) []byte {
-	claimsB, err := Marshal(claims)
-	if err != nil {
-		return nil
+func Merge(values ...any) ([]byte, error) {
+	parts := make([][]byte, 0, len(values))
+
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		jsonBytes, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the marshaled JSON is an object.
+		if len(jsonBytes) < 2 || jsonBytes[0] != '{' || jsonBytes[len(jsonBytes)-1] != '}' {
+			return nil, fmt.Errorf("value does not marshal to a JSON object: %v", value)
+		}
+		// Skip empty objects ("{}")
+		if len(jsonBytes) == 2 {
+			continue
+		}
+		// Remove the leading '{' and trailing '}'.
+		inner := jsonBytes[1 : len(jsonBytes)-1]
+		parts = append(parts, inner)
 	}
 
-	// Return the serialized claims if `other` is nil.
-	if other == nil {
-		return claimsB
+	var combined []byte
+	if len(parts) == 0 {
+		combined = []byte("{}")
+	} else {
+		// Join inner parts with commas and wrap with curly braces.
+		combined = bytes.Join([][]byte{[]byte("{"), bytes.Join(parts, []byte(",")), []byte("}")}, nil)
 	}
 
-	otherB, err := Marshal(other)
-	if err != nil {
-		return nil
-	}
-
-	if len(otherB) == 0 || string(otherB) == "{}" {
-		return claimsB
-	}
-
-	claimsB = claimsB[0 : len(claimsB)-1] // remove last '}'
-	otherB = otherB[1:]                   // remove first '{'
-
-	raw := append(claimsB, ',')
-	raw = append(raw, otherB...)
-	return raw
+	return combined, nil
 }

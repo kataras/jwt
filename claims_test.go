@@ -214,7 +214,10 @@ func TestMerge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := Merge(tt.claims, tt.other)
+			result, err := Merge(tt.claims, tt.other)
+			if err != nil {
+				t.Fatalf("Failed to merge: %v", err)
+			}
 
 			var got map[string]interface{}
 			if err := json.Unmarshal(result, &got); err != nil {
@@ -272,8 +275,10 @@ func TestMergeAndSign(t *testing.T) {
 	key := []byte("secret")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			mergedClaims := Merge(tt.claims, tt.other)
+			mergedClaims, err := Merge(tt.claims, tt.other)
+			if err != nil {
+				t.Fatalf("Failed to merge: %v", err)
+			}
 
 			token, err := Sign(HS256, key, mergedClaims)
 			if err != nil {
@@ -309,5 +314,156 @@ func TestMergeAndSign(t *testing.T) {
 				t.Errorf("Claims after merge and verify = %#v, want %#v", verifiedClaims, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMergeJSONNilValues(t *testing.T) {
+	// When all values are nil, expect an empty object.
+	merged, err := Merge(nil, nil)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	expected := "{}"
+	if string(merged) != expected {
+		t.Errorf("Expected %s, got %s", expected, string(merged))
+	}
+}
+
+func TestMergeJSONEmptyObjects(t *testing.T) {
+	// When all values are empty objects, expect an empty object.
+	merged, err := Merge(map[string]int{}, map[string]int{})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	expected := "{}"
+	if string(merged) != expected {
+		t.Errorf("Expected %s, got %s", expected, string(merged))
+	}
+}
+
+func TestMergeJSONSingleObject(t *testing.T) {
+	// Single non-empty object should be returned as is.
+	input := map[string]int{"a": 1}
+	merged, err := Merge(input)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	expectedBytes, _ := json.Marshal(input)
+	if string(merged) != string(expectedBytes) {
+		t.Errorf("Expected %s, got %s", string(expectedBytes), string(merged))
+	}
+}
+
+func TestMergeJSONTwoObjects(t *testing.T) {
+	// Merge two objects.
+	obj1 := map[string]int{"a": 1}
+	obj2 := map[string]int{"b": 2}
+	merged, err := Merge(obj1, obj2)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	var result map[string]int
+	if err := json.Unmarshal(merged, &result); err != nil {
+		t.Fatalf("Error unmarshalling merged JSON: %v", err)
+	}
+	expected := map[string]int{"a": 1, "b": 2}
+	if len(result) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(result))
+	}
+	for k, v := range expected {
+		if result[k] != v {
+			t.Errorf("For key %s, expected %d, got %d", k, v, result[k])
+		}
+	}
+}
+
+func TestMergeJSONMultipleObjects(t *testing.T) {
+	// Test merging with a mix of nil, empty, and valid objects.
+	obj1 := map[string]int{"a": 1}
+	obj2 := map[string]int{"b": 2}
+	obj3 := map[string]int{"c": 3}
+	merged, err := Merge(obj1, nil, map[string]int{}, obj2, obj3)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	var result map[string]int
+	if err := json.Unmarshal(merged, &result); err != nil {
+		t.Fatalf("Error unmarshalling merged JSON: %v", err)
+	}
+	expected := map[string]int{"a": 1, "b": 2, "c": 3}
+	if len(result) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(result))
+	}
+	for k, v := range expected {
+		if result[k] != v {
+			t.Errorf("For key %s, expected %d, got %d", k, v, result[k])
+		}
+	}
+}
+
+func TestMergeJSONOverlappingKeys(t *testing.T) {
+	// In case of overlapping keys, the later object will contribute its value.
+	obj1 := map[string]int{"a": 1, "b": 2}
+	obj2 := map[string]int{"b": 3, "c": 4}
+	merged, err := Merge(obj1, obj2)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	var result map[string]int
+	if err := json.Unmarshal(merged, &result); err != nil {
+		t.Fatalf("Error unmarshalling merged JSON: %v", err)
+	}
+	// In Go's map unmarshalling, duplicate keys result in the last one taking effect.
+	expected := map[string]int{"a": 1, "b": 3, "c": 4}
+	if len(result) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(result))
+	}
+	for k, v := range expected {
+		if result[k] != v {
+			t.Errorf("For key %s, expected %d, got %d", k, v, result[k])
+		}
+	}
+}
+
+func TestMergeJSONNestedObjects(t *testing.T) {
+	// Test merging objects that contain nested objects.
+	obj1 := map[string]any{"a": map[string]int{"x": 1}}
+	obj2 := map[string]any{"b": map[string]int{"y": 2}}
+	merged, err := Merge(obj1, obj2)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(merged, &result); err != nil {
+		t.Fatalf("Error unmarshalling merged JSON: %v", err)
+	}
+	// Validate nested content.
+	a, ok := result["a"].(map[string]any)
+	if !ok {
+		t.Errorf("Expected key 'a' to be a nested object")
+	} else if a["x"].(float64) != 1 {
+		t.Errorf("Expected nested key 'x' to be 1, got %v", a["x"])
+	}
+	b, ok := result["b"].(map[string]any)
+	if !ok {
+		t.Errorf("Expected key 'b' to be a nested object")
+	} else if b["y"].(float64) != 2 {
+		t.Errorf("Expected nested key 'y' to be 2, got %v", b["y"])
+	}
+}
+
+func TestMergeJSONNonObject(t *testing.T) {
+	// If a value does not marshal to a JSON object, expect an error.
+	_, err := Merge("not an object")
+	if err == nil {
+		t.Error("Expected error when value is not a JSON object")
+	}
+}
+
+func TestMergeJSONArray(t *testing.T) {
+	// If a value is an array, it is not considered a JSON object.
+	_, err := Merge([]int{1, 2, 3})
+	if err == nil {
+		t.Error("Expected error when value is not a JSON object")
 	}
 }

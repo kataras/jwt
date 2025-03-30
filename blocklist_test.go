@@ -13,7 +13,13 @@ func TestBlocklist(t *testing.T) {
 	key := "jti:1"
 	c := Map{"username": "kataras", "age": 27}
 	sc := Claims{Expiry: Clock().Add(2 * time.Minute).Unix(), ID: key}
-	token, err := Sign(testAlg, testSecret, Merge(c, sc))
+
+	mergedClaims, err := Merge(c, sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, err := Sign(testAlg, testSecret, mergedClaims)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -62,7 +62,11 @@ func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHe
 			opt.ApplyClaims(&standardClaims)
 		}
 
-		claims = Merge(claims, standardClaims)
+		var err error
+		claims, err = Merge(claims, standardClaims)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	payload, err := Marshal(claims)

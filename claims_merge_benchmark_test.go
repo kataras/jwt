@@ -50,7 +50,11 @@ func BenchmarkMerge(b *testing.B) { // Our way is the fastest and others' advand
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		claims := Merge(testStructValue, Claims{Expiry: exp, IssuedAt: iat})
+		claims, err := Merge(testStructValue, Claims{Expiry: exp, IssuedAt: iat})
+		if err != nil {
+			b.Fatal(err)
+		}
+
 		payload, err := Marshal(claims)
 		if err != nil {
 			b.Fatal(err)
