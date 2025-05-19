@@ -296,14 +296,31 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 func Merge(values ...any) ([]byte, error) {
 	parts := make([][]byte, 0, len(values))
 
-	for _, value := range values {
+	for i, value := range values {
 		if value == nil {
 			continue
 		}
-		jsonBytes, err := json.Marshal(value)
-		if err != nil {
-			return nil, err
+
+		var (
+			jsonBytes []byte
+			err       error
+		)
+
+		switch v := value.(type) {
+		case string:
+			// If the value is a string, treat it as a JSON object.
+			jsonBytes = []byte(v)
+		case []byte:
+			// If the value is a byte slice, treat it as a JSON object.
+			jsonBytes = v
+		default:
+			jsonBytes, err = json.Marshal(value)
 		}
+
+		if err != nil {
+			return nil, fmt.Errorf("part: %d: %w", i+1, err)
+		}
+
 		// Check that the marshaled JSON is an object.
 		if len(jsonBytes) < 2 || jsonBytes[0] != '{' || jsonBytes[len(jsonBytes)-1] != '}' {
 			return nil, fmt.Errorf("value does not marshal to a JSON object: %v", value)
