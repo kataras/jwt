@@ -3,6 +3,7 @@ package jwt
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -214,7 +215,7 @@ type HeaderValidator func(alg string, headerDecoded []byte) (Alg, PublicKey, Inj
 // its serialized format.
 func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, InjectFunc, error) {
 	if n := len(headerDecoded); n < 25 /* 28 but allow custom short algs*/ {
-		if n == 15 { // header without "typ": "JWT".
+		if n == 15 { // header without "typ": "JWT" and no additional fields.
 			expectedHeader := createHeaderWithoutTyp(alg)
 			if bytes.Equal(expectedHeader, headerDecoded) {
 				return nil, nil, nil, nil
@@ -239,7 +240,29 @@ func compareHeader(alg string, headerDecoded []byte) (Alg, PublicKey, InjectFunc
 
 	expectedHeader := createHeaderRaw(alg)
 	if !bytes.Equal(expectedHeader, headerDecoded) {
-		return nil, nil, nil, ErrTokenAlg
+		// The fast path failed. Try JSON parsing to handle:
+		// 1. Headers with additional fields (like "kid")
+		// 2. Headers missing the "typ" field
+		// 3. Non-standard field ordering
+		var header map[string]interface{}
+		if err := json.Unmarshal(headerDecoded, &header); err != nil {
+			return nil, nil, nil, ErrTokenAlg
+		}
+
+		// Validate that the algorithm matches
+		if headerAlg, ok := header["alg"].(string); !ok || headerAlg != alg {
+			return nil, nil, nil, ErrTokenAlg
+		}
+
+		// If typ field is present, it must be "JWT"
+		if typ, exists := header["typ"]; exists {
+			if typStr, ok := typ.(string); !ok || typStr != "JWT" {
+				return nil, nil, nil, ErrTokenAlg
+			}
+		}
+
+		// Header is valid - algorithm matches and typ is either missing or "JWT"
+		return nil, nil, nil, nil
 	}
 
 	return nil, nil, nil, nil
