@@ -7,14 +7,33 @@ import (
 	"strings"
 )
 
-// ErrMissingKey when token does not contain a required JSON field.
-// Check with errors.Is.
+// ErrMissingKey indicates that a token is missing a required JSON field.
+// This error is returned when using UnmarshalWithRequired and a struct field
+// tagged with `json:"field,required"` is missing from the token payload.
+//
+// Use errors.Is(err, ErrMissingKey) to check for this specific error.
 var ErrMissingKey = errors.New("jwt: token is missing a required field")
 
-// HasRequiredJSONTag reports whether a specific value of "i"
-// contains one or more `json:"xxx,required"` struct fields tags.
+// HasRequiredJSONTag reports whether a struct field has the "required" JSON tag.
 //
-// Can be used to precalculate the unmarshaller (see `UnmarshalWithRequired`) too.
+// This function checks if a struct field is marked as required using the
+// `json:"fieldname,required"` tag syntax. It only considers exported fields
+// (fields with uppercase first letter).
+//
+// This function is useful for:
+//   - Pre-validation of struct definitions
+//   - Building custom unmarshaling logic
+//   - Debugging required field configurations
+//
+// Example:
+//
+//	type Claims struct {
+//	    Username string `json:"username,required"`
+//	    Email    string `json:"email"`
+//	}
+//
+//	field, _ := reflect.TypeOf(Claims{}).FieldByName("Username")
+//	isRequired := jwt.HasRequiredJSONTag(field) // returns true
 func HasRequiredJSONTag(field reflect.StructField) bool {
 	if isExported := field.PkgPath == ""; !isExported {
 		return false
@@ -24,7 +43,10 @@ func HasRequiredJSONTag(field reflect.StructField) bool {
 	return strings.Contains(tag, ",required")
 }
 
-func meetRequirements(val reflect.Value) (err error) { // see `UnmarshalWithRequired`.
+// meetRequirements validates that all required fields in a struct are non-zero.
+// This function is used internally by UnmarshalWithRequired to enforce
+// required field validation after JSON unmarshaling.
+func meetRequirements(val reflect.Value) (err error) {
 	val = reflect.Indirect(val)
 	if val.Kind() != reflect.Struct {
 		return nil
@@ -56,9 +78,13 @@ func meetRequirements(val reflect.Value) (err error) { // see `UnmarshalWithRequ
 	return
 }
 
-// indirectType returns the value of a pointer-type "typ".
-// If "typ" is a pointer, array, chan, map or slice it returns its Elem,
-// otherwise returns the typ as it's.
+// indirectType returns the underlying type for pointer and container types.
+//
+// This function "unwraps" pointer, array, channel, map, and slice types
+// to get to the underlying element type. For other types, it returns
+// the type unchanged.
+//
+// This is used internally for recursive struct field validation.
 func indirectType(typ reflect.Type) reflect.Type {
 	switch typ.Kind() {
 	case reflect.Ptr, reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:

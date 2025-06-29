@@ -5,11 +5,30 @@ import (
 	"time"
 )
 
-// Leeway adds validation for a leeway expiration time.
-// If the token was not expired then a comparison between
-// this "leeway" and the token's "exp" one is expected to pass instead (now+leeway > exp).
-// Example of use case: disallow tokens that are going to be expired in 3 seconds from now,
-// this is useful to make sure that the token is valid when the when the user fires a database call for example.
+// Leeway creates a TokenValidator that adds a buffer time before token expiration.
+//
+// This validator provides "leeway" by rejecting tokens that will expire within
+// the specified duration, even if they are technically still valid. This is useful
+// to prevent race conditions where a token expires between validation and use.
+//
+// The validation logic: if (now + leeway) > expiration_time, reject the token.
+//
+// Common use cases:
+//   - Database operations that might take several seconds to complete
+//   - API calls that involve multiple service hops
+//   - Batch processing where token might expire during execution
+//   - Network latency compensation in distributed systems
+//
+// Example:
+//
+//	// Reject tokens expiring within 30 seconds
+//	leewayValidator := jwt.Leeway(30 * time.Second)
+//
+//	verifiedToken, err := jwt.Verify(alg, key, token, leewayValidator)
+//	// Token is rejected if it expires within 30 seconds
+//
+// Note: This only affects tokens that have an "exp" claim. Tokens without
+// expiration are not affected by leeway validation.
 func Leeway(leeway time.Duration) TokenValidatorFunc {
 	return func(_ []byte, standardClaims Claims, err error) error {
 		if err == nil {
@@ -24,11 +43,32 @@ func Leeway(leeway time.Duration) TokenValidatorFunc {
 	}
 }
 
-// Future adds a validation for the "iat" claim.
-// It checks if the token was issued in the future based on now+dur < iat.
+// Future creates a TokenValidator that allows tokens issued slightly in the future.
 //
-// Example of use case: allow tokens that are going to be issued in the future,
-// for example a token that is going to be issued in 10 seconds from now.
+// This validator provides tolerance for clock skew between different systems
+// by accepting tokens that appear to be issued in the future, up to the specified duration.
+// Without this tolerance, legitimate tokens might be rejected due to minor time differences
+// between servers.
+//
+// The validation logic: if (now + duration) < issued_at_time, still reject the token.
+// Otherwise, accept tokens that would normally be rejected for future issuance.
+//
+// Common use cases:
+//   - Compensating for clock drift between authentication and resource servers
+//   - Handling timezone discrepancies in distributed systems
+//   - Allowing for minor network delays in token propagation
+//   - Testing scenarios with slightly misaligned system clocks
+//
+// Example:
+//
+//	// Allow tokens issued up to 60 seconds in the future
+//	futureValidator := jwt.Future(60 * time.Second)
+//
+//	verifiedToken, err := jwt.Verify(alg, key, token, futureValidator)
+//	// Token is accepted even if "iat" is up to 60 seconds in the future
+//
+// Note: This only affects tokens that would otherwise fail with ErrIssuedInTheFuture.
+// Tokens without "iat" claims or with past issuance times are unaffected.
 func Future(dur time.Duration) TokenValidatorFunc {
 	return func(_ []byte, standardClaims Claims, err error) error {
 		if errors.Is(err, ErrIssuedInTheFuture) {

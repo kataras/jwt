@@ -8,30 +8,45 @@ import (
 	"io"
 )
 
-// ErrDecrypt indicates a failure on payload decryption.
+// ErrDecrypt indicates a failure during payload decryption.
+// This error is returned when GCM authentication fails, which could indicate
+// tampering, corruption, or use of the wrong decryption key.
 var ErrDecrypt = errors.New("jwt: decrypt: payload authentication failed")
 
-// GCM sets the `Encrypt` and `Decrypt` package-level functions
-// to provide encryption over the token's payload on Sign and decryption on Verify
-// using the Galois Counter mode of operation with AES cipher symmetric-key cryptographic.
-// It should be called once on initialization of the program and before any Sign/Verify operation.
+// GCM creates encrypt and decrypt functions for JWT payload encryption
+// using AES-GCM (Galois/Counter Mode) authenticated encryption.
 //
-// The key argument should be the AES key,
-// either 16, 24, or 32 bytes to select
-// AES-128, AES-192, or AES-256.
+// This function provides an additional layer of security by encrypting the JWT payload
+// before signing. The encrypted payload is opaque to intermediate parties and provides
+// both confidentiality and integrity protection.
 //
-// The additionalData argument is optional.
-// Can be set to nil to ignore.
+// Parameters:
+//   - key: AES encryption key, must be 16, 24, or 32 bytes for AES-128, AES-192, or AES-256
+//   - additionalData: Optional authenticated data (AAD), can be nil
 //
-// Usage:
+// Returns two InjectFunc functions for encryption and decryption, or an error if
+// the key size is invalid or cipher initialization fails.
 //
-//	var encKey = MustGenerateRandom(32)
-//	var sigKey = MustGenerateRandom(32)
+// The encryption function prepends a random nonce to the ciphertext.
+// The decryption function extracts the nonce and authenticates the data.
 //
-//	encrypt, decrypt, err := GCM(encKey, nil)
-//	if err != nil { ... }
-//	token, err := SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15 * time.Minute))
-//	verifiedToken, err := VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
+// Example:
+//
+//	// Generate keys
+//	encKey := jwt.MustGenerateRandom(32)  // AES-256 key
+//	sigKey := jwt.MustGenerateRandom(32)  // HMAC key
+//
+//	// Create encrypt/decrypt functions
+//	encrypt, decrypt, err := jwt.GCM(encKey, nil)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// Sign with encryption
+//	token, err := jwt.SignEncrypted(jwt.HS256, sigKey, encrypt, claims, jwt.MaxAge(15*time.Minute))
+//
+//	// Verify with decryption
+//	verifiedToken, err := jwt.VerifyEncrypted(jwt.HS256, sigKey, decrypt, token)
 func GCM(key, additionalData []byte) (encrypt, decrypt InjectFunc, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

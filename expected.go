@@ -5,33 +5,56 @@ import (
 	"fmt"
 )
 
-// Expected is a TokenValidator which performs simple checks
-// between standard claims values.
+// Expected is a TokenValidator that performs exact-match validation of standard JWT claims.
 //
-// Usage:
+// It validates that the claims in a verified token exactly match the expected values.
+// Only non-zero fields in the Expected struct are validated, allowing partial validation.
 //
-//	 expected := Expected{
-//		  Issuer: "my-app",
-//	 }
-//	 verifiedToken, err := Verify(..., expected)
-type Expected Claims // We could use the same Claims structure but for concept separation we use a different one.
+// This validator is useful for:
+//   - Ensuring tokens come from a specific issuer
+//   - Validating audience claims for API access control
+//   - Checking that tokens have specific subjects or IDs
+//   - Enforcing exact timing constraints
+//
+// Example:
+//
+//	expected := jwt.Expected{
+//	    Issuer:   "my-auth-service",
+//	    Audience: jwt.Audience{"api", "web"},
+//	    Subject:  "user123",
+//	}
+//
+//	verifiedToken, err := jwt.Verify(alg, key, token, expected)
+//	if errors.Is(err, jwt.ErrExpected) {
+//	    log.Printf("Token validation failed: %v", err)
+//	}
+type Expected Claims // Separate type for conceptual clarity, same structure as Claims
 
 var _ TokenValidator = Expected{}
 
-// ErrExpected indicates a standard claims post-validation error.
-// Usage:
+// ErrExpected indicates that a standard claim did not match the expected value.
+// Use errors.Is() to check for this specific validation failure.
 //
-//	verifiedToken, err := Verify(...)
-//	  if errors.Is(ErrExpected, err) {
+// Example:
 //
+//	verifiedToken, err := jwt.Verify(alg, key, token, expected)
+//	if errors.Is(err, jwt.ErrExpected) {
+//	    // Handle validation failure
+//	    log.Printf("Claim validation failed: %v", err)
 //	}
 var ErrExpected = errors.New("jwt: field not match")
 
-// ValidateToken completes the TokenValidator interface.
-// It performs simple checks against the expected "e" and the verified "c" claims.
-// Can be passed at the Verify's last input argument.
+// ValidateToken implements the TokenValidator interface.
+// It performs exact-match validation of standard claims against expected values.
 //
-// It returns a type of ErrExpected on validation failures.
+// The validation logic:
+//  1. If there's a previous validation error, return it unchanged
+//  2. For each non-zero field in Expected, compare with the corresponding claim
+//  3. Return ErrExpected with field details if any mismatch is found
+//  4. Return nil if all specified fields match
+//
+// Only non-zero/non-empty fields in the Expected struct are validated,
+// allowing flexible partial validation.
 func (e Expected) ValidateToken(token []byte, c Claims, err error) error {
 	if err != nil {
 		return err

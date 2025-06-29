@@ -11,13 +11,32 @@ import (
 // but was blocked by the server's Blocklist.
 var ErrBlocked = errors.New("jwt: token is blocked")
 
-// Blocklist is an in-memory storage of tokens that should be
-// immediately invalidated by the server-side.
-// The most common way to invalidate a token, e.g. on user logout,
-// is to make the client-side remove the token itself.
+// Blocklist is an in-memory storage system for invalidated JWT tokens.
+// It provides server-side token revocation capabilities, which is essential
+// for scenarios like user logout, account suspension, or security breaches.
 //
-// The end-developer is free to design a custom database for blocked tokens (e.g. redis),
-// as long as it implements the TokenValidator interface it is a valid option for the Verify function.
+// The Blocklist maintains a thread-safe map of token identifiers to expiration times,
+// automatically cleaning up expired entries to prevent memory leaks.
+//
+// While client-side token removal is the most common invalidation method,
+// server-side blocklisting provides an additional security layer for cases where:
+//   - Users cannot be trusted to remove tokens
+//   - Tokens may have been compromised
+//   - Immediate revocation is required
+//
+// Custom storage backends (Redis, database, etc.) can be implemented by
+// satisfying the TokenValidator interface for distributed applications.
+//
+// Example:
+//
+//	// Create a blocklist with hourly cleanup
+//	blocklist := jwt.NewBlocklist(1 * time.Hour)
+//
+//	// Use in token verification
+//	verifiedToken, err := jwt.Verify(alg, key, token, blocklist)
+//
+//	// Invalidate a token (e.g., on logout)
+//	err = blocklist.InvalidateToken(token, verifiedToken.StandardClaims)
 type Blocklist struct {
 	Clock func() time.Time
 	// GetKey is a function which can be used how to extract
@@ -33,17 +52,42 @@ type Blocklist struct {
 
 var _ TokenValidator = (*Blocklist)(nil)
 
-// NewBlocklist returns a new up and running in-memory Token Blocklist.
-// It accepts the clear every "x" duration. Indeed, this duration
-// can match the usual tokens expiration one.
+// NewBlocklist creates a new in-memory token blocklist with automatic garbage collection.
 //
-// A blocklist implements the `TokenValidator` interface.
+// The gcEvery parameter controls how frequently expired tokens are removed from memory.
+// A good value is typically the same as your token expiration time (e.g., 1 hour).
+// Pass 0 to disable automatic garbage collection.
+//
+// The returned Blocklist implements the TokenValidator interface and can be passed
+// directly to Verify functions.
+//
+// Example:
+//
+//	// Cleanup every hour
+//	blocklist := jwt.NewBlocklist(1 * time.Hour)
+//
+//	// No automatic cleanup (manual GC required)
+//	blocklist := jwt.NewBlocklist(0)
 func NewBlocklist(gcEvery time.Duration) *Blocklist {
 	return NewBlocklistContext(context.Background(), gcEvery)
 }
 
-// NewBlocklistContext same as `NewBlocklist`
-// but it also accepts a standard Go Context for GC cancelation.
+// NewBlocklistContext creates a new in-memory token blocklist with context-aware garbage collection.
+//
+// This function is identical to NewBlocklist but accepts a context for controlling
+// the garbage collection goroutine lifecycle. When the context is canceled,
+// the GC goroutine will stop gracefully.
+//
+// This is useful in applications where you need to coordinate shutdown or
+// want to control the blocklist lifecycle explicitly.
+//
+// Example:
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//
+//	blocklist := jwt.NewBlocklistContext(ctx, 1*time.Hour)
+//	// GC will stop when cancel() is called
 func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist {
 	b := &Blocklist{
 		entries: make(map[string]int64),
@@ -58,6 +102,9 @@ func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist 
 	return b
 }
 
+// defaultGetKey extracts a unique identifier from a token for blocklist storage.
+// It prefers the "jti" (JWT ID) claim if present, otherwise uses the full token.
+// This function can be customized by setting the Blocklist.GetKey field.
 func defaultGetKey(token []byte, c Claims) string {
 	if c.ID != "" {
 		return c.ID
@@ -66,8 +113,16 @@ func defaultGetKey(token []byte, c Claims) string {
 	return BytesToString(token)
 }
 
-// ValidateToken completes the `TokenValidator` interface.
-// Returns ErrBlocked if the "token" was blocked by this Blocklist.
+// ValidateToken implements the TokenValidator interface.
+// It checks if the token is present in the blocklist and returns ErrBlocked if found.
+//
+// This method also performs automatic cleanup by removing expired blocked tokens
+// when they encounter an ErrExpired error during normal validation.
+//
+// The validation flow:
+//  1. If there's a previous validation error (like expiration), handle cleanup
+//  2. Check if the token key exists in the blocklist
+//  3. Return ErrBlocked if found, otherwise allow the token
 func (b *Blocklist) ValidateToken(token []byte, c Claims, err error) error {
 	key := b.GetKey(token, c)
 	if err != nil {
@@ -85,11 +140,27 @@ func (b *Blocklist) ValidateToken(token []byte, c Claims, err error) error {
 	return nil
 }
 
-// InvalidateToken invalidates a verified JWT token.
-// It adds the request token, retrieved by Verify method, to this blocklist.
-// Next request will be blocked, even if the token was not yet expired.
-// This method can be used when the client-side does not clear the token
-// on a user logout operation.
+// InvalidateToken adds a JWT token to the blocklist, preventing its future use.
+//
+// This method extracts the token's unique identifier using the configured GetKey function
+// and stores it with the token's expiration time for automatic cleanup.
+//
+// Common use cases:
+//   - User logout when client-side token removal cannot be guaranteed
+//   - Immediate token revocation due to security concerns
+//   - Account suspension or privilege changes
+//   - Compromised token scenarios
+//
+// The token will be blocked until its natural expiration time, after which
+// it will be automatically removed during garbage collection.
+//
+// Example:
+//
+//	// After successful logout
+//	err := blocklist.InvalidateToken(token, verifiedToken.StandardClaims)
+//	if err != nil {
+//	    log.Printf("Failed to blocklist token: %v", err)
+//	}
 func (b *Blocklist) InvalidateToken(token []byte, c Claims) error {
 	if len(token) == 0 {
 		return ErrMissing
@@ -104,7 +175,11 @@ func (b *Blocklist) InvalidateToken(token []byte, c Claims) error {
 	return nil
 }
 
-// Del removes a token based on its "key" from the blocklist.
+// Del removes a token from the blocklist by its key.
+// This method can be used to manually unblock a token or for cleanup operations.
+//
+// The key should be the same identifier used by the GetKey function
+// (typically the "jti" claim or the full token).
 func (b *Blocklist) Del(key string) error {
 	b.mu.Lock()
 	delete(b.entries, key)
@@ -113,7 +188,8 @@ func (b *Blocklist) Del(key string) error {
 	return nil
 }
 
-// Count returns the total amount of blocked tokens.
+// Count returns the total number of currently blocked tokens in memory.
+// This can be useful for monitoring and debugging purposes.
 func (b *Blocklist) Count() (int64, error) {
 	b.mu.RLock()
 	n := len(b.entries)
@@ -122,9 +198,13 @@ func (b *Blocklist) Count() (int64, error) {
 	return int64(n), nil
 }
 
-// Has reports whether the given "key" is blocked by the server.
-// This method is called before the token verification,
-// so even if was expired it is removed from the blocklist.
+// Has checks whether a token key is currently blocked.
+//
+// This method performs a read-only check without modifying the blocklist.
+// It's primarily used internally by ValidateToken, but can also be used
+// for external checks or debugging.
+//
+// Returns false if the key is empty, true if the key is found in the blocklist.
 func (b *Blocklist) Has(key string) (bool, error) {
 	if len(key) == 0 {
 		return false, ErrMissing
@@ -137,11 +217,25 @@ func (b *Blocklist) Has(key string) (bool, error) {
 	return ok, nil
 }
 
-// GC iterates over all entries and removes expired tokens.
-// This method is helpful to keep the list size small.
-// Depending on the application, the GC method can be scheduled
-// to called every half or a whole hour.
-// A good value for a GC cron task is the Token's max age.
+// GC performs garbage collection by removing expired tokens from the blocklist.
+//
+// This method compares each token's expiration time against the current time
+// and removes entries that have naturally expired. This prevents memory leaks
+// in long-running applications.
+//
+// Returns the number of tokens that were removed.
+//
+// While automatic GC is typically enabled via NewBlocklist, this method can be
+// called manually for:
+//   - Applications with custom GC scheduling requirements
+//   - Memory pressure situations requiring immediate cleanup
+//   - Testing and debugging scenarios
+//
+// Example:
+//
+//	// Manual cleanup
+//	removed := blocklist.GC()
+//	log.Printf("Cleaned up %d expired tokens", removed)
 func (b *Blocklist) GC() int {
 	now := b.Clock().Round(time.Second).Unix()
 	var markedForDeletion []string
@@ -166,6 +260,8 @@ func (b *Blocklist) GC() int {
 	return n
 }
 
+// runGC is the internal goroutine that performs automatic garbage collection.
+// It runs in a separate goroutine and can be stopped via context cancellation.
 func (b *Blocklist) runGC(ctx context.Context, every time.Duration) {
 	t := time.NewTicker(every)
 

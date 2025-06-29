@@ -11,10 +11,19 @@ import (
 	"fmt"
 )
 
+// algEdDSA implements the Alg interface for EdDSA signature algorithms.
+// It supports Ed25519 signatures as specified in RFC 8037.
 type algEdDSA struct {
-	name string
+	name string // Algorithm name ("EdDSA")
 }
 
+// Parse implements the AlgParser interface for EdDSA algorithms.
+// It parses PEM-encoded or raw Ed25519 keys and returns the corresponding
+// ed25519.PrivateKey and ed25519.PublicKey instances.
+//
+// This method supports both PEM-encoded keys and raw key bytes.
+// If PEM parsing fails, it falls back to treating the input as raw key material.
+// Either private or public can be empty, but at least one should be provided.
 func (a *algEdDSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
 	if len(public) > 0 {
 		publicKey, err = ParsePublicKeyEdDSA(public)
@@ -43,10 +52,16 @@ func (a *algEdDSA) Parse(private, public []byte) (privateKey PrivateKey, publicK
 	return
 }
 
+// Name returns the algorithm name ("EdDSA").
 func (a *algEdDSA) Name() string {
 	return a.name
 }
 
+// Sign implements the Alg interface for EdDSA signature generation.
+// It creates an Ed25519 signature using the provided private key.
+//
+// The key must be an ed25519.PrivateKey of exactly ed25519.PrivateKeySize bytes.
+// Returns an error if the key is invalid or of wrong type/size.
 func (a *algEdDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(ed25519.PrivateKey)
 	if !ok {
@@ -60,6 +75,12 @@ func (a *algEdDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error)
 	return ed25519.Sign(privateKey, []byte(headerAndPayload)), nil
 }
 
+// Verify implements the Alg interface for EdDSA signature verification.
+// It verifies an Ed25519 signature against the provided public key.
+//
+// The method accepts either an ed25519.PublicKey or an ed25519.PrivateKey
+// (from which it extracts the public key). The key must be exactly
+// ed25519.PublicKeySize bytes.
 func (a *algEdDSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	publicKey, ok := key.(ed25519.PublicKey)
 	if !ok {
@@ -84,11 +105,19 @@ func (a *algEdDSA) Verify(key PublicKey, headerAndPayload []byte, signature []by
 // Key Helpers.
 
 // MustLoadEdDSA accepts private and public PEM filenames
-// and returns a pair of private and public ed25519 keys.
-// Pass the returned private key to `Token` (signing) function
-// and the public key to the `Verify` function.
+// and returns a pair of private and public Ed25519 keys.
 //
-// It panics on errors.
+// Pass the returned private key to Sign functions and
+// the public key to Verify functions.
+//
+// This function panics if either key file cannot be read or parsed.
+// Use LoadPrivateKeyEdDSA and LoadPublicKeyEdDSA for error handling.
+//
+// Example:
+//
+//	privateKey, publicKey := jwt.MustLoadEdDSA("ed25519_private.pem", "ed25519_public.pem")
+//	token, err := jwt.Sign(jwt.EdDSA, privateKey, claims)
+//	verifiedToken, err := jwt.Verify(jwt.EdDSA, publicKey, token)
 func MustLoadEdDSA(privateKeyFilename, publicKeyFilename string) (ed25519.PrivateKey, ed25519.PublicKey) {
 	privateKey, err := LoadPrivateKeyEdDSA(privateKeyFilename)
 	if err != nil {
@@ -103,9 +132,20 @@ func MustLoadEdDSA(privateKeyFilename, publicKeyFilename string) (ed25519.Privat
 	return privateKey, publicKey
 }
 
-// LoadPrivateKeyEdDSA accepts a file path of a PEM-encoded ed25519 private key
-// and returns the ed25519 private key Go value.
-// Pass the returned value to the `Token` (signing) function.
+// LoadPrivateKeyEdDSA loads and parses a PEM-encoded Ed25519 private key from a file.
+//
+// The file should contain a PEM-encoded Ed25519 private key in PKCS#8 format.
+// Pass the returned value to Sign functions for token creation.
+//
+// Returns an error if the file cannot be read or the key cannot be parsed.
+//
+// Example:
+//
+//	privateKey, err := jwt.LoadPrivateKeyEdDSA("ed25519_private_key.pem")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	token, err := jwt.Sign(jwt.EdDSA, privateKey, claims)
 func LoadPrivateKeyEdDSA(filename string) (ed25519.PrivateKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -120,9 +160,20 @@ func LoadPrivateKeyEdDSA(filename string) (ed25519.PrivateKey, error) {
 	return key, nil
 }
 
-// LoadPublicKeyEdDSA accepts a file path of a PEM-encoded ed25519 public key
-// and returns the ed25519 public key Go value.
-// Pass the returned value to the `Verify` function.
+// LoadPublicKeyEdDSA loads and parses a PEM-encoded Ed25519 public key from a file.
+//
+// The file should contain a PEM-encoded Ed25519 public key in PKIX format.
+// Pass the returned value to Verify functions for token validation.
+//
+// Returns an error if the file cannot be read or the key cannot be parsed.
+//
+// Example:
+//
+//	publicKey, err := jwt.LoadPublicKeyEdDSA("ed25519_public_key.pem")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	verifiedToken, err := jwt.Verify(jwt.EdDSA, publicKey, token)
 func LoadPublicKeyEdDSA(filename string) (ed25519.PublicKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -137,9 +188,19 @@ func LoadPublicKeyEdDSA(filename string) (ed25519.PublicKey, error) {
 	return key, nil
 }
 
-// ParsePrivateKeyEdDSA decodes and parses the
-// PEM-encoded ed25519 private key's raw contents.
-// Pass the result to the `Token` (signing) function.
+// ParsePrivateKeyEdDSA decodes and parses PEM-encoded Ed25519 private key bytes.
+//
+// The input should be PEM-encoded Ed25519 private key data in PKCS#8 format.
+// This function handles the ASN.1 parsing to extract the seed and generate
+// the full Ed25519 private key.
+//
+// Returns an error if the PEM block is missing or the key cannot be parsed.
+// Use LoadPrivateKeyEdDSA for file-based loading.
+//
+// Example:
+//
+//	keyData := []byte("-----BEGIN PRIVATE KEY-----\n...")
+//	privateKey, err := jwt.ParsePrivateKeyEdDSA(keyData)
 func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 	asn1PrivKey := struct {
 		Version          int
@@ -167,11 +228,21 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 	return privateKey, nil
 }
 
+// errPEMMalformed indicates that the PEM data is malformed or missing.
 var errPEMMalformed = errors.New("pem malformed")
 
-// ParsePublicKeyEdDSA decodes and parses the
-// PEM-encoded ed25519 public key's raw contents.
-// Pass the result to the `Verify` function.
+// ParsePublicKeyEdDSA decodes and parses PEM-encoded Ed25519 public key bytes.
+//
+// The input should be PEM-encoded Ed25519 public key data in PKIX format.
+// This function handles the ASN.1 parsing to extract the public key bytes.
+//
+// Returns an error if the PEM block is missing or the key cannot be parsed.
+// Use LoadPublicKeyEdDSA for file-based loading.
+//
+// Example:
+//
+//	keyData := []byte("-----BEGIN PUBLIC KEY-----\n...")
+//	publicKey, err := jwt.ParsePublicKeyEdDSA(keyData)
 func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 	asn1PubKey := struct {
 		OBjectIdentifier struct {
@@ -193,7 +264,22 @@ func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 	return publicKey, nil
 }
 
-// GenerateEdDSA generates random public and private keys for ed25519.
+// GenerateEdDSA generates a random Ed25519 key pair and returns them as PEM-encoded data.
+//
+// This function generates a new Ed25519 key pair and encodes both keys
+// in PEM format (PKCS#8 for private key, PKIX for public key).
+//
+// Returns the public key PEM, private key PEM, and any error that occurred.
+// Note: The returned order is (publicPEM, privatePEM), which differs from
+// the conventional (private, public) order.
+//
+// Example:
+//
+//	publicPEM, privatePEM, err := jwt.GenerateEdDSA()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// Save to files or use directly
 func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 
@@ -222,12 +308,23 @@ func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 	return publicPEM, privatePEM, nil
 }
 
-// GenerateBase64EdDSA generates random public and private keys for ed25519.
-// The keys are returned as base64 encoded strings.
+// GenerateBase64EdDSA generates a random Ed25519 key pair as base64-encoded strings.
 //
-// Usage:
+// This function generates a new Ed25519 key pair and returns the keys
+// as base64-encoded strings using raw standard encoding (no padding).
+// This format is convenient for configuration files or environment variables.
 //
-//	publicKey, privateKey, err := GenerateBase64EdDSA()
+// Returns the public key string, private key string, and any error that occurred.
+//
+// Example:
+//
+//	publicKey, privateKey, err := jwt.GenerateBase64EdDSA()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// Use keys directly or store in config
+//	fmt.Printf("Public Key: %s\n", publicKey)
+//	fmt.Printf("Private Key: %s\n", privateKey)
 func GenerateBase64EdDSA() (string, string, error) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

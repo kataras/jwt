@@ -9,11 +9,20 @@ import (
 	"fmt"
 )
 
+// algRSA implements the Alg interface for RSA signature algorithms.
+// It supports RS256, RS384, and RS512 variants using PKCS#1 v1.5 padding
+// with SHA-256, SHA-384, and SHA-512 respectively.
 type algRSA struct {
-	name   string
-	hasher crypto.Hash
+	name   string      // Algorithm name (e.g., "RS256", "RS384", "RS512")
+	hasher crypto.Hash // Hash function to use (SHA256, SHA384, or SHA512)
 }
 
+// Parse implements the AlgParser interface for RSA algorithms.
+// It parses PEM-encoded private and public keys and returns the corresponding
+// *rsa.PrivateKey and *rsa.PublicKey instances.
+//
+// Either private or public can be empty, but at least one should be provided.
+// Returns an error if the key parsing fails or the key format is invalid.
 func (a *algRSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey PublicKey, err error) {
 	if len(private) > 0 {
 		privateKey, err = ParsePrivateKeyRSA(private)
@@ -32,10 +41,18 @@ func (a *algRSA) Parse(private, public []byte) (privateKey PrivateKey, publicKey
 	return
 }
 
+// Name returns the algorithm name (e.g., "RS256", "RS384", "RS512").
 func (a *algRSA) Name() string {
 	return a.name
 }
 
+// Sign implements the Alg interface for RSA signature generation.
+// It creates an RSA signature using PKCS#1 v1.5 padding with the provided private key.
+//
+// The key must be an *rsa.PrivateKey. For security, RSA keys should be at least
+// 2048 bits in length (3072+ bits recommended for new applications).
+//
+// Returns an error if the key is invalid or signing fails.
 func (a *algRSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
@@ -53,6 +70,11 @@ func (a *algRSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	return rsa.SignPKCS1v15(rand.Reader, privateKey, a.hasher, hashed)
 }
 
+// Verify implements the Alg interface for RSA signature verification.
+// It verifies an RSA signature using PKCS#1 v1.5 padding against the provided public key.
+//
+// The method accepts either an *rsa.PublicKey or an *rsa.PrivateKey
+// (from which it extracts the public key).
 func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	publicKey, ok := key.(*rsa.PublicKey)
 	if !ok {
@@ -82,10 +104,18 @@ func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte
 
 // MustLoadRSA accepts private and public PEM file paths
 // and returns a pair of private and public RSA keys.
-// Pass the returned private key to the `Token` (signing) function
-// and the public key to the `Verify` function.
 //
-// It panics on errors.
+// Pass the returned private key to Sign functions and
+// the public key to Verify functions.
+//
+// This function panics if either key file cannot be read or parsed.
+// Use LoadPrivateKeyRSA and LoadPublicKeyRSA for error handling.
+//
+// Example:
+//
+//	privateKey, publicKey := jwt.MustLoadRSA("rsa_private.pem", "rsa_public.pem")
+//	token, err := jwt.Sign(jwt.RS256, privateKey, claims)
+//	verifiedToken, err := jwt.Verify(jwt.RS256, publicKey, token)
 func MustLoadRSA(privateKeyFilename, publicKeyFilename string) (*rsa.PrivateKey, *rsa.PublicKey) {
 	privateKey, err := LoadPrivateKeyRSA(privateKeyFilename)
 	if err != nil {
@@ -100,9 +130,20 @@ func MustLoadRSA(privateKeyFilename, publicKeyFilename string) (*rsa.PrivateKey,
 	return privateKey, publicKey
 }
 
-// LoadPrivateKeyRSA accepts a file path of a PEM-encoded RSA private key
-// and returns the RSA private key Go value.
-// Pass the returned value to the `Token` (signing) function.
+// LoadPrivateKeyRSA loads and parses a PEM-encoded RSA private key from a file.
+//
+// The file should contain a PEM-encoded RSA private key in PKCS#1 or PKCS#8 format.
+// Pass the returned value to Sign functions for token creation.
+//
+// Returns an error if the file cannot be read or the key cannot be parsed.
+//
+// Example:
+//
+//	privateKey, err := jwt.LoadPrivateKeyRSA("rsa_private_key.pem")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	token, err := jwt.Sign(jwt.RS256, privateKey, claims)
 func LoadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -117,9 +158,21 @@ func LoadPrivateKeyRSA(filename string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-// LoadPublicKeyRSA accepts a file path of a PEM-encoded RSA public key
-// and returns the RSA public key Go value.
-// Pass the returned value to the `Verify` function.
+// LoadPublicKeyRSA loads and parses a PEM-encoded RSA public key from a file.
+//
+// The file should contain a PEM-encoded RSA public key in PKIX format,
+// or a certificate containing an RSA public key.
+// Pass the returned value to Verify functions for token validation.
+//
+// Returns an error if the file cannot be read or the key cannot be parsed.
+//
+// Example:
+//
+//	publicKey, err := jwt.LoadPublicKeyRSA("rsa_public_key.pem")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	verifiedToken, err := jwt.Verify(jwt.RS256, publicKey, token)
 func LoadPublicKeyRSA(filename string) (*rsa.PublicKey, error) {
 	b, err := ReadFile(filename)
 	if err != nil {
@@ -134,9 +187,18 @@ func LoadPublicKeyRSA(filename string) (*rsa.PublicKey, error) {
 	return key, nil
 }
 
-// ParsePrivateKeyRSA decodes and parses the
-// PEM-encoded RSA private key's raw contents.
-// Pass the result to the `Token` (signing) function.
+// ParsePrivateKeyRSA decodes and parses PEM-encoded RSA private key bytes.
+//
+// The input should be PEM-encoded RSA private key data in PKCS#1 or PKCS#8 format.
+// This function handles both formats automatically.
+//
+// Returns an error if the PEM block is missing or the key cannot be parsed.
+// Use LoadPrivateKeyRSA for file-based loading.
+//
+// Example:
+//
+//	keyData := []byte("-----BEGIN RSA PRIVATE KEY-----\n...")
+//	privateKey, err := jwt.ParsePrivateKeyRSA(keyData)
 func ParsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(key)
 	if block == nil {
@@ -160,9 +222,19 @@ func ParsePrivateKeyRSA(key []byte) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
-// ParsePublicKeyRSA decodes and parses the
-// PEM-encoded RSA public key's raw contents.
-// Pass the result to the `Verify` function.
+// ParsePublicKeyRSA decodes and parses PEM-encoded RSA public key bytes.
+//
+// The input should be PEM-encoded RSA public key data in PKIX format,
+// or a certificate containing an RSA public key.
+// This function handles both formats automatically.
+//
+// Returns an error if the PEM block is missing or the key cannot be parsed.
+// Use LoadPublicKeyRSA for file-based loading.
+//
+// Example:
+//
+//	keyData := []byte("-----BEGIN PUBLIC KEY-----\n...")
+//	publicKey, err := jwt.ParsePublicKeyRSA(keyData)
 func ParsePublicKeyRSA(key []byte) (*rsa.PublicKey, error) {
 	block, _ := pem.Decode(key)
 	if block == nil {
