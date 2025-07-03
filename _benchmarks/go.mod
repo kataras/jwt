@@ -10,4 +10,4 @@ require (
 	github.com/kataras/jwt v0.0.0-00010101000000-000000000000
 )
 
-require golang.org/x/crypto v0.19.0 // indirect
+require golang.org/x/crypto v0.39.0 // indirect
