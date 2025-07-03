@@ -900,7 +900,10 @@ var (
 	EdDSA Alg = &algEdDSA{"EdDSA"}
 
 	allAlgs = []Alg{
-		NONE,
+		NONE,  // Not recommended.
+		HS256, // Not recommended.
+		HS384, // Not recommended.
+		HS512, // Not recommended.
 		RS256,
 		RS384,
 		RS512,
