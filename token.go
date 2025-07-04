@@ -3,6 +3,7 @@ package jwt
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -660,4 +661,28 @@ type UnverifiedToken struct {
 //	fmt.Printf("Expires: %v\n", registered.ExpiresAt)
 func (t *UnverifiedToken) Claims(dest any) error {
 	return Unmarshal(t.Payload, dest)
+}
+
+type headerWithAlg struct {
+	Alg string `json:"alg"`
+}
+
+// Alg returns the algorithm used in the original token header.
+// It extracts the "alg" field from the JWT header and returns the corresponding Alg implementation.
+//
+// If the header is malformed or the algorithm is unknown, it returns an error.
+// This method is useful for determining the algorithm used to sign the token.
+func (t *UnverifiedToken) Alg() (Alg, error) {
+	// Extract algorithm from the original token header.
+	var headerAlg headerWithAlg
+	if err := json.Unmarshal(t.Header, &headerAlg); err != nil {
+		return nil, fmt.Errorf("failed to parse original token header: %w", err)
+	}
+
+	alg := parseAlg(headerAlg.Alg)
+	if alg == nil {
+		return nil, fmt.Errorf("%w: %s", ErrTokenAlg, headerAlg.Alg)
+	}
+
+	return alg, nil
 }

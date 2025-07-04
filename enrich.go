@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -99,22 +98,10 @@ func Enrich(key PrivateKey, accessToken []byte, extraClaims any) ([]byte, error)
 		return nil, fmt.Errorf("failed to parse original token header: %w", err)
 	}
 
-	// Extract algorithm from the original token header.
-	var headerMap map[string]any
-	if err := json.Unmarshal(decodedToken.Header, &headerMap); err != nil {
-		return nil, fmt.Errorf("failed to parse original token header: %w", err)
+	alg, err := decodedToken.Alg()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine algorithm from original token: %w", err)
 	}
-
-	algName, ok := headerMap["alg"].(string)
-	if !ok {
-		return nil, fmt.Errorf("%w: missing or invalid algorithm in original token header", ErrTokenAlg)
-	}
-
-	alg := parseAlg(algName)
-	if alg == nil {
-		return nil, fmt.Errorf("%w: %s", ErrTokenAlg, algName)
-	}
-	//
 
 	// Merge the original claims with extra claims.
 	// No extra validation is needed since we assume the original token is valid.
