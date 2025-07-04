@@ -539,17 +539,17 @@ func Decode(token []byte) (*UnverifiedToken, error) {
 
 	headerDecoded, err := Base64Decode(header)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode token: header: %w", err)
 	}
 
 	signatureDecoded, err := Base64Decode(signature)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode token: signature: %w", err)
 	}
 
 	payload, err = Base64Decode(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode token: payload: %w", err)
 	}
 
 	tok := &UnverifiedToken{
@@ -607,6 +607,10 @@ type UnverifiedToken struct {
 	Header    []byte // Decoded JWT header JSON bytes
 	Payload   []byte // Decoded JWT payload JSON bytes
 	Signature []byte // Decoded signature bytes (unverified)
+
+	// cached.
+	alg Alg
+	kid string
 }
 
 // Claims unmarshals the JWT payload into the provided destination structure.
@@ -673,16 +677,106 @@ type headerWithAlg struct {
 // If the header is malformed or the algorithm is unknown, it returns an error.
 // This method is useful for determining the algorithm used to sign the token.
 func (t *UnverifiedToken) Alg() (Alg, error) {
+	if t.alg != nil {
+		return t.alg, nil
+	}
+
 	// Extract algorithm from the original token header.
-	var headerAlg headerWithAlg
-	if err := json.Unmarshal(t.Header, &headerAlg); err != nil {
+	var header headerWithAlg
+	if err := json.Unmarshal(t.Header, &header); err != nil {
 		return nil, fmt.Errorf("failed to parse original token header: %w", err)
 	}
 
-	alg := parseAlg(headerAlg.Alg)
+	alg := parseAlg(header.Alg)
 	if alg == nil {
-		return nil, fmt.Errorf("%w: %s", ErrTokenAlg, headerAlg.Alg)
+		return nil, fmt.Errorf("%w: %s", ErrTokenAlg, header.Alg)
 	}
 
+	t.alg = alg
 	return alg, nil
+}
+
+// Kid returns the Key ID (kid) from the original token header.
+// It extracts the "kid" field from the JWT header and returns its value.
+// If the header is malformed or the "kid" field is missing, it returns an error.
+func (t *UnverifiedToken) Kid() (string, error) {
+	if t.kid != "" {
+		return t.kid, nil
+	}
+
+	var header HeaderWithKid
+	if err := json.Unmarshal(t.Header, &header); err != nil {
+		return "", fmt.Errorf("failed to parse original token header: %w", err)
+	}
+
+	alg := parseAlg(header.Alg)
+	if alg == nil {
+		return "", fmt.Errorf("%w: %s", ErrTokenAlg, header.Alg)
+	}
+
+	// KID catches both "kid" and "kid" fields.
+	t.alg = alg
+	t.kid = header.Kid
+	return t.kid, nil
+}
+
+// Enrich creates a new JWT token by merging the original token's claims with additional claims.
+//
+// This method allows you to extend the original token's payload with new claims
+// while preserving the original token's header and signature structure.
+//
+//	It uses the same algorithm and key as the original token to ensure the new token is valid.
+//
+//	Parameters:
+//	 - key: PrivateKey used to sign the new token
+//	 - extraClaims: Map of additional claims to merge with the original token's payload
+//
+// Returns:
+//   - []byte: New JWT token with merged claims
+//   - error: Error if the original token's algorithm cannot be determined or if merging fails
+//
+// Example usage:
+//
+//	originalToken, _ := jwt.Decode(tokenBytes)
+//	extraClaims := map[string]any{
+//	    "role": "admin",
+//	    "permissions": []string{"read", "write"},
+//	}
+//	newToken, err := originalToken.Enrich(signingKey, extraClaims)
+//
+//	//	if err != nil {
+//		    log.Fatalf("Failed to enrich token: %v", err)
+//		}
+//
+// This newToken will have the original header and signature, but with the additional claims merged in.
+// Note: This method does not verify the original token; it assumes the original token is valid.
+func (t *UnverifiedToken) Enrich(key PrivateKey, extraClaims any) ([]byte, error) {
+	alg, err := t.Alg()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine algorithm from original token: %w", err)
+	}
+
+	// Merge the original claims with extra claims.
+	// No extra validation is needed since we assume the original token is valid.
+	payload, err := Merge(t.Payload, extraClaims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge claims: %w", err)
+	}
+	payload = Base64Encode(payload)
+
+	// Use the existing header from the original token.
+	// This ensures the new token has the same header structure.
+	existingHeader := Base64Encode(t.Header)
+	headerPayload := joinParts(existingHeader, payload)
+
+	// The signature should be created using the same algorithm and key.
+	// This ensures the new token is properly signed and can be verified with the new claims.
+	signature, err := createSignature(alg, key, headerPayload)
+	if err != nil {
+		return nil, fmt.Errorf("encodeToken: signature: %w", err)
+	}
+
+	// header.payload.signature
+	token := joinParts(headerPayload, signature)
+	return token, nil
 }

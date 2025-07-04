@@ -95,35 +95,8 @@ import (
 func Enrich(key PrivateKey, accessToken []byte, extraClaims any) ([]byte, error) {
 	decodedToken, err := Decode(accessToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse original token header: %w", err)
+		return nil, fmt.Errorf("failed to parse original token: %w", err)
 	}
 
-	alg, err := decodedToken.Alg()
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine algorithm from original token: %w", err)
-	}
-
-	// Merge the original claims with extra claims.
-	// No extra validation is needed since we assume the original token is valid.
-	payload, err := Merge(decodedToken.Payload, extraClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to merge claims: %w", err)
-	}
-	payload = Base64Encode(payload)
-
-	// Use the existing header from the original token.
-	// This ensures the new token has the same header structure.
-	existingHeader := Base64Encode(decodedToken.Header)
-	headerPayload := joinParts(existingHeader, payload)
-
-	// The signature should be created using the same algorithm and key.
-	// This ensures the new token is properly signed and can be verified with the new claims.
-	signature, err := createSignature(alg, key, headerPayload)
-	if err != nil {
-		return nil, fmt.Errorf("encodeToken: signature: %w", err)
-	}
-
-	// header.payload.signature
-	token := joinParts(headerPayload, signature)
-	return token, nil
+	return decodedToken.Enrich(key, extraClaims)
 }

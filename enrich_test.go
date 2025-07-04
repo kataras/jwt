@@ -199,7 +199,7 @@ func TestEnrichErrors(t *testing.T) {
 			accessToken:   []byte("aW52YWxpZC1oZWFkZXI.eyJzdWIiOiJ1c2VyMTIzIn0.signature"),
 			extraClaims:   map[string]any{"role": "admin"},
 			expectError:   true,
-			errorContains: "failed to parse original token header",
+			errorContains: "decode token: signature",
 		},
 		{
 			name:          "invalid extra claims",

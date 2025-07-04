@@ -768,6 +768,45 @@ func (keys Keys) SignToken(kid string, claims any, opts ...SignOption) ([]byte, 
 	}, opts...)
 }
 
+// EnrichToken creates a new JWT token by merging the original token's claims with additional claims.
+//
+// This method allows you to extend the original token's payload with new claims
+// while preserving the original token's header and signature structure.
+//
+//	It uses the same algorithm and key as the original token to ensure the new token is valid.
+//
+//	Parameters:
+//	 - key: PrivateKey used to sign the new token
+//	 - extraClaims: Map of additional claims to merge with the original token's payload
+//
+// Returns:
+//   - []byte: New JWT token with merged claims
+//   - error: Error if the original token's algorithm cannot be determined or if merging fails.
+//
+// Note: this only enrich plain tokens and not encrypted tokens.
+func (keys Keys) EnrichToken(plainToken []byte, extraClaims any) ([]byte, error) {
+	decodedToken, err := Decode(plainToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse original token: %w", err)
+	}
+
+	kid, err := decodedToken.Kid()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kid from token: %w", err)
+	}
+
+	k, ok := keys.Get(kid)
+	if !ok {
+		return nil, ErrUnknownKid
+	}
+
+	if k.Encrypt != nil || k.Decrypt != nil {
+		return nil, fmt.Errorf("jwt: cannot enrich encrypted tokens")
+	}
+
+	return decodedToken.Enrich(k.Private, extraClaims)
+}
+
 // VerifyToken verifies a JWT token using automatic key selection and extracts claims.
 //
 // This method provides a high-level interface for JWT verification with multi-key support.
