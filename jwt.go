@@ -265,7 +265,7 @@ var Marshal = func(v any) ([]byte, error) {
 //   - Uses json.Decoder with UseNumber() to handle integers correctly
 //   - Prevents automatic conversion of all numbers to float64
 //   - Preserves numeric precision for large integers
-//   - Decodes JSON numbers as json.Number type when destination is interface{}
+//   - Decodes JSON numbers as json.Number type when destination is any
 //
 // **Why UseNumber() Matters**:
 //   - Standard json.Unmarshal converts all numbers to float64

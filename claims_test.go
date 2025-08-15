@@ -171,25 +171,25 @@ func TestMerge(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		claims   interface{}
-		other    interface{}
-		expected map[string]interface{}
+		claims   any
+		other    any
+		expected map[string]any
 	}{
 		{
 			name:     "merge with empty object",
-			claims:   map[string]interface{}{"foo": "bar"},
-			other:    map[string]interface{}{},
-			expected: map[string]interface{}{"foo": "bar"},
+			claims:   map[string]any{"foo": "bar"},
+			other:    map[string]any{},
+			expected: map[string]any{"foo": "bar"},
 		},
 		{
 			name:     "merge two maps",
-			claims:   map[string]interface{}{"foo": "bar"},
-			other:    map[string]interface{}{"baz": "qux"},
-			expected: map[string]interface{}{"foo": "bar", "baz": "qux"},
+			claims:   map[string]any{"foo": "bar"},
+			other:    map[string]any{"baz": "qux"},
+			expected: map[string]any{"foo": "bar", "baz": "qux"},
 		},
 		{
 			name: "merge with Claims struct",
-			claims: map[string]interface{}{
+			claims: map[string]any{
 				"custom": "value",
 			},
 			other: Claims{
@@ -197,7 +197,7 @@ func TestMerge(t *testing.T) {
 				IssuedAt: now,
 				Expiry:   expiry,
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"custom": "value",
 				"iss":    "test-issuer",
 				"iat":    float64(now), // JSON numbers are decoded as float64
@@ -206,9 +206,9 @@ func TestMerge(t *testing.T) {
 		},
 		{
 			name:     "merge with nil",
-			claims:   map[string]interface{}{"foo": "bar"},
+			claims:   map[string]any{"foo": "bar"},
 			other:    nil,
-			expected: map[string]interface{}{"foo": "bar"},
+			expected: map[string]any{"foo": "bar"},
 		},
 	}
 
@@ -219,7 +219,7 @@ func TestMerge(t *testing.T) {
 				t.Fatalf("Failed to merge: %v", err)
 			}
 
-			var got map[string]interface{}
+			var got map[string]any
 			if err := json.Unmarshal(result, &got); err != nil {
 				t.Fatalf("Failed to unmarshal result: %v", err)
 			}
@@ -237,25 +237,25 @@ func TestMergeAndSign(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		claims   interface{}
-		other    interface{}
-		expected map[string]interface{}
+		claims   any
+		other    any
+		expected map[string]any
 	}{
 		{
 			name:     "merge and sign with empty object",
-			claims:   map[string]interface{}{"foo": "bar"},
-			other:    map[string]interface{}{},
-			expected: map[string]interface{}{"foo": "bar"},
+			claims:   map[string]any{"foo": "bar"},
+			other:    map[string]any{},
+			expected: map[string]any{"foo": "bar"},
 		},
 		{
 			name:     "merge and sign two maps",
-			claims:   map[string]interface{}{"foo": "bar"},
-			other:    map[string]interface{}{"baz": "qux"},
-			expected: map[string]interface{}{"foo": "bar", "baz": "qux"},
+			claims:   map[string]any{"foo": "bar"},
+			other:    map[string]any{"baz": "qux"},
+			expected: map[string]any{"foo": "bar", "baz": "qux"},
 		},
 		{
 			name: "merge and sign with Claims struct",
-			claims: map[string]interface{}{
+			claims: map[string]any{
 				"custom": "value",
 			},
 			other: Claims{
@@ -263,7 +263,7 @@ func TestMergeAndSign(t *testing.T) {
 				IssuedAt: now,
 				Expiry:   expiry,
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"custom": "value",
 				"iss":    "test-issuer",
 				"iat":    fmt.Sprintf("%d", now),
@@ -287,7 +287,7 @@ func TestMergeAndSign(t *testing.T) {
 
 			t.Logf("Generated token: %s", string(token))
 
-			var verifiedClaims map[string]interface{}
+			var verifiedClaims map[string]any
 			verifiedToken, err := Verify(HS256, key, token)
 			if err != nil {
 				t.Fatalf("Failed to verify token: %v", err)

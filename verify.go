@@ -482,7 +482,7 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 		standardClaims = secondChange.toClaims()
 	}
 
-	if err != nil { // do not proceed if we have a JSON error.
+	if err == nil { // do not proceed if we have a JSON error.
 		err = validateClaims(Clock(), standardClaims)
 	}
 
