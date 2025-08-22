@@ -155,3 +155,98 @@ func compareMap(m1, m2 map[string]any) bool {
 
 	return true
 }
+
+// This test verifies the fix for GitHub issue #13
+func TestHeaderValidationWithAdditionalFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		alg    string
+		valid  bool
+	}{
+		{
+			name:   "Header with kid field and no typ (Cloudflare Zero Trust case)",
+			header: `{"kid":"test-key-id","alg":"ES384"}`,
+			alg:    "ES384",
+			valid:  true,
+		},
+		{
+			name:   "Header with kid field and typ=JWT",
+			header: `{"kid":"test-key-id","alg":"ES384","typ":"JWT"}`,
+			alg:    "ES384",
+			valid:  true,
+		},
+		{
+			name:   "Header with multiple additional fields",
+			header: `{"kid":"key1","iss":"example.com","alg":"RS256","jku":"https://example.com/jwks"}`,
+			alg:    "RS256",
+			valid:  true,
+		},
+		{
+			name:   "Header with wrong algorithm",
+			header: `{"kid":"test-key","alg":"HS256"}`,
+			alg:    "ES384",
+			valid:  false,
+		},
+		{
+			name:   "Header with invalid typ field",
+			header: `{"kid":"test-key","alg":"ES384","typ":"INVALID"}`,
+			alg:    "ES384",
+			valid:  false,
+		},
+		{
+			name:   "Standard header (should still work)",
+			header: `{"alg":"ES384","typ":"JWT"}`,
+			alg:    "ES384",
+			valid:  true,
+		},
+		{
+			name:   "Minimal header without typ (should still work)",
+			header: `{"alg":"ES384"}`,
+			alg:    "ES384",
+			valid:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			headerBytes := []byte(tt.header)
+			_, _, _, err := compareHeader(tt.alg, headerBytes)
+
+			if tt.valid && err != nil {
+				t.Errorf("Expected header to be valid, but got error: %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Errorf("Expected header to be invalid, but validation passed")
+			}
+		})
+	}
+}
+
+func TestDecodeTokenWithKidField(t *testing.T) {
+	// Create a token with kid field in header (base64url encoded)
+	// Header: {"kid":"test-key-id","alg":"ES384"}
+	// Payload: {"sub":"123456","name":"John Doe","admin":true}
+	token := "eyJhbGciOiJFUzM4NCIsImtpZCI6InRlc3Qta2V5LWlkIn0.eyJzdWIiOiIxMjM0NTYiLCJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNzUwMjA0MTEzfQ.QAfDHhbQgrejIol0fd4mmBMLU3i1Zn0yqN7ar41wRkuod7K5MbB0BjLxQHxB9PhuER9n7QuGSg8p45GDph4bjz17Z91MLwqlgMt0ws38O1MqxJ-gN9g0AyYzR86hTab5"
+
+	// This should not fail with "unexpected token algorithm" error
+	unverifiedToken, err := Decode([]byte(token))
+	if err != nil {
+		t.Fatalf("Should be able to decode token with kid field: %v", err)
+	}
+
+	if unverifiedToken == nil {
+		t.Fatal("Decoded token should not be nil")
+	}
+
+	// Verify we can extract claims
+	var claims map[string]interface{}
+	err = unverifiedToken.Claims(&claims)
+	if err != nil {
+		t.Fatalf("Should be able to extract claims: %v", err)
+	}
+
+	if claims["sub"] != "123456" {
+		t.Errorf("Expected sub claim to be '123456', got %v", claims["sub"])
+	}
+}
