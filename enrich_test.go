@@ -25,7 +25,7 @@ func TestEnrich(t *testing.T) {
 			"permissions": []string{"read", "write", "delete"},
 		}
 
-		enrichedToken, err := Enrich(testSecret, originalToken, extraClaims)
+		enrichedToken, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 		if err != nil {
 			t.Fatalf("enrich failed: %v", err)
 		}
@@ -74,7 +74,7 @@ func TestEnrich(t *testing.T) {
 			"role":     "admin",
 		}
 
-		enrichedToken, err := Enrich(testSecret, originalToken, extraClaims)
+		enrichedToken, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 		if err != nil {
 			t.Fatalf("enrich failed: %v", err)
 		}
@@ -113,7 +113,7 @@ func TestEnrich(t *testing.T) {
 			Level:       5,
 		}
 
-		enrichedToken, err := Enrich(testSecret, originalToken, extraClaims)
+		enrichedToken, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 		if err != nil {
 			t.Fatalf("enrich failed: %v", err)
 		}
@@ -139,7 +139,7 @@ func TestEnrich(t *testing.T) {
 	t.Run("enrichment with empty extra claims", func(t *testing.T) {
 		extraClaims := map[string]any{}
 
-		enrichedToken, err := Enrich(testSecret, originalToken, extraClaims)
+		enrichedToken, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 		if err != nil {
 			t.Fatalf("enrich failed: %v", err)
 		}
@@ -183,7 +183,7 @@ func TestEnrichErrors(t *testing.T) {
 			accessToken:   []byte("invalid.token"),
 			extraClaims:   map[string]any{"role": "admin"},
 			expectError:   true,
-			errorContains: "failed to parse original token",
+			errorContains: "invalid token form",
 		},
 		{
 			name:          "malformed token",
@@ -191,7 +191,7 @@ func TestEnrichErrors(t *testing.T) {
 			accessToken:   []byte("not-a-token"),
 			extraClaims:   map[string]any{"role": "admin"},
 			expectError:   true,
-			errorContains: "failed to parse original token",
+			errorContains: "invalid token form",
 		},
 		{
 			name:          "token with invalid header",
@@ -199,7 +199,7 @@ func TestEnrichErrors(t *testing.T) {
 			accessToken:   []byte("aW52YWxpZC1oZWFkZXI.eyJzdWIiOiJ1c2VyMTIzIn0.signature"),
 			extraClaims:   map[string]any{"role": "admin"},
 			expectError:   true,
-			errorContains: "decode token: signature",
+			errorContains: "looking for beginning of value",
 		},
 		{
 			name:          "invalid extra claims",
@@ -210,18 +210,21 @@ func TestEnrichErrors(t *testing.T) {
 			errorContains: "failed to merge claims",
 		},
 		{
+			// A string key is refused up front. No algorithm here can sign with one,
+			// so deriving a verification key from it only moved the rejection to
+			// after the signature check, where it read as a signing failure.
 			name:          "invalid signing key",
 			key:           "invalid-key",
 			accessToken:   validToken,
 			extraClaims:   map[string]any{"role": "admin"},
 			expectError:   true,
-			errorContains: "signature",
+			errorContains: "invalid key",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Enrich(tt.key, tt.accessToken, tt.extraClaims)
+			_, err := Enrich(testAlg, tt.key, tt.accessToken, tt.extraClaims)
 
 			if tt.expectError {
 				if err == nil {
@@ -268,7 +271,7 @@ func TestEnrichWithDifferentAlgorithms(t *testing.T) {
 				"role": "admin",
 			}
 
-			enrichedToken, err := Enrich(tt.key, originalToken, extraClaims)
+			enrichedToken, err := Enrich(tt.alg, tt.key, originalToken, extraClaims)
 			if err != nil {
 				t.Fatalf("enrich failed with %s: %v", tt.name, err)
 			}
@@ -310,7 +313,7 @@ func TestEnrichPreservesTokenStructure(t *testing.T) {
 	}
 
 	extraClaims := map[string]any{"role": "admin"}
-	enrichedToken, err := Enrich(testSecret, originalToken, extraClaims)
+	enrichedToken, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 	if err != nil {
 		t.Fatalf("enrich failed: %v", err)
 	}
@@ -365,7 +368,7 @@ func BenchmarkEnrich(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_, err := Enrich(testSecret, originalToken, extraClaims)
+		_, err := Enrich(testAlg, testSecret, originalToken, extraClaims)
 		if err != nil {
 			b.Fatalf("enrich failed: %v", err)
 		}

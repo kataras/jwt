@@ -28,7 +28,7 @@ func main() {
 	// http://localhost:8080/protected?token=$token
 	// http://localhost:8080/protected?token=$token&block=true
 	// http://localhost:8080/protected?token=$token (ErrBlocked)
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
@@ -77,7 +77,14 @@ func verifyTokenHandler(blocklist *jwt.Blocklist) http.HandlerFunc {
 		}
 
 		if shouldBlock {
-			blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims)
+			// A token that cannot be keyed is not blocked, and InvalidateToken says so
+			// instead of pretending. Reporting success here would leave the session live.
+			if err = blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims); err != nil {
+				log.Printf("Invalidate token: %v", err)
+				http.Error(w, "failure: block the token", http.StatusInternalServerError)
+				return
+			}
+
 			log.Printf(`The token has been blocked now.
 Navigate to http://localhost:8080/protected?token=%s and you should see an ErrBlocked`, token)
 			unauthorized(w)

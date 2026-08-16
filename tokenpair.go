@@ -1,7 +1,5 @@
 package jwt
 
-import "encoding/json"
-
 // TokenPair represents a standard OAuth2/JWT token response containing
 // both access and refresh tokens.
 //
@@ -19,8 +17,18 @@ import "encoding/json"
 //	  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 //	}
 type TokenPair struct {
-	AccessToken  json.RawMessage `json:"access_token,omitempty"`
-	RefreshToken json.RawMessage `json:"refresh_token,omitempty"`
+	// AccessToken is the short-lived credential the client sends on each request.
+	AccessToken string `json:"access_token,omitempty"`
+	// RefreshToken is the long-lived credential the client exchanges for a new access
+	// token. Leave it empty for a response that does not issue one.
+	RefreshToken string `json:"refresh_token,omitempty"`
+	// IDToken carries identity claims about the user, as OpenID Connect defines it.
+	// Optional, and empty for plain OAuth2 responses.
+	//
+	// Providers that issue one return all three together, and a two-field struct did not
+	// match any real response, so callers declared their own type instead of using this
+	// one.
+	IDToken string `json:"id_token,omitempty"`
 }
 
 // NewTokenPair creates a TokenPair from raw access and refresh token bytes.
@@ -28,8 +36,11 @@ type TokenPair struct {
 // The function automatically quotes the token bytes to create valid JSON string values.
 // This is useful when you have raw JWT tokens that need to be included in a JSON response.
 //
-// Either token can be nil/empty if you only want to include one token in the response.
-// The omitempty tags will exclude empty tokens from the JSON output.
+// Either token may be empty, and an empty one is left out of the JSON.
+//
+// That last part is new. The fields were json.RawMessage filled by BytesQuote, which
+// returns two quote characters for no input, so an empty token was never empty as far as
+// omitempty was concerned and the response carried "access_token":"" instead.
 //
 // Example:
 //
@@ -43,31 +54,7 @@ type TokenPair struct {
 //	json.NewEncoder(w).Encode(pair)
 func NewTokenPair(accessToken, refreshToken []byte) TokenPair {
 	return TokenPair{
-		AccessToken:  BytesQuote(accessToken),
-		RefreshToken: BytesQuote(refreshToken),
+		AccessToken:  string(accessToken),
+		RefreshToken: string(refreshToken),
 	}
-}
-
-// BytesQuote wraps a byte slice in double quotes to create a JSON string value.
-//
-// This function creates a new byte slice with the input data surrounded by
-// double quotes, making it suitable for use as a JSON string value.
-//
-// The function allocates a new slice that is exactly len(b)+2 bytes long
-// and copies the input data between the quotes.
-//
-// Example:
-//
-//	token := []byte("eyJhbGciOiJIUzI1NiJ9...")
-//	quoted := jwt.BytesQuote(token)
-//	// quoted = []byte("\"eyJhbGciOiJIUzI1NiJ9...\"")
-//
-// This is primarily used internally by NewTokenPair but can be useful
-// for other JSON formatting scenarios.
-func BytesQuote(b []byte) []byte {
-	dst := make([]byte, len(b)+2)
-	dst[0] = '"'
-	copy(dst[1:], b)
-	dst[len(dst)-1] = '"'
-	return dst
 }

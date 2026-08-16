@@ -1,0 +1,435 @@
+/* Print stylesheet for the jwt book.
+ *
+ * Two audiences share one sheet: a browser scrolling the HTML, and the pagination polyfill
+ * cutting that same HTML into pages for the PDF. Anything that only makes sense on paper
+ * lives under @page or .pagedjs_page; anything that only makes sense on screen is guarded
+ * by @media screen.
+ *
+ * Colours are the brand palette from brand/BRAND.md. Nothing here is a var(), because the
+ * polyfill clones subtrees around and inherited custom properties have been known to go
+ * missing across that boundary. Hardcoded hex is duller and it survives.
+ */
+
+/* ---------- page ---------- */
+
+@page {
+  /* A4 rather than a 6 by 9 trim, and the reason is the code. A 6 by 9 page leaves about
+   * 120mm of text, which is roughly 67 monospace characters at this size. Go signatures do
+   * not fit in 67 characters: the longest listing in this book is 184 characters wide.
+   * A4 with 20mm side margins gives 170mm, or about 95 characters, which seats all but the
+   * few that wrap. */
+  size: A4;
+  margin: 24mm 20mm 22mm;
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Inter Book", system-ui, sans-serif;
+    font-size: 8pt;
+    color: #6B7686;
+  }
+}
+
+@page :first {
+  margin: 0;
+  @bottom-center { content: none; }
+}
+
+/* The cover bleeds to the paper edge, so it gets its own page with no margin. */
+@page cover {
+  size: A4;
+  margin: 0;
+  @bottom-center { content: none; }
+}
+
+/* ---------- base ---------- */
+
+html {
+  font-size: 10.6pt;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter Book", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 400;
+  line-height: 1.72;
+  color: #14181F;
+  background: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  hyphens: auto;
+}
+
+p {
+  margin: 0 0 0.85em;
+  orphans: 2;
+  widows: 2;
+}
+
+strong { font-weight: 650; }
+
+a {
+  color: #0D5EAF;
+  text-decoration: none;
+}
+
+/* On paper a link is just text, so it has to earn its colour by being readable in ink. */
+@media print {
+  a { color: #0D5EAF; }
+}
+
+/* ---------- cover ---------- */
+
+.cover {
+  page: cover;
+  break-after: page;
+  background: #0A0E1F;
+  color: #F4F1EA;
+  height: 297mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 22mm;
+  text-align: left;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.cover-mark {
+  width: 26mm;
+  margin-bottom: 10mm;
+}
+
+.cover-mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cover-title {
+  font-size: 46pt;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0 0 4mm;
+  color: #FFFFFF;
+}
+
+.cover-subtitle {
+  font-size: 13pt;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #A9CBEE;
+  margin: 0 0 9mm;
+  max-width: 78mm;
+}
+
+.cover-rule {
+  width: 22mm;
+  height: 3px;
+  background: #F5C542;
+  margin-bottom: 8mm;
+}
+
+.cover-author {
+  font-size: 12pt;
+  font-weight: 650;
+  margin: 0 0 2mm;
+  color: #FFFFFF;
+}
+
+.cover-credit {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 9mm;
+  font-size: 9pt;
+  color: #8FA8C8;
+}
+
+.cover-credit li + li { margin-top: 1mm; }
+
+.cover-edition {
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6B7686;
+  margin: 0;
+}
+
+/* ---------- front matter ---------- */
+
+.frontmatter {
+  break-before: page;
+}
+
+.frontmatter h1,
+.colophon h1 {
+  font-size: 22pt;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  margin: 0 0 8mm;
+}
+
+.toc {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: none;
+}
+
+.toc-chapter {
+  margin-bottom: 4mm;
+  break-inside: avoid;
+}
+
+.toc-chapter > a {
+  display: flex;
+  align-items: baseline;
+  gap: 4mm;
+  font-weight: 650;
+  font-size: 11pt;
+  color: #14181F;
+}
+
+.toc-num {
+  display: inline-block;
+  min-width: 7mm;
+  font-variant-numeric: tabular-nums;
+  color: #0D5EAF;
+}
+
+.toc-unnumbered > a { padding-left: 11mm; }
+
+.toc-sections {
+  list-style: none;
+  padding: 0 0 0 11mm;
+  margin: 1.5mm 0 0;
+  font-size: 9pt;
+  color: #5C6675;
+}
+
+.toc-sections a { color: #5C6675; }
+.toc-sections li { margin-bottom: 0.8mm; }
+
+/* ---------- chapters ---------- */
+
+.chapter {
+  break-before: page;
+}
+
+.chapter-head {
+  margin-bottom: 9mm;
+  padding-bottom: 4mm;
+  border-bottom: 2px solid #14181F;
+}
+
+.chapter-eyebrow {
+  font-size: 8.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0D5EAF;
+  margin: 0 0 2mm;
+  font-weight: 650;
+}
+
+.chapter-title {
+  font-size: 26pt;
+  font-weight: 780;
+  letter-spacing: -0.028em;
+  line-height: 1.06;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.chapter h2 {
+  font-size: 15pt;
+  font-weight: 720;
+  letter-spacing: -0.015em;
+  margin: 8mm 0 3mm;
+  break-after: avoid;
+  text-wrap: balance;
+}
+
+.chapter h3 {
+  font-size: 11.5pt;
+  font-weight: 680;
+  margin: 6mm 0 2mm;
+  break-after: avoid;
+}
+
+.chapter ul,
+.chapter ol {
+  margin: 0 0 0.85em;
+  padding-left: 5mm;
+}
+
+.chapter li { margin-bottom: 0.3em; }
+
+blockquote {
+  margin: 0 0 0.85em;
+  padding-left: 4mm;
+  border-left: 2px solid #C9D4E2;
+  color: #3D4757;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #D9E0E9;
+  margin: 6mm 0;
+}
+
+/* ---------- code ---------- */
+
+code {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+p code,
+li code,
+td code {
+  background: #F1F4F8;
+  padding: 0.08em 0.32em;
+  border-radius: 3px;
+  /* A long identifier has to be allowed to break, or it pushes the whole line into the
+   * margin. */
+  overflow-wrap: break-word;
+}
+
+/* Code wraps. It does not scroll.
+ *
+ * overflow-x: auto is meaningless on paper: there is no scrollbar, so anything past the
+ * right edge is simply cut off, and the reader has no way to know a line was truncated.
+ * That is how the first build of this book lost the right-hand half of several listings.
+ *
+ * white-space: pre-wrap keeps the indentation that makes code readable while letting a
+ * long line continue on the next one, and overflow-wrap: break-word handles the case a
+ * wrap point cannot: a base64 token with no spaces in it.
+ *
+ * Ligatures are off because a monospace face that draws := or -> or != as a single glyph
+ * makes code that is being read for its exact characters harder to trust. */
+pre.code {
+  background: #F7F9FB;
+  border: 1px solid #E1E7EF;
+  border-radius: 4px;
+  padding: 3mm 3.5mm;
+  margin: 0 0 0.9em;
+  font-size: 8.6pt;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0, "dlig" 0;
+  /* A listing longer than a page cannot avoid a break, and forcing it to try leaves a
+   * mostly blank page in front of it. So breaking is allowed, but not into a stub: four
+   * lines have to stay on each side, which pushes a two-line remainder onto the next page
+   * whole rather than stranding a closing brace by itself. */
+  break-inside: auto;
+  orphans: 4;
+  widows: 4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+pre.code code {
+  font-size: inherit;
+  background: none;
+  padding: 0;
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+
+/* Six token classes, mapped in render.go. Four colours plus grey reads better in print
+ * than the eleven a default theme would give. */
+pre.code .c { color: #6B7686; font-style: italic; }
+pre.code .k { color: #A03078; }
+pre.code .s { color: #0E6E4E; }
+pre.code .n { color: #9A5B00; }
+pre.code .f { color: #0D5EAF; }
+pre.code .a { color: #7A4212; }
+
+/* ---------- tables ---------- */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.9em;
+  font-size: 9pt;
+  break-inside: avoid;
+  /* Same reasoning as the code blocks: a table that overflows the measure is cut off on
+   * paper rather than scrolled. Fixed layout makes the columns share what there is. */
+  table-layout: fixed;
+  overflow-wrap: break-word;
+}
+
+th, td {
+  border-bottom: 1px solid #E1E7EF;
+  padding: 1.6mm 2mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-weight: 680;
+  border-bottom: 1.5px solid #14181F;
+}
+
+/* ---------- colophon ---------- */
+
+.colophon {
+  break-before: page;
+}
+
+.colophon dl {
+  margin: 0 0 6mm;
+  font-size: 9.5pt;
+}
+
+.colophon dt {
+  font-weight: 650;
+  margin-top: 2mm;
+}
+
+.colophon dd {
+  margin: 0 0 0 0;
+  color: #3D4757;
+}
+
+.colophon-note {
+  font-size: 9pt;
+  color: #5C6675;
+  max-width: 96mm;
+}
+
+/* ---------- screen ---------- */
+
+@media screen {
+  body {
+    max-width: 46em;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+  }
+
+  .cover {
+    height: auto;
+    padding: 4rem 3rem;
+    border-radius: 8px;
+    margin-bottom: 3rem;
+  }
+
+  .chapter,
+  .frontmatter,
+  .colophon {
+    margin-top: 4rem;
+  }
+
+  pre.code {
+    font-size: 0.82rem;
+    /* On screen there is a scrollbar, so a long line can keep its shape. */
+    white-space: pre;
+    overflow-x: auto;
+  }
+}
+
+/* The polyfill sets this once it has finished paginating. Until then the screen view is
+ * the plain scroll above, which is what -format html produces. */
+.pagedjs_page .cover { border-radius: 0; margin-bottom: 0; }

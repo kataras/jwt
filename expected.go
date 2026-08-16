@@ -96,15 +96,16 @@ func (e Expected) ValidateToken(token []byte, c Claims, err error) error {
 		}
 	}
 
-	if n := len(e.Audience); n > 0 {
-		if n != len(c.Audience) {
-			return fmt.Errorf("%w: aud (length)", ErrExpected)
-		}
-
-		for i := range c.Audience {
-			if v := e.Audience[i]; v != c.Audience[i] {
-				return fmt.Errorf("%w: aud (%q)", ErrExpected, v)
-			}
+	// Each expected audience has to appear somewhere in the token's, which is what
+	// RFC 7519 section 4.1.3 asks of a recipient: check that you are among the audiences.
+	//
+	// This used to require the two lists to have the same length and the same order, so
+	// an issuer that added a second audience, or listed the same ones in a different
+	// order, broke every recipient at once. Nothing in the package offered a membership
+	// test, so the natural way to write the check was the wrong one.
+	for _, expected := range e.Audience {
+		if !c.Audience.Contains(expected) {
+			return fmt.Errorf("%w: aud (%q)", ErrExpected, expected)
 		}
 	}
 

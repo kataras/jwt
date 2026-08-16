@@ -11,38 +11,38 @@ import (
 // validation, standard claims verification, and optional custom validation through
 // TokenValidator implementations. The function ensures token integrity and validity.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Algorithm used to sign the token (must match signing algorithm)
 //   - key: Public key material for verification (corresponding to signing key)
 //   - token: JWT token bytes to verify and decode
 //   - validators: Optional TokenValidator implementations for custom validation
 //
-// **Verification Process**:
+// Verification Process:
 //  1. Token format validation (header.payload.signature structure)
 //  2. Signature verification using algorithm and public key
 //  3. Payload decoding and JSON parsing
 //  4. Standard claims validation (exp, nbf, iat if present)
 //  5. Custom validator execution (if provided)
 //
-// **Standard Claims Validation**: Automatically validates timing claims:
+// Standard Claims Validation: Automatically validates timing claims:
 //   - "exp" (expiry): Ensures token hasn't expired
 //   - "nbf" (not before): Ensures token is active
 //   - "iat" (issued at): Ensures token wasn't issued in the future
 //
-// **Return Value**: VerifiedToken containing:
+// Return Value: VerifiedToken containing:
 //   - Original token bytes
 //   - Decoded header, payload, and signature
 //   - Parsed standard claims
 //   - Claims() method for custom claim extraction
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - Invalid token format or structure
 //   - Signature verification failure
 //   - Algorithm mismatch
 //   - Standard claims validation failure (expired, not yet valid, etc.)
 //   - Custom validator rejection
 //
-// **Security Features**:
+// Security Features:
 //   - Cryptographic signature verification
 //   - Timing-based access control
 //   - Algorithm validation to prevent algorithm confusion attacks
@@ -87,7 +87,7 @@ import (
 //	    jwt.Leeway(5 * time.Minute),
 //	    customValidator)
 //
-// **Algorithm Support**: Works with all supported algorithms (HMAC, RSA, ECDSA, EdDSA).
+// Algorithm Support: Works with all supported algorithms (HMAC, RSA, ECDSA, EdDSA).
 // The key parameter type varies by algorithm family - use appropriate key type.
 //
 // See VerifyEncrypted for encrypted payload tokens and TokenValidator implementations
@@ -102,31 +102,31 @@ func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) 
 // the token signature and then decrypts the payload before parsing claims. This
 // is used for tokens created with SignEncrypted that contain confidential data.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Algorithm used to sign the token (must match signing algorithm)
 //   - key: Public key material for signature verification
 //   - decrypt: Function to decrypt the payload (see InjectFunc)
 //   - token: JWT token bytes with encrypted payload to verify and decode
 //   - validators: Optional TokenValidator implementations for custom validation
 //
-// **Verification and Decryption Process**:
+// Verification and Decryption Process:
 //  1. Token format validation and signature verification
 //  2. Payload base64url decoding
 //  3. Payload decryption using the decrypt function
 //  4. Decrypted payload JSON parsing
 //  5. Standard claims validation and custom validator execution
 //
-// **InjectFunc Decryption**: The decrypt function receives []byte (base64-decoded
+// InjectFunc Decryption: The decrypt function receives []byte (base64-decoded
 // encrypted payload) and returns []byte (decrypted JSON) and error. It's called
 // after base64url decoding but before JSON unmarshaling.
 //
-// **Security Requirements**:
+// Security Requirements:
 //   - Correct decryption key corresponding to encryption key used during signing
 //   - Proper verification key corresponding to signing key
 //   - Authenticated encryption recommended (see GCM function)
 //   - Secure key management for both signing and encryption keys
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - All standard Verify errors (signature, format, timing)
 //   - Decryption failures (wrong key, corrupted data, authentication failure)
 //   - JSON parsing errors after decryption
@@ -135,7 +135,10 @@ func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) 
 //
 //	// Using AES-GCM encryption (see GCM function)
 //	encryptKey := []byte("my-32-byte-encryption-key-here!")
-//	encrypt, decrypt := jwt.GCM(encryptKey, nil)
+//	encrypt, decrypt, err := jwt.GCM(encryptKey, nil)
+//	if err != nil {
+//	    return err
+//	}
 //
 //	// Verify encrypted token
 //	verifiedToken, err := jwt.VerifyEncrypted(jwt.HS256, signingKey, decrypt, tokenBytes)
@@ -166,16 +169,16 @@ func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) 
 //	verifiedToken, err := jwt.VerifyEncrypted(jwt.ES256, ecdsaPublicKey, decrypt,
 //	    encryptedToken,
 //	    jwt.Leeway(time.Minute),
-//	    jwt.Blocklist(revokedTokens),
+//	    revokedTokens, // a *jwt.Blocklist, which implements TokenValidator
 //	    customSecurityValidator)
 //
-// **Important Notes**:
+// Important Notes:
 //   - Tokens created with SignEncrypted MUST be verified with VerifyEncrypted
 //   - The decrypt function must use the same algorithm and key as encryption
 //   - Decryption errors are treated as verification failures
 //   - Standard claims validation occurs after successful decryption
 //
-// **Performance Considerations**:
+// Performance Considerations:
 //   - Decryption adds computational overhead compared to standard verification
 //   - Use appropriate encryption algorithms for your performance requirements
 //   - Consider caching decrypted results for frequently accessed tokens
@@ -192,32 +195,32 @@ func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, v
 // It allows validation of JWT header fields beyond the standard "alg" and "typ"
 // fields, enabling verification of custom header claims like "kid", "jku", etc.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Algorithm used to sign the token (must match signing algorithm)
 //   - key: Public key material for signature verification
 //   - token: JWT token bytes to verify and decode
 //   - headerValidator: Custom validator for JWT header fields
 //   - validators: Optional TokenValidator implementations for payload validation
 //
-// **Header Validation Process**:
+// Header Validation Process:
 //  1. Token format validation and header decoding
 //  2. Custom header validation using headerValidator
 //  3. Standard signature verification
 //  4. Payload processing and claims validation
 //  5. Custom payload validator execution
 //
-// **HeaderValidator Interface**: The headerValidator receives the decoded header
+// HeaderValidator Interface: The headerValidator receives the decoded header
 // as a map[string]any and returns an error if validation fails. This allows
 // custom logic for validating header fields.
 //
-// **Common Header Validation Use Cases**:
+// Common Header Validation Use Cases:
 //   - "kid" (Key ID): Validate key identifier matches expected values
 //   - "jku" (JWK Set URL): Verify JWK Set URL is from trusted domain
 //   - "x5t" (X.509 Thumbprint): Validate certificate thumbprint
 //   - "cty" (Content Type): Ensure correct content type
 //   - Custom fields: Application-specific header validation
 //
-// **Security Benefits**:
+// Security Benefits:
 //   - Prevents use of tokens with invalid or malicious headers
 //   - Enables key rotation validation through "kid" checks
 //   - Supports certificate-based validation
@@ -277,12 +280,12 @@ func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, v
 //	verifiedToken, err := jwt.VerifyWithHeaderValidator(jwt.HS256, hmacKey,
 //	    tokenBytes, multiHeaderValidator)
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - All standard Verify errors
 //   - Header validation failures from headerValidator
 //   - Missing or invalid header fields
 //
-// **Performance Note**: Header validation adds minimal overhead as it operates
+// Performance Note: Header validation adds minimal overhead as it operates
 // on the already-decoded header data.
 //
 // See HeaderValidator type definition and VerifyEncryptedWithHeaderValidator
@@ -297,7 +300,7 @@ func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValid
 // providing both payload decryption and custom header validation in a single operation.
 // It's ideal for scenarios requiring both payload confidentiality and header metadata validation.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Algorithm used to sign the token (must match signing algorithm)
 //   - key: Public key material for signature verification
 //   - decrypt: Function to decrypt the payload (see InjectFunc)
@@ -305,26 +308,26 @@ func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValid
 //   - headerValidator: Custom validator for JWT header fields
 //   - validators: Optional TokenValidator implementations for payload validation
 //
-// **Processing Order**:
+// Processing Order:
 //  1. Token format validation and header decoding
 //  2. Custom header validation using headerValidator
 //  3. Signature verification using algorithm and key
 //  4. Payload base64url decoding and decryption
 //  5. Standard claims validation and custom validator execution
 //
-// **Combined Benefits**:
+// Combined Benefits:
 //   - Header metadata validation for token identification and routing
 //   - Payload confidentiality through decryption
 //   - Standard claims validation after decryption
 //   - Complete JWT security verification workflow
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Headers remain unencrypted and are validated before payload processing
 //   - Payload is encrypted and requires correct decryption function
 //   - Both header and payload validation must pass for successful verification
 //   - Multiple layers of validation provide defense in depth
 //
-// **Use Cases**:
+// Use Cases:
 //   - Multi-tenant systems with encrypted user data and tenant header validation
 //   - Key rotation systems requiring both key ID validation and payload decryption
 //   - Content-type validation with encrypted sensitive data
@@ -334,7 +337,10 @@ func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValid
 //
 //	// Multi-tenant encrypted token with header validation
 //	encryptKey := []byte("tenant-specific-encryption-key!")
-//	encrypt, decrypt := jwt.GCM(encryptKey, nil)
+//	encrypt, decrypt, err := jwt.GCM(encryptKey, nil)
+//	if err != nil {
+//	    return err
+//	}
 //
 //	tenantValidator := func(header map[string]any) error {
 //	    kid, ok := header["kid"].(string)
@@ -376,7 +382,7 @@ func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValid
 //	verifiedToken, err := jwt.VerifyEncryptedWithHeaderValidator(
 //	    jwt.ES256, ecdsaKey, decrypt, encryptedToken, certValidator,
 //	    jwt.Leeway(time.Minute),
-//	    jwt.Blocklist(revokedTokens))
+//	    revokedTokens) // a *jwt.Blocklist, which implements TokenValidator
 //
 //	// Extract decrypted sensitive data after all validation
 //	var sensitiveData struct {
@@ -385,13 +391,13 @@ func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValid
 //	}
 //	err = verifiedToken.Claims(&sensitiveData)
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - All standard Verify and VerifyEncrypted errors
 //   - Header validation failures from headerValidator
 //   - Decryption failures (wrong key, corrupted data)
 //   - Missing or invalid header fields
 //
-// **Performance Considerations**:
+// Performance Considerations:
 //   - Header validation occurs before expensive decryption operations
 //   - Early header rejection can save computational resources
 //   - Combine validation checks efficiently in headerValidator function
@@ -408,7 +414,7 @@ func VerifyEncryptedWithHeaderValidator(alg Alg, key PublicKey, decrypt InjectFu
 // validation, optional payload decryption, claims parsing, and custom validation.
 // It serves as the common implementation for all public Verify* functions.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm for signature verification
 //   - key: Public key material for the specified algorithm
 //   - decrypt: Optional decryption function for payload (nil for no decryption)
@@ -416,7 +422,7 @@ func VerifyEncryptedWithHeaderValidator(alg Alg, key PublicKey, decrypt InjectFu
 //   - headerValidator: Optional custom header validator (nil for no header validation)
 //   - validators: TokenValidator slice for custom validation logic
 //
-// **Processing Pipeline**:
+// Processing Pipeline:
 //  1. Empty token check (returns ErrMissing if empty)
 //  2. Token decoding and signature verification via decodeToken
 //  3. Optional payload decryption using decrypt function
@@ -425,30 +431,30 @@ func VerifyEncryptedWithHeaderValidator(alg Alg, key PublicKey, decrypt InjectFu
 //  6. Custom validator execution with early termination on failure
 //  7. VerifiedToken construction and return
 //
-// **Claims Parsing Strategy**:
+// Claims Parsing Strategy:
 //   - Primary attempt: Direct unmarshaling to Claims struct
 //   - Fallback: Uses claimsSecondChance for flexible type handling
 //   - Error handling: Sets errPayloadNotJSON for non-JSON payloads
 //   - Validator compatibility: Allows validators to handle JSON errors
 //
-// **Validator Processing**:
+// Validator Processing:
 //   - Processes validators in order until first failure
 //   - Each validator receives: token bytes, parsed claims, and any previous error
 //   - Validators can override previous errors by returning nil
 //   - Early termination on validator failure for efficiency
 //
-// **Error Handling Strategy**:
+// Error Handling Strategy:
 //   - JSON parsing errors are preserved for validator inspection
 //   - Standard claims validation only proceeds without JSON errors
 //   - Validator errors override standard validation errors
 //   - Comprehensive error propagation maintains context
 //
-// **Internal Usage**: This function is not exported and serves as the
+// Internal Usage: This function is not exported and serves as the
 // implementation detail for all public Verify* functions. It provides
 // consistency across verification variants while allowing specific
 // customizations through parameters.
 //
-// **Performance Optimizations**:
+// Performance Optimizations:
 //   - Early termination on empty tokens
 //   - Conditional decryption only when needed
 //   - Fallback claims parsing for compatibility
@@ -477,9 +483,12 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 		var secondChange claimsSecondChance // try again with a different structure, which always converted to the standard jwt claims.
 		if err = json.Unmarshal(payload, &secondChange); err != nil {
 			err = errPayloadNotJSON // allow validators to catch this error.
+		} else {
+			// The conversion has its own failure modes: a timestamp no int64 can hold, or
+			// an issuer or subject that is not text. Both were discarded before, and an
+			// unusable "exp" then read as no expiry at all.
+			standardClaims, err = secondChange.toClaims()
 		}
-
-		standardClaims = secondChange.toClaims()
 	}
 
 	if err == nil { // do not proceed if we have a JSON error.
@@ -517,14 +526,14 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 // providing access to both the raw token data and parsed standard claims.
 // It serves as the return value for all successful token verification operations.
 //
-// **Field Details**:
+// Field Details:
 //   - Token: Original token bytes as provided to verification functions
 //   - Header: Decoded JWT header (base64url decoded JSON)
 //   - Payload: Decoded JWT payload (base64url decoded, possibly decrypted JSON)
 //   - Signature: Decoded JWT signature bytes (base64url decoded)
 //   - StandardClaims: Parsed standard JWT claims (exp, nbf, iat, iss, sub, aud, jti)
 //
-// **Security Assurance**: The presence of a VerifiedToken instance guarantees:
+// Security Assurance: The presence of a VerifiedToken instance guarantees:
 //   - Signature has been cryptographically verified
 //   - Token format is valid (header.payload.signature)
 //   - Standard claims have passed timing validation
@@ -532,13 +541,13 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 //   - Optional header validation has passed (if HeaderValidator was used)
 //   - Optional payload decryption was successful (if decrypt function was used)
 //
-// **Usage Patterns**:
+// Usage Patterns:
 //   - Access standard claims directly via StandardClaims field
 //   - Extract custom claims using the Claims() method
 //   - Inspect raw token components for debugging or logging
 //   - Pass to other functions requiring verified token context
 //
-// **Thread Safety**: VerifiedToken instances are safe for concurrent read access
+// Thread Safety: VerifiedToken instances are safe for concurrent read access
 // once created, as all fields are populated during verification and not modified.
 //
 // Example usage:
@@ -576,7 +585,7 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 //	log.Printf("Header: %s", string(verifiedToken.Header))
 //	log.Printf("Payload: %s", string(verifiedToken.Payload))
 //
-// **Memory Considerations**: VerifiedToken holds references to the decoded
+// Memory Considerations: VerifiedToken holds references to the decoded
 // token components. For high-throughput applications, consider extracting
 // needed claims and discarding the VerifiedToken to free memory.
 type VerifiedToken struct {
@@ -609,26 +618,26 @@ type VerifiedToken struct {
 // It unmarshals the token's payload (claims) into the destination pointer, allowing
 // access to application-specific data beyond the standard JWT claims.
 //
-// **Parameters**:
+// Parameters:
 //   - dest: Pointer to destination struct, map, or any JSON-unmarshallable type
 //
-// **Supported Destination Types**:
+// Supported Destination Types:
 //   - Struct with JSON tags: For type-safe custom claim extraction
 //   - map[string]any: For flexible dynamic claim access
 //   - Custom types implementing json.Unmarshaler
 //   - Any pointer to JSON-compatible Go types
 //
-// **JSON Unmarshaling**: Uses the package-level Unmarshal function, which
+// JSON Unmarshaling: Uses the package-level Unmarshal function, which
 // respects the configured JSON unmarshaling behavior and any custom unmarshalers.
 //
-// **Standard Claims**: The StandardClaims field is always populated and validated
+// Standard Claims: The StandardClaims field is always populated and validated
 // during verification. No additional validation is needed for standard timing
 // claims (exp, nbf, iat) as they are automatically verified.
 //
-// **Performance Note**: This method performs JSON unmarshaling on each call.
+// Performance Note: This method performs JSON unmarshaling on each call.
 // For frequently accessed claims, consider unmarshaling once and caching the result.
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - JSON unmarshaling errors (invalid JSON, type mismatches)
 //   - Destination is not a pointer
 //   - Incompatible types between JSON and destination
@@ -685,7 +694,7 @@ type VerifiedToken struct {
 //	}
 //	err = verifiedToken.Claims(&metadata)
 //
-// **Best Practices**:
+// Best Practices:
 //   - Use struct types for known claim schemas (type safety)
 //   - Use maps for dynamic or unknown claim structures
 //   - Handle unmarshaling errors appropriately
@@ -701,17 +710,17 @@ func (t *VerifiedToken) Claims(dest any) error {
 // cannot be parsed as JSON. It can occur with malformed JSON or when the
 // payload contains non-JSON data (e.g., plain text, binary data).
 //
-// **Common Causes**:
+// Common Causes:
 //   - Corrupted token payload during transmission
 //   - Intentionally non-JSON payloads (e.g., plain text tokens)
 //   - Encryption/decryption errors resulting in malformed data
 //   - Custom token formats that don't use JSON payloads
 //
-// **Handling**: This error can be caught by TokenValidator implementations
+// Handling: This error can be caught by TokenValidator implementations
 // to allow non-JSON payloads. The Plain validator specifically handles this
 // error to enable verification of tokens with non-JSON payloads.
 //
-// **Internal Usage**: This error is set during the claims parsing phase
+// Internal Usage: This error is set during the claims parsing phase
 // of token verification when JSON unmarshaling fails. Validators can
 // inspect and potentially override this error.
 var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malformed JSON or it's not a JSON at all.
@@ -723,23 +732,23 @@ var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malf
 // and ignoring the errPayloadNotJSON error that would normally cause
 // verification to fail.
 //
-// **Use Cases**:
+// Use Cases:
 //   - Legacy tokens with plain text payloads
 //   - Simple tokens without structured claims
 //   - Custom token formats that don't use JSON
 //   - Debugging and testing with malformed tokens
 //   - Integration with non-standard JWT implementations
 //
-// **Behavior**: When errPayloadNotJSON occurs during verification, this
+// Behavior: When errPayloadNotJSON occurs during verification, this
 // validator returns nil (success) instead of the error, allowing the
 // verification process to continue. All other errors are passed through
 // unchanged.
 //
-// **Payload Access**: With Plain validator, the raw payload bytes can be
+// Payload Access: With Plain validator, the raw payload bytes can be
 // accessed via VerifiedToken.Payload field, but the Claims() method will
 // likely fail since the payload is not JSON.
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Standard claims validation (exp, nbf, iat) is bypassed for non-JSON payloads
 //   - Application must implement custom validation for plain payloads
 //   - Signature verification still occurs normally
@@ -766,16 +775,20 @@ var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malf
 //	    return errors.New("invalid plain payload content")
 //	}
 //
-//	// Combined with other validators (Plain should come last)
+//	// Combined with other validators, Plain comes first.
 //	verifiedToken, err := jwt.Verify(jwt.HS256, secretKey, tokenBytes,
-//	    customHeaderValidator,
-//	    jwt.Plain) // Plain overrides JSON errors
+//	    jwt.Plain,
+//	    myOtherValidator)
 //
-// **Validator Order**: When using Plain with other validators, place it last
-// in the validator list so it can catch JSON errors that other validators
-// might depend on.
+// Validator order: put Plain first. Verify stops at the first validator that returns an
+// error, so a validator only ever receives a non-nil incoming error when it is first in
+// the list. Placed last, Plain never runs at all: the validator ahead of it receives the
+// payload error, returns it, and the loop breaks.
+//
+// This comment said the opposite until v1.0.0, and the advice it gave produced exactly the
+// failure it was meant to prevent.
 var Plain = TokenValidatorFunc(func(token []byte, standardClaims Claims, err error) error {
-	if err == errPayloadNotJSON {
+	if errors.Is(err, errPayloadNotJSON) {
 		return nil // skip this error entirely.
 	}
 

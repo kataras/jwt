@@ -33,7 +33,7 @@ func main() {
 	http.HandleFunc("/protected", verifyTokenHandler)
 
 	log.Printf("Server listening on: http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func verifyTokenHandler(w http.ResponseWriter, r *http.Request) {

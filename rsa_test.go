@@ -1,11 +1,6 @@
 package jwt
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"os"
 	"testing"
 )
 
@@ -57,38 +52,4 @@ func TestMustLoadRSA(t *testing.T) {
 		// test not found file.
 		MustLoadRSA("./invalid.pem", "./invalid.pem")
 	})
-}
-
-func generateTestFilesRSA() error {
-	bitSize := 2048
-
-	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
-	if err != nil {
-		return err
-	}
-
-	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
-	privateKeyBlock := &pem.Block{
-		Type:    "PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privateKeyDer,
-	}
-	privKeyPem := pem.EncodeToMemory(privateKeyBlock)
-
-	publicKeyDer, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	pubKeyBlock := &pem.Block{
-		Type:    "PUBLIC KEY",
-		Headers: nil,
-		Bytes:   publicKeyDer,
-	}
-	pubKeyPem := pem.EncodeToMemory(pubKeyBlock)
-
-	if err = os.WriteFile("./_testfiles/rsa_private_key.pem", privKeyPem, 0666); err != nil {
-		return err
-	}
-	return os.WriteFile("./_testfiles/rsa_public_key.pem", pubKeyPem, 0666)
 }

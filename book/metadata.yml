@@ -1,0 +1,18 @@
+title: "jwt"
+subtitle: "Signing and Verifying JSON Web Tokens in Go"
+author: "Gerasimos (Makis) Maropoulos"
+# Cover credit lines, one per line.
+credit:
+  - "Author of the jwt package"
+  - "Creator of Iris"
+edition: "First Edition"
+website: "https://github.com/kataras/jwt"
+repository: "https://github.com/kataras/jwt"
+license: "MIT License"
+# No version, on purpose. The library's version changes with every release and this book
+# does not; a number on the cover would be wrong the week after it is printed.
+description: |
+  A working guide to github.com/kataras/jwt: what a JSON Web Token actually is, how this
+  package signs and verifies one, how to choose an algorithm, rotate keys, publish and
+  consume a JWKS, revoke a token that is still inside its lifetime, and where the sharp
+  edges are. Every signature in this book was checked against the source.

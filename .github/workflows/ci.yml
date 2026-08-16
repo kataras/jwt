@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Nothing here writes to the repository. Without this block the token would carry
+# whatever the repository default is, which for many repositories is write.
+permissions:
+  contents: read
+
 jobs:
 
   test:
@@ -25,5 +30,95 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v6
 
+    - name: Vet
+      run: go vet ./...
+
     - name: Test
       run: go test -v --race ./...
+
+    # The "safe" build tag swaps the unsafe zero-copy BytesToString for an allocating
+    # one. It went unbuilt for long enough to stop compiling entirely, because util.go
+    # was missing its "!safe" constraint and the two declarations collided. Nothing here
+    # exercised it. Now something does.
+    - name: Test with the safe build tag
+      run: go test --race -tags safe ./...
+
+    # Directories beginning with an underscore are invisible to ./..., and both of these
+    # are separate modules on top of that, so nothing above compiles them. _examples went
+    # unbuilt long enough for one of them to stop compiling entirely.
+    - name: Build the examples
+      run: cd _examples && go build ./... && go vet ./...
+
+    - name: Build the brand generator
+      run: cd brand && go build ./... && go vet ./...
+
+    - name: Build the book generator
+      run: cd book && go build ./... && go vet ./...
+
+    - name: Check formatting
+      run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+  # Kept in a separate job from the tests, as golangci-lint's own documentation asks:
+  # the linter and `go test` both want the whole machine, and sharing a runner makes
+  # each of them slower and the timings noisier.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+
+    # Checkout comes first here, unlike the test job above, because setup-go keys its
+    # module cache off go.sum and cannot find it before the tree exists.
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v6
+
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v6
+      with:
+        go-version: 1.26.x
+
+    # Pinned deliberately, and the two pins move together.
+    #
+    # golangci-lint-action v9 is the first major that runs on Node 24. Every major up to
+    # and including v8 runs on Node 20, which GitHub has deprecated, and which prints a
+    # warning on every single run until it is removed outright.
+    #
+    # Action v7 and later drive golangci-lint v2 only, and v2 does not read the v1
+    # configuration schema. That is not a silent downgrade: the action validates
+    # .golangci.yml against the JSON schema for the version installed here before it
+    # runs anything, so a config left behind on the v1 schema fails the job rather than
+    # being quietly ignored. Bumping either pin means checking .golangci.yml.
+    #
+    # Dependabot watches `github-actions` in .github/dependabot.yml and will raise the
+    # `uses:` line on its own. It does not know what the `version:` input below means, so
+    # that one is the half that goes stale silently. Check it when the action moves.
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.12
+
+    # util.go and util_safe.go are mutually exclusive on the "safe" build tag, so the
+    # default pass above never compiles util_safe.go at all. It went unbuilt long enough
+    # to stop compiling once already. Lint it the same way the tests run it: twice.
+    - name: golangci-lint with the safe build tag
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.12
+        args: --build-tags safe
+
+    # book/ and brand/ are separate modules, so a run at the repository root does not
+    # reach them however the paths are spelled. Each needs its own pass. Both pick up
+    # the root .golangci.yml, which golangci-lint finds by walking up from the working
+    # directory. _examples and _benchmarks are excluded by path in that file: they are
+    # sample and comparison code, already covered by `go vet` in the test job.
+    - name: golangci-lint the book generator
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.12
+        working-directory: book
+
+    - name: golangci-lint the brand generator
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.12
+        working-directory: brand

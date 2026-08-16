@@ -1,5 +1,26 @@
 .vscode
+.idea
+.DS_Store
 /_examples/test-*
 /_examples/issue-*
 /_examples/feature-*
 cov.out
+
+# The generated mirror of skill/, written by .claude/hooks/sync-skill.mjs, and the hooks'
+# own state files. The hooks and settings.json next to them are tracked on purpose: they
+# are project infrastructure, and a clone without them silently loses the automation that
+# keeps the book and the skill mirror current.
+.claude/skills/
+.claude/.*-sync-state.json
+.claude/settings.local.json
+
+# go doc dumps. Useful while writing, never worth committing.
+canonical.txt
+
+# book/output/ is tracked, on purpose. The rendered HTML and PDF are what people read, and
+# a repository where the book is a build step nobody runs is a repository with no book.
+*.exe
+
+.claude
+.plexon
+CLAUDE.md

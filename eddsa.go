@@ -84,7 +84,10 @@ func (a *algEdDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error)
 func (a *algEdDSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
 	publicKey, ok := key.(ed25519.PublicKey)
 	if !ok {
-		if privateKey, ok := key.(ed25519.PrivateKey); ok {
+		// The length check comes before Public(), which slices the private key at [32:]
+		// and panics on anything shorter. A nil or truncated ed25519.PrivateKey reaches
+		// here as a valid interface value, so the assertion alone does not protect it.
+		if privateKey, ok := key.(ed25519.PrivateKey); ok && len(privateKey) == ed25519.PrivateKeySize {
 			publicKey = privateKey.Public().(ed25519.PublicKey)
 		} else {
 			return ErrInvalidKey
@@ -219,6 +222,13 @@ func ParsePrivateKeyEdDSA(key []byte) (ed25519.PrivateKey, error) {
 		return nil, err
 	}
 
+	// The outer OCTET STRING wraps a second one, so the first two bytes are that inner
+	// header's tag and length. Check before slicing: a truncated or hand-crafted PEM
+	// otherwise panics here instead of returning an error.
+	if l := len(asn1PrivKey.PrivateKey); l < 2 {
+		return nil, fmt.Errorf("private key: bad seed length: %d", l)
+	}
+
 	seed := asn1PrivKey.PrivateKey[2:]
 	if l := len(seed); l != ed25519.SeedSize {
 		return nil, fmt.Errorf("private key: bad seed length: %d", l)
@@ -280,14 +290,19 @@ func ParsePublicKeyEdDSA(key []byte) (ed25519.PublicKey, error) {
 //	    log.Fatal(err)
 //	}
 //	// Save to files or use directly
-func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
-	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+func GenerateEdDSA() (publicPEM []byte, privatePEM []byte, err error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		// This was discarded. A failure to read entropy then produced a key made of
+		// whatever GenerateKey had written before it gave up, and no error to say so.
+		return nil, nil, err
+	}
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
 	if err != nil {
 		return nil, nil, err
 	}
-	privatePEM := pem.EncodeToMemory(
+	privatePEM = pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "PRIVATE KEY",
 			Bytes: privBytes,
@@ -299,7 +314,7 @@ func GenerateEdDSA() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 		return nil, nil, err
 	}
 
-	publicPEM := pem.EncodeToMemory(
+	publicPEM = pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "PUBLIC KEY",
 			Bytes: pubBytes,

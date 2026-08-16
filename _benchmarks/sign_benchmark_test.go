@@ -13,10 +13,6 @@ import (
 var testSecret = []byte("sercrethatmaycontainch@r$32chars")
 
 func BenchmarkSign_Map(b *testing.B) {
-	type testStruct struct {
-		Foo string `json:"foo"`
-	}
-
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -149,6 +145,9 @@ func BenchmarkSign_go_jose_Map(b *testing.B) {
 		Algorithm: jose.HS256,
 		Key:       testSecret,
 	}, (&jose.SignerOptions{}).WithType("JWT"))
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -188,6 +187,9 @@ func BenchmarkSign_go_jose_Struct(b *testing.B) {
 		Algorithm: jose.HS256,
 		Key:       testSecret,
 	}, (&jose.SignerOptions{}).WithType("JWT"))
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()

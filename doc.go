@@ -1,344 +1,163 @@
 /*
-Package jwt provides a comprehensive, high-performance implementation of JSON Web Tokens (JWT)
-as defined in RFC 7519, with full support for JSON Web Algorithms (JWA) from RFC 7518.
+Package jwt signs and verifies JSON Web Tokens.
 
-# Overview
+It implements RFC 7519 (JWT) over RFC 7515 (JWS), with the algorithms of RFC 7518 (JWA) and
+the key formats of RFC 7517 (JWK). It has no dependencies outside the standard library.
 
-This library delivers a complete JWT solution with emphasis on security, performance, and
-ease of use. It supports all major cryptographic algorithms, provides extensive validation
-capabilities, and offers flexible APIs for both simple and advanced use cases.
+# Signing and verifying
 
-# Key Features
+Sign takes an algorithm, a key and your claims. Verify takes the algorithm and key you
+expect, and the token.
 
-• **Algorithm Support**: Complete implementation of JWT algorithms
-  - HMAC: HS256, HS384, HS512 (symmetric)
-  - RSA: RS256, RS384, RS512 (PKCS#1 v1.5 padding)
-  - RSA-PSS: PS256, PS384, PS512 (PSS padding)
-  - ECDSA: ES256, ES384, ES512 (P-256, P-384, P-521 curves)
-  - EdDSA: Ed25519 (modern elliptic curve)
-  - None: Unsecured tokens (for testing only)
+	var sharedKey = []byte("sercrethatmaycontainch@r$32chars")
 
-• **JSON Web Key Set (JWKS)**: Full RFC 7517 compliance
-  - Fetch public keys from remote endpoints
-  - Multi-key verification and key rotation
-  - Support for Auth0, AWS Cognito, Google, Microsoft
-  - Automatic key conversion and validation
+	type User struct {
+		Username string `json:"username"`
+	}
 
-• **Claims Validation**: Comprehensive RFC 7519 compliance
-  - Standard claims: exp, nbf, iat, iss, sub, aud, jti
-  - Custom claim validation with extensible framework
-  - Time-based validation with configurable leeway
-  - Audience validation with security best practices
+	token, err := jwt.Sign(jwt.HS256, sharedKey, User{Username: "kataras"}, jwt.MaxAge(15*time.Minute))
+	if err != nil {
+		return err
+	}
 
-• **Performance**: Optimized for high-throughput applications
-  - ~3x faster than comparable libraries
-  - Zero-allocation parsing paths
-  - Efficient memory usage patterns
-  - Minimal runtime overhead
+	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
+	if err != nil {
+		return err
+	}
 
-• **Security**: Enterprise-grade security features
-  - Constant-time signature verification
-  - Algorithm confusion attack prevention
-  - Timing attack resistance
-  - Secure random number generation
+	var user User
+	if err = verifiedToken.Claims(&user); err != nil {
+		return err
+	}
 
-# Architecture
+The algorithm is an argument, never something read out of the token. Verify compares the
+token's header against a precomputed byte sequence for the algorithm you named, so a token
+whose header says HS256 cannot be verified by a call that pinned RS256, and a token claiming
+the unsecured algorithm cannot be verified by a call that pinned anything else. That is the
+defence against algorithm confusion, and it costs one byte comparison.
 
-The library is built around several core concepts:
+# Claims
 
-**Token Lifecycle**:
- 1. Sign() - Create and sign JWT tokens with claims
- 2. Verify() - Validate signatures and extract claims
- 3. Claims processing - Type-safe claim extraction
+Claims can be a struct, a map, a jwt.Map, or raw JSON bytes. The standard claims live in the
+Claims type, which is also a SignOption, so it can be passed alongside your own:
 
-**Key Management**:
-  - Single keys for simple scenarios
-  - Multi-key maps for key rotation
-  - JWKS integration for dynamic key fetching
-  - Key ID (kid) based key selection
+	token, err := jwt.Sign(jwt.HS256, sharedKey, myClaims, jwt.Claims{
+		Issuer:   "auth.example.com",
+		Audience: jwt.Audience{"api.example.com"},
+	}, jwt.MaxAge(15*time.Minute))
 
-**Validation Framework**:
-  - Built-in standard claims validation
-  - Extensible TokenValidator interface
-  - Composable validation chains
-  - Custom validation logic support
+Verification checks exp, nbf and iat when they are present. None of the three is required by
+RFC 7519, so a token with no expiry verifies. RequireExpiry rejects one if that is not what
+you want.
 
-# Quick Start
+# Algorithms
 
-## Basic HMAC Usage
+HMAC (HS256, HS384, HS512) takes a []byte shared secret, which means every verifier can also
+mint tokens. RSA (RS256, RS384, RS512), RSA-PSS (PS256, PS384, PS512), ECDSA (ES256, ES384,
+ES512) and EdDSA take a key pair, so a verifier holding only the public half cannot sign.
+NONE produces an unsecured token under the name "none" from RFC 7518 section 3.6, and is for
+testing.
 
-	package main
+Implement Alg to add your own. Its Name is checked before it reaches the header.
 
-	import (
-	    "fmt"
-	    "time"
-	    "github.com/kataras/jwt"
+# Multiple keys
+
+Keys is a registry indexed by the "kid" header, for rotation and for multi-tenant setups:
+
+	keys := make(jwt.Keys)
+	keys.Register(jwt.RS256, "current", publicKey, privateKey)
+
+	token, err := keys.SignToken("current", myClaims, jwt.MaxAge(time.Hour))
+
+	verifiedToken, err := keys.Verify(token)
+
+Keys.ValidateHeader binds the "kid" to the algorithm registered for that key, so neither can
+be chosen by whoever sent the token. Keys itself is a plain map with no lock: build it at
+startup. For keys that change while the process runs, use KeySet.
+
+# JWKS
+
+Publish a key set with Keys.JWKS, and consume one with NewRemoteKeySet, which refreshes on a
+timer and again when a token names a key it has not seen:
+
+	keySet, err := jwt.NewRemoteKeySet("https://auth.example.com/.well-known/jwks.json")
+	if err != nil {
+		return err
+	}
+	defer keySet.Close()
+
+	verifiedToken, err := keySet.Verify(token)
+
+NewCognitoKeySet does the same for an AWS Cognito user pool and returns the issuer and
+audience checks alongside it, because verifying only the signature and the clock would accept
+a token minted for a different app client of the same pool.
+
+# Validators
+
+Anything satisfying TokenValidator runs after the standard claims are checked. Expected
+compares registered claims, Blocklist refuses revoked tokens, Skew tolerates a clock that
+runs ahead, and RequireExpiry insists on an "exp".
+
+	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token,
+		jwt.Skew(time.Minute),
+		jwt.Expected{Issuer: "auth.example.com"},
+		jwt.RequireExpiry,
 	)
 
-	func main() {
-	    // Secret key for HMAC (keep secure in production)
-	    secretKey := []byte("your-256-bit-secret-key-here")
+Order matters. Verification stops at the first validator that returns an error, so one that
+rescues an error has to come before one that is stricter.
 
-	    // Create claims
-	    myClaims := map[string]any{
-	        "user_id": 12345,
-	        "role":    "admin",
-	        "email":   "user@example.com",
-	    }
+# Errors
 
-	    // Sign token with 15-minute expiration
-	    token, err := jwt.Sign(jwt.HS256, secretKey, myClaims, jwt.MaxAge(15*time.Minute))
-	    if err != nil {
-	        panic(err)
-	    }
+Verification returns one of a set of sentinel errors: ErrMissing, ErrTokenForm, ErrTokenSize,
+ErrTokenAlg, ErrTokenSignature, ErrInvalidKey, ErrExpired, ErrNotValidYet,
+ErrIssuedInTheFuture, ErrBlocked, ErrExpected, ErrMissingExpiry, ErrEmptyKid, ErrUnknownKid
+and ErrDecrypt. Compare with errors.Is.
 
-	    fmt.Printf("Token: %s\n", string(token))
+Classify sorts any of them into four kinds, so an HTTP handler does not have to enumerate
+them:
 
-	    // Verify and extract claims
-	    verifiedToken, err := jwt.Verify(jwt.HS256, secretKey, token)
-	    if err != nil {
-	        panic(err)
-	    }
-
-	    var claims map[string]any
-	    err = verifiedToken.Claims(&claims)
-	    if err != nil {
-	        panic(err)
-	    }
-
-	    fmt.Printf("User ID: %.0f\n", claims["user_id"])
-	    fmt.Printf("Role: %s\n", claims["role"])
+	switch jwt.Classify(err) {
+	case jwt.KindNone:
+		// verified
+	case jwt.KindExpired:
+		// the client can fix this by refreshing
+	default:
+		// everything else is an authentication failure
 	}
 
-## RSA Public Key Usage
+# Tokens over HTTP
 
-	// Load RSA key pair
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	publicKey := &privateKey.PublicKey
+ExtractToken reads a token from a request, from the Authorization header by default:
 
-	// Sign with private key
-	token, err := jwt.Sign(jwt.RS256, privateKey, claims)
+	token := jwt.ExtractToken(r)
+	verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token)
 
-	// Verify with public key
-	verifiedToken, err := jwt.Verify(jwt.RS256, publicKey, token)
+FromHeader, FromQuery and FromCookie select where to look. SignPair issues a linked access
+and refresh token, where the refresh token's "origin_jti" names the access token it was
+issued with.
 
-## Multi-Key Verification with JWKS
+# Extension points
 
-	// Fetch keys from identity provider
-	keys, err := jwt.FetchPublicKeys("https://auth.example.com/.well-known/jwks.json")
-	if err != nil {
-	    log.Fatal(err)
-	}
+Clock, CompareHeader, ReadFile, Marshal and Unmarshal are package-level variables you can
+replace: a fixed clock for tests, an embedded filesystem for keys, a faster JSON codec. They
+are read on the hot path without synchronization, so set them during startup, before
+anything verifies concurrently.
 
-	// Verify token with automatic key selection
-	verifiedToken, err := jwt.Verify(jwt.RS256, keys, token)
+# What this package does not do
 
-## Advanced Claims Validation
+It does not implement JWE. SignEncrypted and VerifyEncrypted encrypt the payload with
+AES-GCM before signing, which is useful and is not RFC 7516: the result does not
+interoperate with anything expecting JWE.
 
-	// Create custom validator
-	customValidator := jwt.TokenValidatorFunc(func(token []byte, claims jwt.Claims, err error) error {
-	    if err != nil {
-	        return err
-	    }
+It does not decide whether a token that verifies should be honoured. A signature proves that
+a holder of the key produced those exact bytes. The audience check, the issuer check, the
+revocation list and the session model are yours.
 
-	    // Custom business logic validation
-	    if claims.Subject != "expected-user" {
-	        return errors.New("invalid user")
-	    }
+# More
 
-	    return nil
-	})
-
-	// Verify with multiple validators
-	verifiedToken, err := jwt.Verify(jwt.RS256, publicKey, token,
-	    jwt.Expected{Issuer: "trusted-issuer"},
-	    jwt.MaxAge(time.Hour),
-	    customValidator,
-	)
-
-# Standard Claims
-
-The library provides full support for RFC 7519 standard claims:
-
-• **exp** (Expiration Time): Token expiry validation
-• **nbf** (Not Before): Token validity start time
-• **iat** (Issued At): Token creation time
-• **iss** (Issuer): Token issuer validation
-• **sub** (Subject): Token subject identification
-• **aud** (Audience): Intended token audience
-• **jti** (JWT ID): Unique token identifier
-
-Example with standard claims:
-
-	claims := jwt.Claims{
-	    Issuer:    "myapp.com",
-	    Subject:   "user123",
-	    Audience:  []string{"api.myapp.com"},
-	    ExpiresAt: time.Now().Add(time.Hour).Unix(),
-	    NotBefore: time.Now().Unix(),
-	    IssuedAt:  time.Now().Unix(),
-	    ID:        "unique-token-id",
-	}
-
-	token, err := jwt.Sign(jwt.HS256, secretKey, claims)
-
-# Security Best Practices
-
-**Algorithm Selection**:
-  - Use HS256 for shared secret scenarios
-  - Use RS256 or ES256 for public key scenarios
-  - Consider EdDSA for modern high-performance applications
-  - Never use "none" algorithm in production
-
-**Key Management**:
-  - Use keys with sufficient entropy (256 bits minimum)
-  - Rotate keys regularly (monthly/quarterly)
-  - Store private keys securely (HSM, key vault)
-  - Use different keys for different applications
-
-**Validation**:
-  - Always validate exp, nbf, iat claims
-  - Implement strict audience validation
-  - Use issuer validation for trusted sources
-  - Implement rate limiting for token endpoints
-
-**Implementation**:
-  - Validate tokens on every request
-  - Use HTTPS for all token transmission
-  - Implement proper error handling
-  - Log security events for monitoring
-
-# Performance Characteristics
-
-This library is optimized for high-throughput applications:
-
-**Benchmarks** (compared to similar libraries):
-  - Sign operations: ~3x faster
-  - Verify operations: ~3x faster
-  - Memory allocations: ~50% fewer
-  - CPU usage: ~60% lower
-
-**Optimizations**:
-  - Zero-allocation parsing for common cases
-  - Efficient base64url encoding/decoding
-  - Optimized JSON marshaling/unmarshaling
-  - Minimal reflection usage
-
-# Integration Patterns
-
-## Web Middleware
-
-	func JWTMiddleware(secretKey []byte) func(http.Handler) http.Handler {
-	    return func(next http.Handler) http.Handler {
-	        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	            auth := r.Header.Get("Authorization")
-	            if !strings.HasPrefix(auth, "Bearer ") {
-	                http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	                return
-	            }
-
-	            token := []byte(strings.TrimPrefix(auth, "Bearer "))
-	            verifiedToken, err := jwt.Verify(jwt.HS256, secretKey, token)
-	            if err != nil {
-	                http.Error(w, "Invalid token", http.StatusUnauthorized)
-	                return
-	            }
-
-	            // Add claims to request context
-	            ctx := context.WithValue(r.Context(), "claims", verifiedToken.StandardClaims)
-	            next.ServeHTTP(w, r.WithContext(ctx))
-	        })
-	    }
-	}
-
-## API Gateway Integration
-
-	// Configure for AWS API Gateway, Kong, etc.
-	type TokenValidator struct {
-	    jwksURL string
-	    keys    jwt.Keys
-	    lastFetch time.Time
-	}
-
-	func (v *TokenValidator) ValidateToken(tokenString string) (*jwt.VerifiedToken, error) {
-	    // Refresh keys if needed
-	    if time.Since(v.lastFetch) > time.Hour {
-	        keys, err := jwt.FetchPublicKeys(v.jwksURL)
-	        if err == nil {
-	            v.keys = keys
-	            v.lastFetch = time.Now()
-	        }
-	    }
-
-	    return jwt.Verify(jwt.RS256, v.keys, []byte(tokenString))
-	}
-
-# Error Handling
-
-The library provides detailed error information for debugging and monitoring:
-
-	verifiedToken, err := jwt.Verify(jwt.HS256, secretKey, token)
-	if err != nil {
-	    switch err {
-	    case jwt.ErrTokenForm:
-	        // Malformed token structure
-	    case jwt.ErrTokenAlg:
-	        // Algorithm mismatch or unsupported
-	    case jwt.ErrExpired:
-	        // Token has expired
-	    case jwt.ErrNotValidYet:
-	        // Token not valid yet (nbf claim)
-	    default:
-	        // Other errors (signature, parsing, etc.)
-	    }
-	}
-
-# Testing Support
-
-The library includes comprehensive testing utilities:
-
-	// Mock HTTP client for JWKS testing
-	mockClient := &MockHTTPClient{
-	    Response: &http.Response{
-	        StatusCode: 200,
-	        Body: ioutil.NopCloser(strings.NewReader(jwksJSON)),
-	    },
-	}
-
-	jwks, err := jwt.FetchJWKS(mockClient, "https://example.com/.well-known/jwks.json")
-
-# Links and Resources
-
-**Project Home**: https://github.com/kataras/jwt
-
-**Examples**: https://github.com/kataras/jwt/tree/main/_examples
-  - Basic usage examples
-  - Advanced validation scenarios
-  - Integration patterns
-  - Real-world applications
-
-**Benchmarks**: https://github.com/kataras/jwt/tree/main/_benchmarks
-  - Performance comparisons
-  - Memory usage analysis
-  - Throughput measurements
-
-**Documentation**: https://pkg.go.dev/github.com/kataras/jwt
-  - Complete API reference
-  - Function documentation
-  - Type definitions
-
-# Standards Compliance
-
-This library implements the following RFCs and standards:
-
-• **RFC 7519**: JSON Web Token (JWT)
-• **RFC 7515**: JSON Web Signature (JWS)
-• **RFC 7516**: JSON Web Encryption (JWE) - partial
-• **RFC 7517**: JSON Web Key (JWK)
-• **RFC 7518**: JSON Web Algorithms (JWA)
-• **RFC 8037**: CFRG Elliptic Curve Diffie-Hellman (ECDH) and Signatures in JSON Object Signing and Encryption (JOSE)
-
-The implementation is tested against official test vectors and interoperates with
-major JWT libraries and identity providers.
+The _examples directory covers basic usage, custom headers, multiple key ids, HTTP
+middleware, blocklisting, the JSON required tag and AWS Cognito verification. The book under
+book/ covers the same ground at length, including a chapter on this package's sharp edges.
 */
 package jwt

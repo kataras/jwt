@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -71,6 +74,14 @@ var (
 	// Consider implementing reasonable time leeway (e.g., 5 minutes) to handle
 	// minor clock differences in distributed systems while maintaining security.
 	ErrIssuedInTheFuture = errors.New("jwt: token issued in the future")
+
+	// ErrNotJSONObject indicates that a value passed to Merge is not a JSON object.
+	//
+	// The value itself is deliberately left out of the message. Merge is given claims,
+	// and claims carry personal data and sometimes secrets, so formatting the offending
+	// value into an error put them into whatever the caller logs. The part number says
+	// which argument was at fault, which is what the caller needs.
+	ErrNotJSONObject = errors.New("jwt: value is not a JSON object")
 )
 
 // Claims represents the standard JWT claims (registered claims) as defined by RFC 7519.
@@ -79,13 +90,13 @@ var (
 // and timing controls. It implements the SignOption interface, allowing it to be
 // passed directly to Sign functions to set standard claims automatically.
 //
-// **Standard Claims Included**:
+// Standard Claims Included:
 //   - Timing claims: nbf (not before), iat (issued at), exp (expiry)
 //   - Identity claims: iss (issuer), sub (subject), aud (audience)
 //   - Tracking claims: jti (JWT ID)
 //   - Extension: origin_jti (non-standard origin tracking)
 //
-// **Usage Patterns**:
+// Usage Patterns:
 //   - Embed in custom claim structures for type safety
 //   - Use directly for simple tokens with only standard claims
 //   - Pass as SignOption to automatically apply standard claims
@@ -164,32 +175,89 @@ type claimsSecondChance struct {
 	Audience  Audience    `json:"aud,omitempty"`
 }
 
-func (c claimsSecondChance) toClaims() Claims {
-	nbf, _ := c.NotBefore.Float64() // some authorities generates floats for unix timestamp (1-35 seconds), with the leeway of 1 minute we really don't care.
-	iat, _ := c.IssuedAt.Float64()
-	exp, _ := c.Expiry.Float64()
+func (c claimsSecondChance) toClaims() (Claims, error) {
+	// Some authorities emit floats for a unix timestamp, off by a second or so, which is
+	// why these are read as numbers rather than integers in the first place.
+	nbf, err := toUnix(c.NotBefore)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: nbf: %s", ErrTokenForm, err)
+	}
+
+	iat, err := toUnix(c.IssuedAt)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: iat: %s", ErrTokenForm, err)
+	}
+
+	exp, err := toUnix(c.Expiry)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: exp: %s", ErrTokenForm, err)
+	}
+
+	issuer, err := getStr(c.Issuer)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: iss: %s", ErrTokenForm, err)
+	}
+
+	subject, err := getStr(c.Subject)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: sub: %s", ErrTokenForm, err)
+	}
 
 	return Claims{
-		NotBefore: int64(nbf),
-		IssuedAt:  int64(iat),
-		Expiry:    int64(exp),
+		NotBefore: nbf,
+		IssuedAt:  iat,
+		Expiry:    exp,
 		ID:        c.ID,
 		OriginID:  c.OriginID,
-		Issuer:    getStr(c.Issuer),
-		Subject:   getStr(c.Subject),
+		Issuer:    issuer,
+		Subject:   subject,
 		Audience:  c.Audience,
-	}
+	}, nil
 }
 
-func getStr(v any) string {
-	if v == nil {
-		return ""
+// toUnix converts a numeric claim to seconds since the epoch.
+//
+// Both failure modes here used to be discarded. json.Number.Float64 reports an error for
+// text the format cannot hold, and Go leaves a float-to-integer conversion undefined when
+// the value does not fit, which on the usual hardware yields the most negative int64. An
+// "exp" of 1e400 therefore came out negative, failed the "greater than zero" test that
+// validateClaims used, and produced a token that never expired.
+func toUnix(n json.Number) (int64, error) {
+	if n == "" {
+		return 0, nil
 	}
 
-	if s, ok := v.(string); ok {
-		return s
-	} else {
-		return fmt.Sprintf("%v", v)
+	f, err := n.Float64()
+	if err != nil {
+		return 0, err
+	}
+
+	if math.IsNaN(f) || math.IsInf(f, 0) || f < math.MinInt64 || f > math.MaxInt64 {
+		return 0, fmt.Errorf("out of range: %s", n.String())
+	}
+
+	return int64(f), nil
+}
+
+// getStr reads a claim that should be a string but was written as something else.
+//
+// A number is accepted and rendered as text, because issuers that write a numeric "sub"
+// exist and this whole second-chance path is here to tolerate them. Anything structured
+// is refused. Formatting it with %v instead turned a payload of {"sub":{"a":1}} into the
+// subject "map[a:1]", so an application that treats the subject as a principal identifier
+// accepted a token whose subject was not a principal at all.
+func getStr(v any) (string, error) {
+	switch value := v.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return value, nil
+	case json.Number:
+		return value.String(), nil
+	case float64:
+		return strconv.FormatFloat(value, 'f', -1, 64), nil
+	default:
+		return "", fmt.Errorf("expected a string but got %T", v)
 	}
 }
 
@@ -200,19 +268,19 @@ func getStr(v any) string {
 // accepting and processing the token. This provides an additional security
 // layer by ensuring tokens are only used by their intended consumers.
 //
-// **JWT Specification**: The "aud" claim can be either:
+// JWT Specification: The "aud" claim can be either:
 //   - A single string value (single recipient)
 //   - An array of strings (multiple recipients)
 //
 // This type handles both formats transparently during JSON marshaling/unmarshaling.
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Always validate that your application/service is in the audience
 //   - Reject tokens where your identifier is not present in the audience
 //   - Use specific, non-ambiguous audience identifiers
 //   - Consider using URLs or URIs for globally unique audience values
 //
-// **Common Usage Patterns**:
+// Common Usage Patterns:
 //   - API service names: []string{"api-service", "user-service"}
 //   - Application domains: []string{"app.example.com", "admin.example.com"}
 //   - Service endpoints: []string{"https://api.example.com/v1"}
@@ -247,12 +315,12 @@ type Audience []string
 // array of strings. This method handles both formats transparently, normalizing
 // them into a consistent slice representation.
 //
-// **Supported Input Formats**:
+// Supported Input Formats:
 //   - Single string: "api-service" becomes ["api-service"]
 //   - Array of strings: ["api", "web"] remains ["api", "web"]
 //   - Empty/null values are handled gracefully
 //
-// **Implementation Details**:
+// Implementation Details:
 //   - Detects format by examining the first byte of JSON data
 //   - Uses standard json.Unmarshal for actual parsing
 //   - Maintains compatibility with various JWT implementations
@@ -293,13 +361,13 @@ func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
 // which is useful for logging, debugging, and display purposes. Multiple
 // audience values are joined with space separators.
 //
-// **Usage Scenarios**:
+// Usage Scenarios:
 //   - Logging audience information for debugging
 //   - Displaying token recipients in admin interfaces
 //   - Creating readable audit trails
 //   - Generating user-friendly error messages
 //
-// **Output Format**: Space-separated string of all audience values
+// Output Format: Space-separated string of all audience values
 //
 // Example:
 //
@@ -316,8 +384,24 @@ func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
 //
 //	// Use in logging
 //	log.Printf("Token intended for: %s", claims.Audience.String())
-func (auth Audience) String() string {
-	return strings.Join(auth, " ")
+func (aud Audience) String() string {
+	return strings.Join(aud, " ")
+}
+
+// Contains reports whether the audience list includes the given value.
+//
+// RFC 7519 section 4.1.3 asks a recipient to check that it is among a token's audiences,
+// not that it is the only one or the first one. Use this when you validate the "aud"
+// claim yourself; Expected.Audience uses it for you.
+//
+// Comparison is exact and case sensitive, because audience values are identifiers rather
+// than prose.
+//
+//	if !claims.Audience.Contains("api.example.com") {
+//	    return errors.New("token is for somebody else")
+//	}
+func (aud Audience) Contains(value string) bool {
+	return slices.Contains(aud, value)
 }
 
 // ApplyClaims implements the SignOption interface to set audience claims during token signing.
@@ -326,17 +410,17 @@ func (auth Audience) String() string {
 // providing a convenient way to specify intended token recipients during token creation.
 // The audience will be automatically included in the token's standard claims.
 //
-// **SignOption Interface**: This implementation enables Audience to be passed
+// SignOption Interface: This implementation enables Audience to be passed
 // directly to signing functions alongside other options like MaxAge, custom claims,
 // and other SignOption implementations.
 //
-// **Usage Patterns**:
+// Usage Patterns:
 //   - Single audience specification for dedicated services
 //   - Multiple audiences for tokens shared across services
 //   - Dynamic audience assignment based on user context
 //   - Integration with role-based access patterns
 //
-// **Security Benefits**:
+// Security Benefits:
 //   - Ensures tokens are properly scoped to intended recipients
 //   - Enables fine-grained access control
 //   - Facilitates service-to-service authentication validation
@@ -370,21 +454,21 @@ func (aud Audience) ApplyClaims(dest *Claims) {
 // difference between the expiration time ("exp") and issued time ("iat").
 // This represents the maximum duration the token was designed to be valid.
 //
-// **Calculation**: expiry_time - issued_time = token_lifetime
+// Calculation: expiry_time - issued_time = token_lifetime
 //
-// **Use Cases**:
+// Use Cases:
 //   - Token lifetime analysis for security auditing
 //   - Monitoring token usage patterns and lifespans
 //   - Validating token configuration policies
 //   - Debugging token expiration issues
 //   - Generating metrics for token management
 //
-// **Return Value**:
+// Return Value:
 //   - Positive duration: Normal token with valid lifetime
 //   - Zero duration: Token with missing or invalid timing claims
 //   - Negative duration: Invalid token with expiry before issue time
 //
-// **Important Notes**:
+// Important Notes:
 //   - This returns the designed lifetime, not remaining time (use Timeleft for that)
 //   - Zero values in timing claims will result in zero or incorrect duration
 //   - Does not account for clock skew between issuer and current system
@@ -414,19 +498,19 @@ func (c Claims) Age() time.Duration {
 // time.Time value, providing a convenient way to work with expiration times
 // in Go's time package format. The returned time is rounded to the nearest second.
 //
-// **Conversion Details**:
+// Conversion Details:
 //   - Uses time.Unix() to convert the Unix timestamp to time.Time
 //   - Nanosecond component is set to 0 (second precision)
 //   - Handles zero values gracefully (returns Unix epoch if Expiry is 0)
 //
-// **Use Cases**:
+// Use Cases:
 //   - Comparing expiration time with current time
 //   - Calculating time remaining until expiration
 //   - Formatting expiration time for display
 //   - Time-based conditional logic
 //   - Integration with time-based APIs
 //
-// **Zero Value Behavior**:
+// Zero Value Behavior:
 //   - If Expiry is 0, returns time.Unix(0, 0) (Unix epoch: 1970-01-01 00:00:00 UTC)
 //   - This typically indicates a token without an expiration time
 //
@@ -458,27 +542,27 @@ func (c Claims) ExpiresAt() time.Time {
 // The calculation uses the Clock() function to get the current time, allowing
 // for consistent time handling across the JWT library.
 //
-// **Calculation**: expiry_time - current_time = remaining_time
+// Calculation: expiry_time - current_time = remaining_time
 //
-// **Return Values**:
+// Return Values:
 //   - Positive duration: Token is still valid, shows time remaining
 //   - Zero duration: Token has just expired or has no expiry set
 //   - Negative duration: Token has already expired
 //
-// **Use Cases**:
+// Use Cases:
 //   - Pre-expiration warnings and refresh logic
 //   - Token lifetime monitoring and metrics
 //   - Conditional token renewal decisions
 //   - User interface countdown displays
 //   - Proactive token management in applications
 //
-// **Important Notes**:
+// Important Notes:
 //   - Uses the configurable Clock() function for current time
 //   - Returns duration rounded to the nearest second
 //   - Zero Expiry field results in zero duration (no expiration)
 //   - Negative values indicate already expired tokens
 //
-// **Clock Function**: The calculation uses the package-level Clock variable,
+// Clock Function: The calculation uses the package-level Clock variable,
 // which can be customized for testing or specific time zone requirements.
 //
 // Example usage:
@@ -513,35 +597,35 @@ func (c Claims) Timeleft() time.Duration {
 // a provided reference time. It ensures that tokens are used within their valid
 // time windows and catches common timing-related security issues.
 //
-// **Validation Checks Performed**:
+// Validation Checks Performed:
 //   - NotBefore (nbf): Ensures token is not used before its activation time
 //   - IssuedAt (iat): Prevents acceptance of tokens claiming future issue times
 //   - Expiry (exp): Rejects tokens that have passed their expiration time
 //
-// **Parameters**:
+// Parameters:
 //   - t: Reference time for validation (typically current time)
 //   - claims: JWT claims structure containing timing information
 //
-// **Zero Value Handling**:
+// Zero Value Handling:
 //   - Claims with zero values (0) are considered unset and skip validation
 //   - This allows flexibility for tokens that don't use all timing claims
 //   - Only non-zero claim values are validated against the reference time
 //
-// **Time Precision**: All comparisons are performed at second-level precision
+// Time Precision: All comparisons are performed at second-level precision
 // by rounding the reference time to the nearest second, matching JWT standard
 // practices for Unix timestamp handling.
 //
-// **Error Returns**:
+// Error Returns:
 //   - ErrNotValidYet: Token used before its NotBefore time
 //   - ErrIssuedInTheFuture: Token claims to be issued in the future
 //   - ErrExpired: Token has passed its expiration time
 //   - nil: All timing validations passed successfully
 //
-// **Usage Context**: This function is called internally during token verification
+// Usage Context: This function is called internally during token verification
 // processes. For custom validation logic, implement TokenValidator interfaces
 // which provide more flexibility and can incorporate this function's logic.
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Helps prevent replay attacks with expired tokens
 //   - Detects clock synchronization issues between systems
 //   - Ensures temporal access control policies are enforced
@@ -552,19 +636,24 @@ func (c Claims) Timeleft() time.Duration {
 func validateClaims(t time.Time, claims Claims) error {
 	now := t.Round(time.Second).Unix()
 
-	if claims.NotBefore > 0 {
+	// Zero means the claim was absent: the fields are int64 with omitempty, so nothing
+	// else can distinguish "not set" from "set to the epoch". Any other value is present
+	// and gets checked, negative ones included. Testing for greater than zero instead
+	// meant a token carrying "exp": -1 was treated as having no expiry rather than as
+	// having expired in 1969.
+	if claims.NotBefore != 0 {
 		if now < claims.NotBefore {
 			return ErrNotValidYet
 		}
 	}
 
-	if claims.IssuedAt > 0 {
+	if claims.IssuedAt != 0 {
 		if now < claims.IssuedAt {
 			return ErrIssuedInTheFuture
 		}
 	}
 
-	if claims.Expiry > 0 {
+	if claims.Expiry != 0 {
 		if now > claims.Expiry {
 			return ErrExpired
 		}
@@ -579,20 +668,20 @@ func validateClaims(t time.Time, claims Claims) error {
 // enabling automatic application of standard JWT claims during token creation.
 // Only non-zero and non-empty values are applied, allowing selective claim setting.
 //
-// **SignOption Interface**: This implementation enables Claims structs to be passed
+// SignOption Interface: This implementation enables Claims structs to be passed
 // directly to signing functions alongside other options like MaxAge, Audience,
 // and custom claim structures.
 //
-// **Selective Application**: The method only applies claims that have meaningful values:
+// Selective Application: The method only applies claims that have meaningful values:
 //   - Timing claims (NotBefore, IssuedAt, Expiry): Applied only if > 0
 //   - String claims (ID, OriginID, Issuer, Subject): Applied only if not empty
 //   - Audience claim: Applied only if slice has length > 0
 //
-// **Non-Destructive Merging**: This method merges claims into the destination
+// Non-Destructive Merging: This method merges claims into the destination
 // without overwriting existing values unnecessarily. Zero values are considered
 // "unset" and are skipped during the merge process.
 //
-// **Usage Patterns**:
+// Usage Patterns:
 //   - Template claims for consistent token issuance
 //   - Default claim values for all tokens from an issuer
 //   - Partial claim updates during token renewal
@@ -661,28 +750,28 @@ func (c Claims) ApplyClaims(dest *Claims) {
 // (expiry) and "iat" (issued at) claims based on the current time and specified
 // duration. It provides a convenient way to create tokens with consistent lifetimes.
 //
-// **Parameters**:
+// Parameters:
 //   - maxAge: Duration the token should remain valid from issuance time
 //
-// **Behavior**:
+// Behavior:
 //   - If maxAge <= 1 second: Returns NoMaxAge (removes expiration)
 //   - If maxAge > 1 second: Sets expiry to current time + maxAge
 //   - Always sets IssuedAt to current time when expiry is set
 //
-// **Claims Set**:
+// Claims Set:
 //   - Expiry (exp): Current time + maxAge duration (Unix timestamp)
 //   - IssuedAt (iat): Current time (Unix timestamp)
 //
-// **Time Source**: Uses the configurable Clock() function for current time,
+// Time Source: Uses the configurable Clock() function for current time,
 // allowing consistent time handling and testing flexibility.
 //
-// **Usage Patterns**:
+// Usage Patterns:
 //   - Standard token lifetimes: 15 minutes, 1 hour, 24 hours
 //   - Session tokens with auto-expiry
 //   - Short-lived tokens for sensitive operations
 //   - API tokens with controlled access windows
 //
-// **Security Benefits**:
+// Security Benefits:
 //   - Prevents indefinite token usage
 //   - Enables automatic token expiration
 //   - Reduces risk of token compromise over time
@@ -727,21 +816,21 @@ func MaxAge(maxAge time.Duration) SignOptionFunc {
 // to zero, effectively creating tokens without time-based expiration. This is
 // useful for long-lived tokens, permanent API keys, or testing scenarios.
 //
-// **Security Warning**: Tokens without expiration pose security risks as they
+// Security Warning: Tokens without expiration pose security risks as they
 // remain valid indefinitely if compromised. Use only when absolutely necessary
 // and implement alternative revocation mechanisms.
 //
-// **Claims Modified**:
+// Claims Modified:
 //   - Expiry (exp): Set to 0 (no expiration)
 //   - IssuedAt (iat): Set to 0 (no issue time tracking)
 //
-// **Use Cases**:
+// Use Cases:
 //   - Permanent API keys for system-to-system communication
 //   - Long-lived refresh tokens (with alternative revocation)
 //   - Development and testing environments
 //   - Legacy system integration where expiration isn't supported
 //
-// **Alternative Approaches**: Consider implementing:
+// Alternative Approaches: Consider implementing:
 //   - Very long durations instead of no expiration
 //   - Token rotation policies
 //   - Manual revocation systems
@@ -763,7 +852,7 @@ func MaxAge(maxAge time.Duration) SignOptionFunc {
 //	    jwt.Audience{"api-service"},
 //	    jwt.Claims{Issuer: "system"})
 //
-// **Security Best Practice**: When using NoMaxAge, implement alternative
+// Security Best Practice: When using NoMaxAge, implement alternative
 // security measures such as token blacklisting, regular key rotation,
 // or application-level session management.
 var NoMaxAge SignOptionFunc = func(c *Claims) {
@@ -777,30 +866,30 @@ var NoMaxAge SignOptionFunc = func(c *Claims) {
 // (Map type) by directly setting the "exp" and "iat" fields. It's designed for
 // use with custom claim structures that don't embed the standard Claims struct.
 //
-// **Parameters**:
+// Parameters:
 //   - maxAge: Duration the token should remain valid from current time
 //   - claims: Map containing JWT claims (modified in-place)
 //
-// **Behavior**:
+// Behavior:
 //   - If claims is nil: Function returns immediately (no-op)
 //   - If maxAge <= 1 second: Function returns immediately (no expiration set)
 //   - If "exp" already exists: Preserves existing expiration (no overwrite)
 //   - Otherwise: Sets both "exp" and "iat" to calculated values
 //
-// **Claims Set**:
+// Claims Set:
 //   - "exp": Current time + maxAge duration (Unix timestamp)
 //   - "iat": Current time (Unix timestamp)
 //
-// **Time Source**: Uses the configurable Clock() function for current time,
+// Time Source: Uses the configurable Clock() function for current time,
 // ensuring consistency with other JWT timing operations.
 //
-// **Use Cases**:
+// Use Cases:
 //   - Custom claim structures using map[string]any
 //   - Dynamic claim building without predefined structs
 //   - Legacy codebases using map-based claims
 //   - Flexible claim composition patterns
 //
-// **Preservation Logic**: The function checks if "exp" is already set to avoid
+// Preservation Logic: The function checks if "exp" is already set to avoid
 // overwriting existing expiration times, allowing for selective application.
 //
 // Example usage:
@@ -850,31 +939,31 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 // It's used internally by the Sign function and can be used directly for
 // custom claim composition scenarios.
 //
-// **Input Requirements**:
+// Input Requirements:
 //   - Each non-nil value must marshal to a valid JSON object
 //   - Objects must start with '{' and end with '}'
 //   - Nil values are safely ignored
 //   - Empty objects ("{}") are skipped during merging
 //
-// **Supported Input Types**:
+// Supported Input Types:
 //   - Structs with JSON tags (Claims, custom claim structs)
 //   - map[string]any and similar map types
 //   - []byte containing valid JSON object
 //   - string containing valid JSON object
 //   - Any type implementing json.Marshaler for objects
 //
-// **Merging Logic**:
+// Merging Logic:
 //   - Values are processed in order (left to right)
 //   - Later values can override earlier values for same keys
 //   - Object contents are merged at the top level
 //   - Returns combined JSON as []byte
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - Returns error if any value fails to marshal
 //   - Returns error if marshaled result is not a JSON object
 //   - Includes position information in error messages
 //
-// **Automatic Usage**: This function is automatically called by Sign when
+// Automatic Usage: This function is automatically called by Sign when
 // multiple SignOption values are provided, enabling seamless claim composition.
 //
 // Example usage:
@@ -911,7 +1000,7 @@ func MaxAgeMap(maxAge time.Duration, claims Map) {
 //
 //	allClaims, err := jwt.Merge(userInfo, permissions, metadata)
 //
-// **Note**: When the same key exists in multiple objects, the last occurrence
+// Note: When the same key exists in multiple objects, the last occurrence
 // takes precedence, allowing for override patterns in claim composition.
 func Merge(values ...any) ([]byte, error) {
 	parts := make([][]byte, 0, len(values))
@@ -926,13 +1015,17 @@ func Merge(values ...any) ([]byte, error) {
 			err       error
 		)
 
+		// raw marks the two cases that are taken at their word rather than marshalled,
+		// and are therefore the ones that need checking below.
+		var raw bool
+
 		switch v := value.(type) {
 		case string:
 			// If the value is a string, treat it as a JSON object.
-			jsonBytes = []byte(v)
+			jsonBytes, raw = []byte(v), true
 		case []byte:
 			// If the value is a byte slice, treat it as a JSON object.
-			jsonBytes = v
+			jsonBytes, raw = v, true
 		default:
 			jsonBytes, err = json.Marshal(value)
 		}
@@ -941,9 +1034,21 @@ func Merge(values ...any) ([]byte, error) {
 			return nil, fmt.Errorf("part: %d: %w", i+1, err)
 		}
 
-		// Check that the marshaled JSON is an object.
+		// Check that the value really is a JSON object.
+		//
+		// The first and last byte used to be the whole check, which is enough for
+		// anything json.Marshal produced but not for the string and []byte cases above:
+		// those are spliced in verbatim, so `{"broken"}` passed and the result was a
+		// token whose payload is not JSON at all, signed and handed out.
+		//
+		// json.Valid scans without allocating, and only the two raw cases pay for it.
+		// Anything that came from json.Marshal is valid by construction.
 		if len(jsonBytes) < 2 || jsonBytes[0] != '{' || jsonBytes[len(jsonBytes)-1] != '}' {
-			return nil, fmt.Errorf("value does not marshal to a JSON object: %v", value)
+			return nil, fmt.Errorf("part: %d: %w", i+1, ErrNotJSONObject)
+		}
+
+		if raw && !json.Valid(jsonBytes) {
+			return nil, fmt.Errorf("part: %d: %w", i+1, ErrNotJSONObject)
 		}
 		// Skip empty objects ("{}")
 		if len(jsonBytes) == 2 {

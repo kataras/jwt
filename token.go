@@ -57,7 +57,27 @@ var (
 	//   // But verifying with: jwt.Verify(jwt.RS256, ...)
 	//   // Returns: ErrTokenAlg
 	ErrTokenAlg = errors.New("jwt: unexpected token algorithm")
+
+	// ErrTokenSize indicates that a token is longer than MaxTokenSize.
+	//
+	// Verification allocates in proportion to the token it is handed, and that token
+	// arrives from whoever is calling. Without a ceiling, one unauthenticated request can
+	// ask the process for as much memory as it can send.
+	ErrTokenSize = errors.New("jwt: token is too large")
 )
+
+// MaxTokenSize is the largest token, in bytes, that Decode and the Verify family will
+// look at. Anything longer is refused with ErrTokenSize before it is parsed.
+//
+// The default of 64 KB is far above any ordinary token. A JWT holding a handful of claims
+// is a few hundred bytes; one carrying a certificate chain in its header might reach a few
+// kilobytes. Raise it if you have a genuine reason, and lower it if you know your own
+// tokens are small:
+//
+//	jwt.MaxTokenSize = 8 * 1024
+//
+// Set it during startup, before any concurrent verification. It is read without a lock.
+var MaxTokenSize = 64 * 1024
 
 type (
 	// PrivateKey represents any private key type used for JWT token signing operations.
@@ -105,6 +125,10 @@ type (
 )
 
 func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader any) ([]byte, error) {
+	if err := checkAlgName(alg.Name()); err != nil {
+		return nil, err
+	}
+
 	var header []byte
 	if customHeader != nil {
 		h, err := createCustomHeader(customHeader)
@@ -140,6 +164,10 @@ func encodeToken(alg Alg, key PrivateKey, payload []byte, customHeader any) ([]b
 // Decodes and verifies the given compact "token".
 // It returns the header, payoad and signature parts (decoded).
 func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderValidator) ([]byte, []byte, []byte, error) {
+	if len(token) > MaxTokenSize {
+		return nil, nil, nil, ErrTokenSize
+	}
+
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
 		return nil, nil, nil, ErrTokenForm
@@ -175,6 +203,13 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 		alg = dynamicAlg
 	}
 
+	// A HeaderValidator is allowed to return a nil Alg, meaning "use the one the caller
+	// passed". If the caller passed nil too then nothing names an algorithm, and the
+	// signature check below would panic on a nil interface.
+	if alg == nil {
+		return nil, nil, nil, ErrTokenAlg
+	}
+
 	// Override the key given, which could be a nil if this "pubKey" always expected on success.
 	if pubKey != nil {
 		key = pubKey
@@ -206,9 +241,10 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 }
 
 var (
-	sep    = []byte(".")
-	pad    = []byte("=")
-	padStr = string(pad)
+	sep = []byte(".")
+	// padStr is the base64 padding character. Base64Encode trims it and Base64Decode
+	// trims it again on the way back, because a JWT segment carries no padding.
+	padStr = "="
 )
 
 func joinParts(parts ...[]byte) []byte {
@@ -248,6 +284,34 @@ func createHeader(alg string) []byte {
 	}
 
 	return Base64Encode([]byte(`{"alg":"` + alg + `","typ":"JWT"}`))
+}
+
+// checkAlgName reports whether an algorithm name can be placed into a header literal.
+//
+// The header is built by concatenation, so nothing escapes the name on the way in. The
+// built-in algorithms are fine, but Alg is an exported interface, and a third-party
+// implementation returning a name containing a quote could add header fields of its own
+// choosing to a token signed with somebody else's key.
+//
+// The rule is the character set JWA actually uses for algorithm names, not an allowlist of
+// the built-in ones, so a custom algorithm with a sensible name still works.
+func checkAlgName(name string) error {
+	if name == "" || len(name) > 64 {
+		return fmt.Errorf("%w: algorithm name must be between 1 and 64 characters", ErrTokenAlg)
+	}
+
+	for _, c := range name {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '-' || c == '+' || c == '.' || c == '_':
+		default:
+			return fmt.Errorf("%w: algorithm name contains %q", ErrTokenAlg, c)
+		}
+	}
+
+	return nil
 }
 
 func createCustomHeader(header any) ([]byte, error) {
@@ -298,18 +362,18 @@ func createHeaderWithoutTyp(alg string) []byte {
 //
 // Behavior and usage patterns:
 //
-//  1. **Algorithm Validation**: When alg is provided, validate that the header
+//  1. Algorithm Validation: When alg is provided, validate that the header
 //     contains the expected algorithm. When alg is empty, extract and return
 //     the algorithm from the header for dynamic selection.
 //
-//  2. **Key Selection**: Return a non-nil PublicKey to override the key passed
+//  2. Key Selection: Return a non-nil PublicKey to override the key passed
 //     to the Verify function. This enables multi-key scenarios where the key
 //     is selected based on header content (e.g., "kid" field).
 //
-//  3. **Payload Decryption**: Return a non-nil InjectFunc to enable automatic
+//  3. Payload Decryption: Return a non-nil InjectFunc to enable automatic
 //     payload decryption using AES-GCM before signature verification.
 //
-//  4. **Error Handling**: Return an error for any validation failure, including
+//  4. Error Handling: Return an error for any validation failure, including
 //     unknown algorithms, missing required fields, or security violations.
 //
 // Common implementations:
@@ -463,14 +527,22 @@ func Base64Encode(src []byte) []byte {
 //	}
 //	// Result: []byte(`{"alg":"HS256","typ":"JWT"}`)
 func Base64Decode(src []byte) ([]byte, error) {
-	if n := len(src) % 4; n > 0 {
-		// JWT: Because of no trailing '=' let's suffix it
-		// with the correct number of those '=' before decoding.
-		src = append(src, bytes.Repeat(pad, 4-n)...)
-	}
+	// Padding is removed rather than added, which is both safer and cheaper.
+	//
+	// The previous form appended '=' bytes to reach a multiple of four. bytes.Split does
+	// not cap the capacity of the last part it returns, so the signature segment of a
+	// token still owns the token's spare capacity, and that append wrote into the
+	// caller's buffer past the end of the token. With a pooled read buffer, which is how
+	// most servers hand a token to this package, that is a write into memory the next
+	// request is about to use.
+	//
+	// RawURLEncoding wants no padding at all, so trimming is the whole conversion.
+	// bytes.TrimRight returns a sub-slice and allocates nothing, and DecodedLen on the
+	// trimmed input asks for fewer bytes than the padded form did.
+	src = bytes.TrimRight(src, padStr)
 
-	buf := make([]byte, base64.URLEncoding.DecodedLen(len(src)))
-	n, err := base64.URLEncoding.Decode(buf, src)
+	buf := make([]byte, base64.RawURLEncoding.DecodedLen(len(src)))
+	n, err := base64.RawURLEncoding.Decode(buf, src)
 	return buf[:n], err
 }
 
@@ -480,7 +552,7 @@ func Base64Decode(src []byte) ([]byte, error) {
 // signature components without cryptographic verification. It's designed for scenarios
 // where token content needs to be inspected without validating authenticity.
 //
-// **SECURITY WARNING**: This function does NOT verify:
+// SECURITY WARNING: This function does NOT verify:
 //   - Token signature (authenticity)
 //   - Token expiration (exp claim)
 //   - Token validity periods (nbf, iat claims)
@@ -528,6 +600,10 @@ func Base64Decode(src []byte) ([]byte, error) {
 //	fmt.Printf("Subject: %v\n", claims["sub"])
 //	// WARNING: This token was NOT verified!
 func Decode(token []byte) (*UnverifiedToken, error) {
+	if len(token) > MaxTokenSize {
+		return nil, ErrTokenSize
+	}
+
 	parts := bytes.Split(token, sep)
 	if len(parts) != 3 {
 		return nil, ErrTokenForm
@@ -566,7 +642,7 @@ func Decode(token []byte) (*UnverifiedToken, error) {
 // as raw byte slices. It's returned by the Decode function and provides access to token
 // components without performing any cryptographic verification.
 //
-// **SECURITY WARNING**: This structure contains unverified token data. The signature
+// SECURITY WARNING: This structure contains unverified token data. The signature
 // has not been validated, expiration has not been checked, and the token's authenticity
 // is not guaranteed. Only use this with tokens from fully trusted sources.
 //
@@ -619,7 +695,7 @@ type UnverifiedToken struct {
 // enabling access to claims data in a type-safe manner. The destination can be
 // any type that's compatible with JSON unmarshaling.
 //
-// **SECURITY WARNING**: The payload data has not been cryptographically verified.
+// SECURITY WARNING: The payload data has not been cryptographically verified.
 // Do not trust this data for security-critical decisions unless the token source
 // is completely trusted and internal to your application.
 //
@@ -632,7 +708,7 @@ type UnverifiedToken struct {
 // Supported destination types:
 //   - jwt.Map for dynamic claims access
 //   - Custom structs with json tags for typed claims
-//   - jwt.RegisteredClaims for standard JWT claims
+//   - jwt.Claims for the standard claims
 //   - Any type compatible with json.Unmarshal
 //
 // Example usage:
@@ -658,7 +734,7 @@ type UnverifiedToken struct {
 //	}
 //
 //	// Extract standard claims
-//	var registered jwt.RegisteredClaims
+//	var registered jwt.Claims
 //	if err := unverified.Claims(&registered); err != nil {
 //	    return err
 //	}
@@ -720,57 +796,72 @@ func (t *UnverifiedToken) Kid() (string, error) {
 	return t.kid, nil
 }
 
-// Enrich creates a new JWT token by merging the original token's claims with additional claims.
+// Enrich merges extra claims into this token's payload and signs the result under alg.
 //
-// This method allows you to extend the original token's payload with new claims
-// while preserving the original token's header and signature structure.
+// Nothing here is verified. The token came from Decode, which parses without checking a
+// signature, so its payload is whatever the sender wrote. Use this only when you have
+// already established that the token is genuine; otherwise use the package-level Enrich,
+// which checks the signature first.
 //
-//	It uses the same algorithm and key as the original token to ensure the new token is valid.
+// Because the input is unchecked, the header of the new token is built from alg rather
+// than copied from the original. A copied header would put fields chosen by the sender,
+// "kid" and "crit" among them, inside a signature made with your key. For the same reason
+// alg is a parameter: reading the algorithm out of the header let a sender select NONE and
+// walk away with an unsigned token bearing your claims. NONE is refused here too.
 //
-//	Parameters:
-//	 - key: PrivateKey used to sign the new token
-//	 - extraClaims: Map of additional claims to merge with the original token's payload
+// A "kid" in the original header is therefore dropped. If you need it kept, verify the
+// token first, with Enrich or Keys.EnrichToken, both of which carry a verified header
+// through intact.
 //
-// Returns:
-//   - []byte: New JWT token with merged claims
-//   - error: Error if the original token's algorithm cannot be determined or if merging fails
+// Example:
 //
-// Example usage:
-//
-//	originalToken, _ := jwt.Decode(tokenBytes)
-//	extraClaims := map[string]any{
-//	    "role": "admin",
-//	    "permissions": []string{"read", "write"},
+//	unverified, err := jwt.Decode(tokenBytes)
+//	if err != nil {
+//	    return err
 //	}
-//	newToken, err := originalToken.Enrich(signingKey, extraClaims)
 //
-//	//	if err != nil {
-//		    log.Fatalf("Failed to enrich token: %v", err)
-//		}
+//	newToken, err := unverified.Enrich(jwt.HS256, signingKey, map[string]any{"role": "admin"})
 //
-// This newToken will have the original header and signature, but with the additional claims merged in.
-// Note: This method does not verify the original token; it assumes the original token is valid.
-func (t *UnverifiedToken) Enrich(key PrivateKey, extraClaims any) ([]byte, error) {
-	alg, err := t.Alg()
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine algorithm from original token: %w", err)
+// It returns ErrTokenAlg when alg is nil or NONE, and a wrapped merge error when the extra
+// claims cannot be serialized.
+func (t *UnverifiedToken) Enrich(alg Alg, key PrivateKey, extraClaims any) ([]byte, error) {
+	return t.enrich(alg, key, extraClaims, nil)
+}
+
+// enrich merges extraClaims into the token's payload and signs the result under alg.
+//
+// encodedHeader, when not nil, is used verbatim as the header of the new token. Only the
+// entry points that have already verified the original token pass it, because a verified
+// header was covered by a signature made with the caller's own key and is therefore safe
+// to carry forward, "kid" and all.
+//
+// When it is nil the header is built from alg instead. That is the case for the exported
+// UnverifiedToken.Enrich, whose input is by definition unchecked: copying an unverified
+// header would sign fields chosen by whoever supplied the token, and reading the
+// algorithm out of it would let them choose that too, including the unsecured one.
+func (t *UnverifiedToken) enrich(alg Alg, key PrivateKey, extraClaims any, encodedHeader []byte) ([]byte, error) {
+	if alg == nil {
+		return nil, ErrTokenAlg
 	}
 
-	// Merge the original claims with extra claims.
-	// No extra validation is needed since we assume the original token is valid.
+	if alg == NONE {
+		return nil, fmt.Errorf("%w: refusing to enrich under the unsecured algorithm", ErrTokenAlg)
+	}
+
+	// Merge the original claims with the extra claims.
 	payload, err := Merge(t.Payload, extraClaims)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge claims: %w", err)
 	}
 	payload = Base64Encode(payload)
 
-	// Use the existing header from the original token.
-	// This ensures the new token has the same header structure.
-	existingHeader := Base64Encode(t.Header)
-	headerPayload := joinParts(existingHeader, payload)
+	header := encodedHeader
+	if header == nil {
+		header = createHeader(alg.Name())
+	}
 
-	// The signature should be created using the same algorithm and key.
-	// This ensures the new token is properly signed and can be verified with the new claims.
+	headerPayload := joinParts(header, payload)
+
 	signature, err := createSignature(alg, key, headerPayload)
 	if err != nil {
 		return nil, fmt.Errorf("encodeToken: signature: %w", err)

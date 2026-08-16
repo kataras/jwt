@@ -62,7 +62,10 @@ func verifyWithLeeway(token []byte) {
 	}
 
 	var claims myClaims
-	verifiedToken.Claims(&claims)
+	if err = verifiedToken.Claims(&claims); err != nil {
+		log.Printf("(verifyWithLeeway) decode claims: %v", err)
+		return
+	}
 
 	log.Printf("(verifyWithLeeway) Got claims: %#+v", claims)
 }
@@ -70,11 +73,18 @@ func verifyWithLeeway(token []byte) {
 func verifyWithCustomExpectations(token []byte) {
 	verifiedToken, err := jwt.Verify(jwt.HS256, sigKey, token)
 	if err != nil {
+		// Verify returns a nil *VerifiedToken alongside the error, so this has to stop
+		// here. Without the return the next line dereferences nil and the example dies
+		// with a panic instead of the message it meant to print.
 		log.Printf("(verifyWithCustomExpectations) token is invalid: %v", err)
+		return
 	}
 
 	var claims myClaims
-	verifiedToken.Claims(&claims)
+	if err = verifiedToken.Claims(&claims); err != nil {
+		log.Printf("(verifyWithCustomExpectations) decode claims: %v", err)
+		return
+	}
 
 	// Here you can add custom type validations.
 	if claims.Foo != "bar" {

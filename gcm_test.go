@@ -62,29 +62,43 @@ func TestGCM(t *testing.T) {
 		t.Fatalf("expected claims to be:\n%#+v\n\nbut got:\n%#+v", expectedClaims, gotClaims)
 	}
 
+	// Every failure case below checks the error and that no token came back with it.
+	// verifyToken returns (nil, err) as soon as decryption fails, and a caller must never
+	// be handed a token whose payload was not authenticated.
+
 	// Test try to decrypt unencrypted (failure).
 	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, plainToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
 	}
+	if verifiedToken != nil {
+		t.Fatalf("expected no verified token for an unencrypted payload but got: %#+v", verifiedToken)
+	}
 
-	// Test encrypted but different key (same additionalData).
-	encrypt, decrypt, err = GCM(MustGenerateRandom(32), []byte("data"))
+	// Test encrypted but different key (same additionalData), so that only the key
+	// differs from the pair the token was sealed with.
+	_, wrongKeyDecrypt, err := GCM(MustGenerateRandom(32), addtionalData)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, encryptedToken)
+	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, wrongKeyDecrypt, encryptedToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
+	}
+	if verifiedToken != nil {
+		t.Fatalf("expected no verified token for a different key but got: %#+v", verifiedToken)
 	}
 
 	// Test fail because of different additionalData.
-	encrypt, decrypt, err = GCM(key, []byte("a_data"))
+	_, wrongDataDecrypt, err := GCM(key, []byte("a_data"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, decrypt, encryptedToken)
+	verifiedToken, err = VerifyEncrypted(testAlg, testSecret, wrongDataDecrypt, encryptedToken)
 	if err != ErrDecrypt {
 		t.Fatalf("expected error: %v but got: %v", ErrDecrypt, err)
+	}
+	if verifiedToken != nil {
+		t.Fatalf("expected no verified token for different additional data but got: %#+v", verifiedToken)
 	}
 }

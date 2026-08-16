@@ -18,28 +18,28 @@ import (
 // algorithms are symmetric, meaning the same key is used for both signing and
 // verification operations.
 //
-// **Supported Variants**:
+// Supported Variants:
 //   - HS256: HMAC with SHA-256 (most common, 32-byte output)
 //   - HS384: HMAC with SHA-384 (48-byte output)
 //   - HS512: HMAC with SHA-512 (64-byte output)
 //
-// **Security Properties**:
+// Security Properties:
 //   - Symmetric algorithm requiring shared secret key
 //   - Provides both authenticity and integrity verification
 //   - Resistant to length extension attacks (unlike plain hashing)
 //   - Fast computation suitable for high-throughput scenarios
 //
-// **Key Requirements**:
+// Key Requirements:
 //   - Must be []byte type for compatibility
 //   - Minimum length should match hash output size for security
 //   - Should use cryptographically secure random generation
 //   - Must be kept secret and shared securely between parties
 //
-// **Thread Safety**: This implementation is thread-safe and can be used
+// Thread Safety: This implementation is thread-safe and can be used
 // concurrently across multiple goroutines. Each signing/verification
 // operation creates a new HMAC instance.
 //
-// **Performance**: HMAC operations are highly optimized and typically
+// Performance: HMAC operations are highly optimized and typically
 // faster than asymmetric algorithms (RSA, ECDSA, EdDSA), making them
 // ideal for high-frequency token operations.
 type algHMAC struct {
@@ -52,12 +52,12 @@ type algHMAC struct {
 // This method satisfies the Alg interface requirement and returns the
 // standard algorithm name that will be included in the JWT "alg" header field.
 //
-// **Return Values**:
+// Return Values:
 //   - "HS256" for HMAC-SHA256
 //   - "HS384" for HMAC-SHA384
 //   - "HS512" for HMAC-SHA512
 //
-// **Usage**: This value is automatically included in JWT headers during
+// Usage: This value is automatically included in JWT headers during
 // token creation and used for algorithm validation during verification.
 //
 // Example:
@@ -168,13 +168,23 @@ const (
 //	randomStr := jwt.MustGenerateRandomString(32)
 //	fmt.Println(randomStr) // Output: "aBcDeFgHiJkLmNoPqRsTuVwXyZ..."
 func MustGenerateRandomString(length int) string {
+	if length <= 0 {
+		return ""
+	}
+
 	result := make([]byte, length)
+
+	// The buffer is indexed with j%bufferSize, matching the refill above it. It used to
+	// be indexed with j%length, and bufferSize is the larger of the two for any length of
+	// four or more, so the tail of every buffer went unread while its head was read again
+	// and again. The generated strings had less entropy than their length suggested.
 	bufferSize := int(float64(length) * 1.3)
 	for i, j, randomBytes := 0, 0, []byte{}; i < length; j++ {
 		if j%bufferSize == 0 {
 			randomBytes = MustGenerateRandom(bufferSize)
 		}
-		if idx := int(randomBytes[j%length] & letterIdxMask); idx < len(letterBytes) {
+
+		if idx := int(randomBytes[j%bufferSize] & letterIdxMask); idx < len(letterBytes) {
 			result[i] = letterBytes[idx]
 			i++
 		}
@@ -268,12 +278,16 @@ func LoadHMAC(filenameOrRaw string) ([]byte, error) {
 	return []byte(filenameOrRaw), nil
 }
 
-// fileExists checks whether the given path exists and is a regular file (not a directory).
-// This is used internally to determine whether to treat input as a filename or raw data.
+// fileExists reports whether the given path names something that exists on disk.
+// It is used internally to decide whether to treat input as a filename or as raw data.
+//
+// A directory counts as existing, on purpose: LoadHMAC then attempts the read and
+// surfaces the resulting error, rather than silently treating the directory's own path
+// as the HMAC key.
+//
+// The previous form dereferenced the FileInfo on the error branch, where it is always
+// nil. Only os.IsExist never being true for os.Stat kept that from panicking.
 func fileExists(path string) bool {
-	if f, err := os.Stat(path); err != nil {
-		return os.IsExist(err) && !f.IsDir()
-	}
-
-	return true
+	_, err := os.Stat(path)
+	return err == nil
 }

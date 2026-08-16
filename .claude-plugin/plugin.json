@@ -1,0 +1,22 @@
+{
+  "$schema": "https://code.claude.com/schemas/plugin.json",
+  "name": "jwt",
+  "description": "Development guide for the jwt JSON Web Token library for Go: signing and verifying tokens, claims and expiry, algorithm choice (HMAC/RSA/RSA-PSS/ECDSA/EdDSA), kid-based key rotation, JWKS fetch/refresh/publish, blocklisting and testing.",
+  "author": {
+    "name": "Gerasimos (Makis) Maropoulos",
+    "url": "https://github.com/kataras"
+  },
+  "homepage": "https://github.com/kataras/jwt",
+  "repository": "https://github.com/kataras/jwt",
+  "license": "MIT",
+  "keywords": [
+    "go",
+    "jwt",
+    "jws",
+    "jwk",
+    "jwks",
+    "authentication",
+    "security"
+  ],
+  "skills": "./skill"
+}

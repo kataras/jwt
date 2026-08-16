@@ -57,7 +57,7 @@ func (a *algRSAPSS) Name() string {
 // Returns an error if the key is invalid or signing fails.
 func (a *algRSAPSS) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
+	if !ok || privateKey == nil {
 		return nil, ErrInvalidKey
 	}
 
@@ -79,9 +79,10 @@ func (a *algRSAPSS) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error
 // (from which it extracts the public key). RSA-PSS verification handles
 // the probabilistic nature of the padding automatically.
 func (a *algRSAPSS) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
+	// See the note in rsa.go: a typed nil asserts successfully and then panics.
 	publicKey, ok := key.(*rsa.PublicKey)
-	if !ok {
-		if privateKey, ok := key.(*rsa.PrivateKey); ok {
+	if !ok || publicKey == nil {
+		if privateKey, ok := key.(*rsa.PrivateKey); ok && privateKey != nil {
 			publicKey = &privateKey.PublicKey
 		} else {
 			return ErrInvalidKey

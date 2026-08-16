@@ -40,7 +40,7 @@ func main() {
 	// http://localhost:8080/user
 	// http://localhost:8080/user/protected?token={user_token} (OK)
 	// [3] http://localhost:8080/user/protected?token={token} (NOT OK)
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 var sharedKey = []byte("sercrethatmaycontainch@r$32chars")

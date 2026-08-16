@@ -69,6 +69,13 @@ func GCM(key, additionalData []byte) (encrypt, decrypt InjectFunc, err error) {
 	}
 
 	decrypt = func(ciphertext []byte) ([]byte, error) {
+		// A ciphertext shorter than the nonce cannot carry one, and slicing it would
+		// panic. Report it as an authentication failure rather than a distinct error,
+		// so a caller cannot tell a truncated payload from a forged one.
+		if len(ciphertext) < gcm.NonceSize() {
+			return nil, ErrDecrypt
+		}
+
 		nonce := ciphertext[:gcm.NonceSize()]
 		ciphertext = ciphertext[gcm.NonceSize():]
 

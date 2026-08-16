@@ -55,7 +55,7 @@ func (a *algRSA) Name() string {
 // Returns an error if the key is invalid or signing fails.
 func (a *algRSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
+	if !ok || privateKey == nil {
 		return nil, ErrInvalidKey
 	}
 
@@ -76,9 +76,14 @@ func (a *algRSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 // The method accepts either an *rsa.PublicKey or an *rsa.PrivateKey
 // (from which it extracts the public key).
 func (a *algRSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
+	// A nil check as well as a type assertion. A nil pointer stored in an interface makes
+	// the interface itself non-nil, so a *rsa.PublicKey(nil) reaching this point asserts
+	// successfully and then panics inside crypto/rsa. It gets here through a Key
+	// registered with a typed-nil Public, and from there any token naming that "kid"
+	// crashes the process.
 	publicKey, ok := key.(*rsa.PublicKey)
-	if !ok {
-		if privateKey, ok := key.(*rsa.PrivateKey); ok {
+	if !ok || publicKey == nil {
+		if privateKey, ok := key.(*rsa.PrivateKey); ok && privateKey != nil {
 			publicKey = &privateKey.PublicKey
 		} else {
 			return ErrInvalidKey

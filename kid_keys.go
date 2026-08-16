@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -191,20 +192,42 @@ func (key *Key) Configuration() (KeyConfiguration, error) {
 		return KeyConfiguration{}, errors.New("jwt: cannot export keys with encryption")
 	}
 
-	var privatePEM, publicPEM string
-	if key.Private != nil {
-		text, err := EncodePrivateKeyToPEM(key.Private)
-		if err != nil {
-			return KeyConfiguration{}, fmt.Errorf("jwt: %w", err)
-		}
-		privatePEM = text
+	// Alg names the algorithm in the exported configuration, so a key without one has
+	// nothing to export. Reading it unguarded panics.
+	if key.Alg == nil {
+		return KeyConfiguration{}, fmt.Errorf("jwt: key %q: %w", key.ID, ErrInvalidKey)
 	}
-	if key.Public != nil {
-		text, err := EncodePublicKeyToPEM(key.Public)
-		if err != nil {
-			return KeyConfiguration{}, fmt.Errorf("jwt: %w", err)
+
+	var privatePEM, publicPEM string
+
+	// An HMAC key is a shared secret, not a key pair, and there is no PEM form of one.
+	// KeysConfiguration.Load already accepts the raw secret as a string for HMAC, so this
+	// is the inverse of that and produces a configuration that loads back.
+	//
+	// It writes the secret out in plain text, which is what exporting a symmetric key
+	// means. Do not put the result anywhere you would not put the secret.
+	if _, symmetric := key.Alg.(*algHMAC); symmetric {
+		if b, ok := key.Private.([]byte); ok {
+			privatePEM = string(b)
 		}
-		publicPEM = text
+		if b, ok := key.Public.([]byte); ok {
+			publicPEM = string(b)
+		}
+	} else {
+		if key.Private != nil {
+			text, err := EncodePrivateKeyToPEM(key.Private)
+			if err != nil {
+				return KeyConfiguration{}, fmt.Errorf("jwt: key %q: %w", key.ID, err)
+			}
+			privatePEM = text
+		}
+		if key.Public != nil {
+			text, err := EncodePublicKeyToPEM(key.Public)
+			if err != nil {
+				return KeyConfiguration{}, fmt.Errorf("jwt: key %q: %w", key.ID, err)
+			}
+			publicPEM = text
+		}
 	}
 
 	config := KeyConfiguration{
@@ -514,13 +537,20 @@ func (c KeysConfiguration) Load() (Keys, error) {
 	parsedKeys := make(Keys, len(c))
 
 	for _, entry := range c {
-		alg := RS256
-
+		// An unrecognised algorithm name is an error, not a default. This used to start
+		// at RS256 and keep it when nothing matched, so a typo in a configuration file
+		// produced a silently mis-configured RS256 key and a pile of confusing
+		// verification failures later.
+		var alg Alg
 		for _, algo := range allAlgs {
 			if strings.EqualFold(algo.Name(), entry.Alg) {
 				alg = algo
 				break
 			}
+		}
+
+		if alg == nil {
+			return nil, fmt.Errorf("jwt: load keys: id=%q: unknown algorithm %q", entry.ID, entry.Alg)
 		}
 
 		p := &Key{
@@ -540,7 +570,10 @@ func (c KeysConfiguration) Load() (Keys, error) {
 			var err error
 			p.Private, p.Public, err = parser.Parse([]byte(entry.Private), []byte(entry.Public))
 			if err != nil {
-				return nil, fmt.Errorf("jwt: load keys: parse: %w", err)
+				// Name the key. With several keys in one configuration file, "parse
+				// error" on its own leaves the operator to work out which of them is
+				// malformed by deleting entries one at a time.
+				return nil, fmt.Errorf("jwt: load keys: id=%q alg=%q: parse: %w", entry.ID, entry.Alg, err)
 			}
 		} else {
 			p.Private = entry.Private
@@ -636,6 +669,16 @@ func (keys Keys) Get(kid string) (*Key, bool) {
 //	// Now keys can be used for signing and verification
 //	token, err := keys.SignToken("rsa-key", claims)
 func (keys Keys) Register(alg Alg, kid string, pubKey PublicKey, privKey PrivateKey) {
+	// HMAC verifies with the same key it signs with, so a nil public key here means the
+	// shared secret, not "no key". This package's own documented example passes nil, and
+	// verification then failed with ErrInvalidKey for every token using that kid: the nil
+	// travelled all the way to algHMAC.Verify, whose type assertion rejected it.
+	if pubKey == nil {
+		if _, symmetric := alg.(*algHMAC); symmetric {
+			pubKey = privKey
+		}
+	}
+
 	keys[kid] = &Key{
 		ID:      kid,
 		Alg:     alg,
@@ -700,6 +743,12 @@ func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKe
 		return nil, nil, nil, ErrUnknownKid
 	}
 
+	// A key registered without an algorithm is a configuration mistake, not a token
+	// problem. Report it as an invalid key rather than panicking on the nil interface.
+	if key.Alg == nil {
+		return nil, nil, nil, ErrInvalidKey
+	}
+
 	if h.Alg != key.Alg.Name() {
 		return nil, nil, nil, ErrTokenAlg
 	}
@@ -736,8 +785,10 @@ func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKe
 //   - error: ErrUnknownKid if the key ID is not registered, or signing errors
 //
 // The SignOptions are applied in addition to any key-specific options.
-// If both the key and the options specify MaxAge, the key's MaxAge takes precedence
-// by being applied first.
+// If both the key and the options specify a MaxAge, the caller's wins. The key's is
+// prepended to the option list, so anything passed to this call applies after it. That is
+// the useful way round, since a per-call override should beat a per-key default, and it is
+// the opposite of what this comment claimed until v1.0.0
 //
 // Example:
 //
@@ -768,34 +819,54 @@ func (keys Keys) SignToken(kid string, claims any, opts ...SignOption) ([]byte, 
 	}, opts...)
 }
 
-// EnrichToken creates a new JWT token by merging the original token's claims with additional claims.
+// EnrichToken verifies a token against the registry, merges extra claims into its payload
+// and signs the result with the same registered key.
 //
-// This method allows you to extend the original token's payload with new claims
-// while preserving the original token's header and signature structure.
+// The key is chosen by the token's "kid", and ValidateHeader binds that "kid" to the
+// algorithm registered for it, so neither the key nor the algorithm can be picked by
+// whoever sent the token. The signature is checked before anything is re-signed. Without
+// that check this method signed an attacker's header and payload with a registered private
+// key, which is the reason it takes no key parameter of its own: the registry decides.
 //
-//	It uses the same algorithm and key as the original token to ensure the new token is valid.
+// The verified header is carried through unchanged, so the enriched token still selects
+// the same key when it comes back in.
 //
-//	Parameters:
-//	 - key: PrivateKey used to sign the new token
-//	 - extraClaims: Map of additional claims to merge with the original token's payload
+// Encrypted keys are refused, because enrichment works on the plain payload.
 //
-// Returns:
-//   - []byte: New JWT token with merged claims
-//   - error: Error if the original token's algorithm cannot be determined or if merging fails.
+// Example:
 //
-// Note: this only enrich plain tokens and not encrypted tokens.
+//	enriched, err := keys.EnrichToken(token, map[string]any{"role": "admin"})
+//
+// It returns ErrUnknownKid when no key matches the token's "kid", ErrEmptyKid when the
+// header carries none, ErrTokenAlg when the header names a different algorithm than the
+// registered key, ErrTokenSignature when the signature does not check out, and
+// ErrInvalidKey when the matching key has no algorithm set.
 func (keys Keys) EnrichToken(plainToken []byte, extraClaims any) ([]byte, error) {
-	decodedToken, err := Decode(plainToken)
+	// Check the signature first. ValidateHeader binds the "kid" to the algorithm
+	// registered for that key, so neither can be chosen by whoever supplied the token.
+	// decodeToken rather than Verify, for the reason given on Enrich: the signature check
+	// is the part that matters here, and parsing the standard claims is not.
+	header, payload, signature, err := decodeToken(nil, nil, plainToken, keys.ValidateHeader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse original token: %w", err)
+		return nil, err
 	}
 
-	kid, err := decodedToken.Kid()
-	if err != nil {
+	unverified := &UnverifiedToken{
+		Header:    header,
+		Payload:   payload,
+		Signature: signature,
+	}
+
+	// Read the "kid" straight out of the verified header rather than through
+	// UnverifiedToken.Kid, which also resolves the algorithm name against the built-in
+	// list and therefore fails for any custom Alg. Such a token signs and verifies
+	// through this registry perfectly well, and used to fail only at enrichment.
+	var h HeaderWithKid
+	if err = Unmarshal(header, &h); err != nil {
 		return nil, fmt.Errorf("failed to get kid from token: %w", err)
 	}
 
-	k, ok := keys.Get(kid)
+	k, ok := keys.Get(h.Kid)
 	if !ok {
 		return nil, ErrUnknownKid
 	}
@@ -804,7 +875,15 @@ func (keys Keys) EnrichToken(plainToken []byte, extraClaims any) ([]byte, error)
 		return nil, fmt.Errorf("jwt: cannot enrich encrypted tokens")
 	}
 
-	return decodedToken.Enrich(k.Private, extraClaims)
+	if k.Alg == nil {
+		return nil, ErrInvalidKey
+	}
+
+	// Carry the original header through. It is safe to reuse because the signature over
+	// it was just checked and ValidateHeader bound the "kid" to the algorithm registered
+	// for that key, and keeping it means the enriched token still selects the same key on
+	// the way back in.
+	return unverified.enrich(k.Alg, k.Private, extraClaims, Base64Encode(header))
 }
 
 // VerifyToken verifies a JWT token using automatic key selection and extracts claims.
@@ -848,7 +927,7 @@ func (keys Keys) EnrichToken(plainToken []byte, extraClaims any) ([]byte, error)
 //	type MyClaims struct {
 //	    Sub  string `json:"sub"`
 //	    Role string `json:"role"`
-//	    jwt.RegisteredClaims
+//	    jwt.Claims
 //	}
 //
 //	var claims MyClaims
@@ -868,7 +947,34 @@ func (keys Keys) VerifyToken(token []byte, claimsPtr any, validators ...TokenVal
 		return err
 	}
 
-	return verifiedToken.Claims(&claimsPtr)
+	return verifiedToken.Claims(claimsPtr)
+}
+
+// Verify checks a token against the registry and returns it.
+//
+// It is VerifyToken without the claims destination, for the common case where you need the
+// token itself: its raw bytes to forward on, its payload to read a claim the standard set
+// does not cover, or its StandardClaims to hand to a blocklist.
+//
+// VerifyToken throws the verified token away and returns only an error, so every caller
+// that needed it wrote the low-level call by hand instead:
+//
+//	verifiedToken, err := jwt.VerifyWithHeaderValidator(nil, nil, token, keys.ValidateHeader, validators...)
+//
+// Two separate codebases had that line, both with the same pair of leading nils and the
+// same comment explaining them. This is that line.
+//
+//	verifiedToken, err := keys.Verify(token)
+//	if err != nil {
+//	    return err
+//	}
+//
+//	var claims MyClaims
+//	if err = verifiedToken.Claims(&claims); err != nil {
+//	    return err
+//	}
+func (keys Keys) Verify(token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
+	return VerifyWithHeaderValidator(nil, nil, token, keys.ValidateHeader, validators...)
 }
 
 // JWKS generates a JSON Web Key Set (JWKS) from all registered public keys.
@@ -920,6 +1026,15 @@ func (keys Keys) JWKS() (*JWKS, error) {
 	sets := make([]*JWK, 0, len(keys))
 
 	for _, key := range keys {
+		// A key set publishes public keys. An HMAC secret is not one, and putting it in a
+		// document served at /.well-known/jwks.json would hand out the ability to mint
+		// tokens. Skip it rather than failing: a registry holding one HMAC key alongside
+		// several asymmetric ones is ordinary, and refusing to publish any of them because
+		// one cannot be published is the wrong answer.
+		if _, symmetric := key.Alg.(*algHMAC); symmetric {
+			continue
+		}
+
 		alg := ""
 		if key.Alg != nil {
 			alg = key.Alg.Name()
@@ -930,6 +1045,14 @@ func (keys Keys) JWKS() (*JWKS, error) {
 		}
 		sets = append(sets, jwk)
 	}
+
+	// Sort by key id. Keys is a map, so without this the same registry produced a
+	// different ordering on every call, and a handler serving /.well-known/jwks.json
+	// returned a different body each time. That defeats ETag and If-None-Match on a
+	// document that changes only when a key is rotated.
+	slices.SortFunc(sets, func(a, b *JWK) int {
+		return strings.Compare(a.Kid, b.Kid)
+	})
 
 	jwks := JWKS{Keys: sets}
 	return &jwks, nil

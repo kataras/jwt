@@ -1,10 +1,14 @@
 # JWT
 
-[![build status](https://img.shields.io/github/actions/workflow/status/kataras/jwt/ci.yml?style=for-the-badge)](https://github.com/kataras/jwt/actions) [![gocov](https://img.shields.io/badge/Go%20Coverage-92%25-brightgreen.svg?style=for-the-badge)](https://travis-ci.org/github/kataras/jwt/jobs/740739405#L322) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
+[![build status](https://img.shields.io/github/actions/workflow/status/kataras/jwt/ci.yml?style=for-the-badge)](https://github.com/kataras/jwt/actions) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=for-the-badge)](https://goreportcard.com/report/github.com/kataras/jwt) [![godocs](https://img.shields.io/badge/go-%20docs-488AC7.svg?style=for-the-badge)](https://pkg.go.dev/github.com/kataras/jwt)
 
-Zero-dependency lighweight, fast and simple [JWT](https://jwt.io/#libraries-io) & JWKS implementation written in [Go](https://go.dev/dl/). This package was designed with security, performance and simplicity in mind, it protects your tokens from [critical vulnerabilities that you may find in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
+<img align="left" width="72" height="72" src="brand/export/jwt-mark-256.png" alt="">
 
-[![Benchmarks Total Repetitions - higher is better](http://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
+Zero-dependency, lightweight and fast [JWT](https://jwt.io/#libraries-io) and JWKS implementation written in [Go](https://go.dev/dl/). It was designed with security, performance and simplicity in mind, and it protects your tokens from [critical vulnerabilities found in other libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries).
+
+<br clear="left"/>
+
+[![Benchmarks Total Repetitions - higher is better](https://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
 
 Please [star](https://github.com/kataras/jwt/stargazers) this open source project to attract more developers so that together we can improve it even more!
 
@@ -47,6 +51,8 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [Custom Validations](_examples/custom-validations/main.go)
     * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/master/middleware/jwt)
     * [Advanced: Redis Blocklist](https://github.com/kataras/iris/tree/master/middleware/jwt/blocklist/redis/blocklist.go)
+* [The Book](#the-book)
+* [AI Tools](#ai-tools-for-jwt)
 * [References](#references)
 * [License](#license)
 
@@ -180,7 +186,7 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, jwt.Plain)
 
 ### The standard JWT Claims
 
-The `jwt.Claims` we've shown above, looks like this:
+The `jwt.Claims` shown above looks like this:
 
 ```go
 type Claims struct {
@@ -278,7 +284,7 @@ jwt.Clock = time.Now().UTC
 
 ### JSON required tag
 
-When more than one token with different claims can be generated based on the same algorithm and key, somehow you need to invalidate a token if its payload misses one or more fields of your custom claims structure. Although it's not recommended to use the same algorithm and key for generating two different types of tokens, you can do it, and to avoid invalid claims to be retrieved by your application's route handler this package offers the JSON **`,required`** tag field. It checks if the claims extracted from the token's payload meet the requirements of the expected **struct** value.
+When more than one token with different claims can be generated based on the same algorithm and key, somehow you need to invalidate a token if its payload misses one or more fields of your custom claims structure. Using the same algorithm and key for two different kinds of token is not recommended, but you can do it, and to avoid invalid claims to be retrieved by your application's route handler this package offers the JSON **`,required`** tag field. It checks if the claims extracted from the token's payload meet the requirements of the expected **struct** value.
 
 The first thing we have to do is to change the default `jwt.Unmarshal` variable to the `jwt.UnmarshalWithRequired`, once at the init of the application:
 
@@ -296,7 +302,7 @@ type userClaims struct {
 }
 ```
 
-That's all, the `VerifiedToken.Claims` method will throw an `ErrMissingKey` if the given token's payload does not meet the requirements.
+That is all. The `VerifiedToken.Claims` method returns an `ErrMissingKey` if the given token's payload does not meet the requirements.
 
 ### Standard Claims Validators
 
@@ -359,11 +365,11 @@ verifiedToken, err := jwt.Verify(jwt.HS256, sharedKey, token, blocklist)
 blocklist.InvalidateToken(verifiedToken.Token, verifiedToken.StandardClaims)
 ```
 
-By default the unique identifier is retrieved through the `"jti"` (`Claims{ID}`) and if that it's empty then the raw token is used as the map key instead. To change that behavior simply modify the `blocklist.GetKey` field before the `InvalidateToken` method.
+By default the unique identifier is retrieved through the `"jti"` (`Claims{ID}`) and when that is empty the raw token is used as the map key instead. To change that behavior simply modify the `blocklist.GetKey` field before the `InvalidateToken` method.
 
 ## Token Pair
 
-A Token pair helps us to handle refresh tokens. It is a structure which holds both Access Token and Refresh Token. Refresh Token is long-live and access token is short-live. The server sends both of them at the first contact. The client uses the access token to access an API. The client can renew its access token by hitting a special REST endpoint to the server. The server verifies the refresh token and **optionally** the access token which should return `ErrExpired`, if it's expired or going to be expired in some time from now (`Leeway`), and renders a new generated token to the client. There are countless resources online and different kind of methods for using a refresh token. This `jwt` package offers just a helper structure which holds both the access and refresh tokens and it's ready to be sent and received to and from a client.
+A Token pair helps us to handle refresh tokens. It is a structure which holds both Access Token and Refresh Token. Refresh Token is long-live and access token is short-live. The server sends both of them at the first contact. The client uses the access token to access an API. The client can renew its access token by hitting a special REST endpoint to the server. The server verifies the refresh token and **optionally** the access token which should return `ErrExpired`, if it has expired or will expire within some window from now (`Leeway`), and renders a new generated token to the client. There are countless resources online and different kind of methods for using a refresh token. This `jwt` package offers just a helper structure which holds both the access and refresh tokens and it is ready to be sent to and received from a client.
 
 ```go
 type ClientClaims struct {
@@ -404,11 +410,11 @@ The implementation supports **all** of the above plus `RSA-PSS` and the new `Ed2
 
 |Algorithm              | `jwt.Sign`                               | `jwt.Verify`        |
 |-----------------------|------------------------------------------|---------------------|
-| [jwt.HS256 / HS384 / HS512](alg.go#L81-L83) | []byte             | The same sign key   |
-| [jwt.RS256 / RS384 / RS512](alg.go#L96-L98) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)    | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)    |
-| [jwt.PS256 / PS384 / PS512](alg.go#L112-L114) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)  | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)  |
-| [jwt.ES256 / ES384 / ES512](alg.go#L134-L136) | [*ecdsa.PrivateKey](https://golang.org/pkg/crypto/ecdsa/#PrivateKey)  | [*ecdsa.PublicKey](https://golang.org/pkg/crypto/ecdsa/#PublicKey)  |
-| [jwt.EdDSA](alg.go#L146)             | [ed25519.PrivateKey](https://golang.org/pkg/crypto/ed25519/#PrivateKey) | [ed25519.PublicKey](https://golang.org/pkg/crypto/ed25519/#PublicKey) |
+| [jwt.HS256 / HS384 / HS512](alg.go) | []byte             | The same sign key   |
+| [jwt.RS256 / RS384 / RS512](alg.go) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)    | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)    |
+| [jwt.PS256 / PS384 / PS512](alg.go) | [*rsa.PrivateKey](https://golang.org/pkg/crypto/rsa/#PrivateKey)  | [*rsa.PublicKey](https://golang.org/pkg/crypto/rsa/#PublicKey)  |
+| [jwt.ES256 / ES384 / ES512](alg.go) | [*ecdsa.PrivateKey](https://golang.org/pkg/crypto/ecdsa/#PrivateKey)  | [*ecdsa.PublicKey](https://golang.org/pkg/crypto/ecdsa/#PublicKey)  |
+| [jwt.EdDSA](alg.go)             | [ed25519.PrivateKey](https://golang.org/pkg/crypto/ed25519/#PrivateKey) | [ed25519.PublicKey](https://golang.org/pkg/crypto/ed25519/#PublicKey) |
 
 ### Choose the right Algorithm
 
@@ -422,11 +428,11 @@ The basic difference between symmetric and an asymmetric algorithm
 is that symmetric uses one shared key for both signing and verifying a token,
 and the asymmetric uses private key for signing and a public key for verifying.
 In general, asymmetric data is more secure because it uses different keys
-for the signing and verifying process but it's slower than symmetric ones.
+for the signing and verifying process, but it is slower than the symmetric ones.
 
 ### Use your own Algorithm
 
-If you ever need to use your own JSON Web algorithm, just implement the [Alg](alg.go#L19-L28) interface. Pass it on `jwt.Sign` and `jwt.Verify` functions and you're ready to GO.
+If you ever need to use your own JSON Web algorithm, just implement the [Alg](alg.go) interface. Pass it to `jwt.Sign` and `jwt.Verify` and you are ready to go.
 
 ### Generate keys
 
@@ -527,7 +533,7 @@ verifiedToken, err := Verify(EdDSA, publicKey, token)
 
 [JWE](https://tools.ietf.org/html/rfc7516#section-3) (encrypted JWTs) is outside the scope of this package, a wire encryption of the token's payload is offered to secure the data instead. If the application requires to transmit a token which holds private data then it needs to encrypt the data on Sign and decrypt on Verify. The `SignEncrypted` and `VerifyEncrypted` package-level functions can be called to apply any type of encryption.
 
-The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it's safer as it prevents _padding oracle attacks_).
+The package offers one of the most popular and common way to secure data; the `GCM` mode + AES cipher. We follow the `encrypt-then-sign` flow which most researchers recommend (it is safer, because it prevents _padding oracle attacks_).
 
 In-short, you need to call the `jwt.GCM` and pass its result to the `jwt.SignEncrypted` and `jwt.VerifyEncrypted`:
 
@@ -557,6 +563,55 @@ func main(){
 ```
 
 Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
+
+## The Book
+
+A fourteen chapter book on this library lives in [`book/`](book/), rendered to one
+self-contained HTML file and printed to PDF: **[jwt-book.pdf](book/output/jwt-book.pdf)**.
+
+It is not a reference. `go doc` is the reference, and it is generated from the source so it
+cannot drift. The book is the part `go doc` cannot give you: the order to do things in, why
+a default is what it is, and the failure that made somebody choose it. Chapter 12 is the
+honest list of this library's sharp edges.
+
+| | Chapter | What it covers |
+| --- | --- | --- |
+| | [Preface](book/README.md) | Who the book is for, and how its code was checked |
+| 1 | [What a Token Is](book/01-what-a-token-is.md) | The three segments, base64url, and what a signature actually proves |
+| 2 | [Signing and Verifying](book/02-signing-and-verifying.md) | `Sign` and `Verify`, and why the algorithm is an argument |
+| 3 | [Claims](book/03-claims.md) | Standard and custom claims, sign options, `Merge` |
+| 4 | [Expiry and Time](book/04-expiry-and-time.md) | `exp`, `nbf`, `iat`, `MaxAge`, and clock skew |
+| 5 | [Choosing an Algorithm](book/05-choosing-an-algorithm.md) | HMAC, RSA, RSA-PSS, ECDSA, EdDSA, and who can mint tokens |
+| 6 | [Keys and Rotation](book/06-keys-and-rotation.md) | The `kid` registry, key configuration, and a worked rotation |
+| 7 | [JWKS](book/07-jwks.md) | Publishing a key set, consuming one, and `KeySet` |
+| 8 | [Validators](book/08-validators.md) | The chaining rule, `Expected`, and writing your own |
+| 9 | [Revoking Tokens](book/09-revoking-tokens.md) | Blocklists, `jti`, and a distributed backend |
+| 10 | [Tokens over HTTP](book/10-tokens-over-http.md) | Extraction, middleware, and access and refresh pairs |
+| 11 | [Encrypting the Payload](book/11-encrypting-the-payload.md) | AES-GCM, and when the answer is not encryption |
+| 12 | [Sharp Edges](book/12-sharp-edges.md) | The surprising defaults and the fast paths that carry a hazard |
+| 13 | [Testing](book/13-testing.md) | Controlling the clock, faking the network, golden tests |
+| 14 | [Performance](book/14-performance.md) | Where the time goes, and what buys the speed |
+| | [Epilogue](book/epilogue.md) | The pattern behind most of the defects found here |
+
+Rebuild it with `cd book && go run .`, or `go run . -format html` for a version that needs
+no browser. See [book/README_EBOOK.md](book/README_EBOOK.md).
+
+## AI Tools for jwt
+
+Two AI tools know this library specifically, beyond what a general model knows about Go and JWT.
+
+[Plexon AI](https://plexon.ai) is a desktop assistant for Windows, macOS and Linux, built by the author of this library, and it is the recommended way to write jwt code with an assistant. It ships the jwt skill: the `Sign`/`Verify` surface with real signatures, algorithm choice and key sizing, the `kid`-based key registry and JWKS refresh, validator composition, blocklisting, and the security rules, in reference documents the assistant loads on demand while it writes your code. Turn the skill on from the Skills panel, or install the [Software Developer persona](https://plexon.ai/personas/software-developer/), which enables it alongside the rest of its engineering tooling. [Download Plexon AI](https://plexon.ai/download/).
+
+The [live AI wiki](https://codewiki.google/github.com/kataras/jwt) is free and runs in your browser: browse the architecture with diagrams, or ask its chat about the codebase.
+
+Using Claude Code? This repository is a plugin marketplace, so the CLI installs the same skill and keeps it updated:
+
+```sh
+claude plugin marketplace add kataras/jwt
+claude plugin install jwt@kataras-jwt
+```
+
+Codex, Cursor, Copilot and anything else that reads Markdown instructions can vendor [`skill/jwt/`](skill/) and point at `skill/jwt/SKILL.md`. See [skill/README.md](skill/README.md) for every installation route.
 
 ## References
 

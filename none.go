@@ -10,9 +10,14 @@ import "bytes"
 // Never use this algorithm for security-sensitive applications.
 type algNONE struct{}
 
-// Name returns "NONE" as the algorithm identifier.
+// Name returns "none", the identifier RFC 7518 section 3.6 gives the unsecured
+// algorithm.
+//
+// It returned "NONE" before, in capitals, which no other implementation recognises. A
+// token this package produced under that name was not a valid unsecured JWT and could not
+// be read anywhere else, and a conforming token naming "none" was never accepted here.
 func (a *algNONE) Name() string {
-	return "NONE"
+	return "none"
 }
 
 // Sign implements the Alg interface for the "none" algorithm.

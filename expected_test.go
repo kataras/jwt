@@ -115,7 +115,10 @@ func TestExpected(t *testing.T) {
 		t.Fatalf("expected error: %v but got: %v", expectedErr, gotErr)
 	}
 
-	expectedErr = getExpectedErr("aud (length)")
+	// A token listing more audiences than we asked for is fine. RFC 7519 section 4.1.3
+	// asks a recipient to check that it is among the audiences, not that it is the only
+	// one. This used to fail on a length comparison, so an issuer that added a second
+	// audience broke every recipient at once.
 	gotErr = expected.ValidateToken(nil, Claims{
 		NotBefore: expected.NotBefore,
 		IssuedAt:  expected.IssuedAt,
@@ -124,11 +127,21 @@ func TestExpected(t *testing.T) {
 		Issuer:    expected.Issuer,
 		Subject:   expected.Subject,
 		Audience:  []string{"aud1", "aud2", "aud3"}}, nil)
-	if !errors.Is(gotErr, ErrExpected) {
-		t.Fatalf("expected error to be ErrExpired but got: %#+v", gotErr)
+	if gotErr != nil {
+		t.Fatalf("a superset of the expected audiences must be accepted, got: %v", gotErr)
 	}
-	if expectedErr.Error() != gotErr.Error() {
-		t.Fatalf("expected error: %v but got: %v", expectedErr, gotErr)
+
+	// Order does not matter either.
+	gotErr = expected.ValidateToken(nil, Claims{
+		NotBefore: expected.NotBefore,
+		IssuedAt:  expected.IssuedAt,
+		Expiry:    expected.Expiry,
+		ID:        expected.ID,
+		Issuer:    expected.Issuer,
+		Subject:   expected.Subject,
+		Audience:  []string{"aud2", "aud1"}}, nil)
+	if gotErr != nil {
+		t.Fatalf("audience order must not matter, got: %v", gotErr)
 	}
 
 	expectedErr = getExpectedErr(`aud ("aud2")`)

@@ -58,7 +58,7 @@ func (a *algECDSA) Name() string {
 // Based on JWT handbook chapter 7.2.2.3.1 Algorithm.
 func (a *algECDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error) {
 	privateKey, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
+	if !ok || privateKey == nil {
 		return nil, ErrInvalidKey
 	}
 
@@ -104,9 +104,10 @@ func (a *algECDSA) Sign(key PrivateKey, headerAndPayload []byte) ([]byte, error)
 // (from which it extracts the public key). The signature must be in the
 // concatenated r||s format as specified by RFC 7515.
 func (a *algECDSA) Verify(key PublicKey, headerAndPayload []byte, signature []byte) error {
+	// See the note in rsa.go: a typed nil asserts successfully and then panics.
 	publicKey, ok := key.(*ecdsa.PublicKey)
-	if !ok {
-		if privateKey, ok := key.(*ecdsa.PrivateKey); ok {
+	if !ok || publicKey == nil {
+		if privateKey, ok := key.(*ecdsa.PrivateKey); ok && privateKey != nil {
 			publicKey = &privateKey.PublicKey
 		} else {
 			return ErrInvalidKey

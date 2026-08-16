@@ -87,7 +87,7 @@ func meetRequirements(val reflect.Value) (err error) {
 // This is used internally for recursive struct field validation.
 func indirectType(typ reflect.Type) reflect.Type {
 	switch typ.Kind() {
-	case reflect.Ptr, reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
+	case reflect.Pointer, reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
 		return typ.Elem()
 	}
 	return typ

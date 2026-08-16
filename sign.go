@@ -6,31 +6,31 @@ package jwt
 // JWT token by encoding the claims as the payload, applying any SignOptions for
 // standard claims, and signing the result with the specified algorithm and key.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm to use for signing (HS256, RS256, ES256, etc.)
 //   - key: Private key material appropriate for the algorithm
 //   - claims: Payload data to include in the token (any JSON-serializable type)
 //   - opts: Optional SignOption implementations for standard claims
 //
-// **Payload Security**: The claims payload is NOT encrypted by default and is
+// Payload Security: The claims payload is NOT encrypted by default and is
 // base64-encoded only. Do not include sensitive information unless using
 // encryption functions (see SignEncrypted and GCM for encrypted payloads).
 //
-// **Supported Claim Types**:
+// Supported Claim Types:
 //   - jwt.Claims struct for standard claims
 //   - map[string]any for flexible custom claims
 //   - Custom structs with JSON tags
 //   - jwt.Map type alias for convenience
 //   - Any type that marshals to valid JSON
 //
-// **SignOption Processing**: When SignOptions are provided, they are processed
+// SignOption Processing: When SignOptions are provided, they are processed
 // to create standard claims which are then merged with the provided claims.
 // Standard claims from options take precedence over conflicting claims.
 //
-// **Return Value**: Returns the complete JWT token as a []byte slice in the
+// Return Value: Returns the complete JWT token as a []byte slice in the
 // standard format: header.payload.signature (base64url-encoded segments).
 //
-// **Error Conditions**:
+// Error Conditions:
 //   - Invalid algorithm or key combination
 //   - Claims that cannot be marshaled to JSON
 //   - SignOption processing failures
@@ -93,37 +93,40 @@ func Sign(alg Alg, key PrivateKey, claims any, opts ...SignOption) ([]byte, erro
 // are marshaled to JSON, then encrypted using the provided encrypt function,
 // and finally signed. This provides confidentiality for sensitive payload data.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm to use for signing (HS256, RS256, ES256, etc.)
 //   - key: Private key material appropriate for the signing algorithm
 //   - encrypt: Function to encrypt the marshaled payload (see InjectFunc)
 //   - claims: Payload data to include in the token (any JSON-serializable type)
 //   - opts: Optional SignOption implementations for standard claims
 //
-// **Encryption Process**:
+// Encryption Process:
 //  1. Claims are processed and merged with SignOptions
 //  2. Merged claims are marshaled to JSON
 //  3. JSON payload is encrypted using the encrypt function
 //  4. Encrypted payload is base64url-encoded and signed
 //
-// **Security Benefits**:
+// Security Benefits:
 //   - Payload confidentiality (claims are encrypted)
 //   - Protection of sensitive information in tokens
 //   - Prevents payload inspection without decryption
 //   - Maintains JWT structure and signature verification
 //
-// **InjectFunc Signature**: The encrypt function receives []byte (marshaled claims)
+// InjectFunc Signature: The encrypt function receives []byte (marshaled claims)
 // and returns []byte (encrypted data) and error. It's called after JSON marshaling
 // but before base64url encoding and signing.
 //
-// **Decryption**: Tokens created with SignEncrypted must be verified using
+// Decryption: Tokens created with SignEncrypted must be verified using
 // VerifyEncrypted with the corresponding decrypt function.
 //
 // Example usage:
 //
 //	// Using AES-GCM encryption (see GCM function)
 //	encryptKey := []byte("my-32-byte-encryption-key-here!")
-//	encrypt, decrypt := jwt.GCM(encryptKey, nil)
+//	encrypt, decrypt, err := jwt.GCM(encryptKey, nil)
+//	if err != nil {
+//	    return err
+//	}
 //
 //	// Create encrypted token
 //	sensitiveData := map[string]any{
@@ -145,7 +148,7 @@ func Sign(alg Alg, key PrivateKey, claims any, opts ...SignOption) ([]byte, erro
 //	token, err := jwt.SignEncrypted(jwt.RS256, rsaKey, customEncrypt,
 //	    userClaims, jwt.Audience{"secure-api"})
 //
-// **Important Notes**:
+// Important Notes:
 //   - The encrypt function is called AFTER claims marshaling
 //   - Both signing and encryption keys should be securely managed
 //   - Use GCM function for authenticated encryption with AES-GCM
@@ -163,26 +166,26 @@ func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, opts
 // header in addition to the standard "alg" and "typ" fields. Custom headers
 // are useful for adding metadata or additional algorithm parameters.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm to use for signing (HS256, RS256, ES256, etc.)
 //   - key: Private key material appropriate for the signing algorithm
 //   - claims: Payload data to include in the token (any JSON-serializable type)
 //   - customHeader: Additional header fields to include (any JSON-serializable type)
 //   - opts: Optional SignOption implementations for standard claims
 //
-// **Header Structure**: The JWT header will contain:
+// Header Structure: The JWT header will contain:
 //   - Standard fields: "alg" (algorithm), "typ" (always "JWT")
 //   - Custom fields: Any fields from the customHeader parameter
 //   - Conflict resolution: Custom fields override standard fields except "alg"
 //
-// **Common Custom Header Use Cases**:
+// Common Custom Header Use Cases:
 //   - "kid" (Key ID): Identifies which key was used for signing
 //   - "x5t" (X.509 Thumbprint): Certificate thumbprint
 //   - "jku" (JWK Set URL): URL pointing to JWK Set
 //   - "cty" (Content Type): Content type of the secured payload
 //   - Custom application-specific metadata
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Header fields are not encrypted and are visible to token bearers
 //   - Do not include sensitive information in custom headers
 //   - Validate custom header fields during token verification
@@ -232,7 +235,7 @@ func SignEncrypted(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, opts
 //	token, err := jwt.SignWithHeader(jwt.ES256, ecdsaKey, userClaims,
 //	    header, jwt.Claims{Issuer: "myapp.com"})
 //
-// **Header Merging**: Custom header fields are merged with standard JWT header
+// Header Merging: Custom header fields are merged with standard JWT header
 // fields. The "alg" field is always set to the specified algorithm and cannot
 // be overridden by custom headers.
 func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts ...SignOption) ([]byte, error) {
@@ -245,7 +248,7 @@ func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts 
 // providing both payload encryption and custom header support in a single operation.
 // It's ideal for scenarios requiring both payload confidentiality and header metadata.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm to use for signing (HS256, RS256, ES256, etc.)
 //   - key: Private key material appropriate for the signing algorithm
 //   - encrypt: Function to encrypt the marshaled payload (see InjectFunc)
@@ -253,26 +256,26 @@ func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts 
 //   - customHeader: Additional header fields to include (any JSON-serializable type)
 //   - opts: Optional SignOption implementations for standard claims
 //
-// **Processing Order**:
+// Processing Order:
 //  1. SignOptions are processed and merged with claims
 //  2. Claims are marshaled to JSON
 //  3. JSON payload is encrypted using the encrypt function
 //  4. Custom header fields are merged with standard JWT headers
 //  5. Token is assembled and signed with the specified algorithm
 //
-// **Combined Benefits**:
+// Combined Benefits:
 //   - Payload confidentiality through encryption
 //   - Header metadata for token identification and routing
 //   - Standard claims management through SignOptions
 //   - Complete JWT structure with signature verification
 //
-// **Security Considerations**:
+// Security Considerations:
 //   - Headers remain unencrypted and visible to all token bearers
 //   - Payload is encrypted and requires decryption function to access
 //   - Both signing and encryption keys must be securely managed
 //   - Custom headers should not contain sensitive information
 //
-// **Use Cases**:
+// Use Cases:
 //   - Multi-tenant systems with encrypted user data and tenant identification
 //   - Key rotation systems with encrypted payloads and key identifiers
 //   - Content-type specific tokens with encrypted sensitive data
@@ -282,7 +285,10 @@ func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts 
 //
 //	// Multi-tenant encrypted token with key identification
 //	encryptKey := []byte("tenant-specific-encryption-key!")
-//	encrypt, decrypt := jwt.GCM(encryptKey, nil)
+//	encrypt, decrypt, err := jwt.GCM(encryptKey, nil)
+//	if err != nil {
+//	    return err
+//	}
 //
 //	tenantHeader := map[string]any{
 //	    "kid":       "tenant-123-key-v2",
@@ -316,7 +322,7 @@ func SignWithHeader(alg Alg, key PrivateKey, claims any, customHeader any, opts 
 //	    jwt.Audience{"secure-api", "admin-panel"},
 //	    jwt.Claims{Issuer: "auth-service"})
 //
-// **Decryption and Verification**: Tokens created with this function must be
+// Decryption and Verification: Tokens created with this function must be
 // verified using VerifyEncrypted with the corresponding decrypt function.
 // Custom headers can be accessed from the returned VerifiedToken structure.
 //
@@ -333,7 +339,7 @@ func SignEncryptedWithHeader(alg Alg, key PrivateKey, encrypt InjectFunc, claims
 // the common implementation for Sign, SignEncrypted, SignWithHeader, and
 // SignEncryptedWithHeader functions.
 //
-// **Parameters**:
+// Parameters:
 //   - alg: Cryptographic algorithm for signing
 //   - key: Private key material for the specified algorithm
 //   - encrypt: Optional encryption function for payload (nil for no encryption)
@@ -341,31 +347,31 @@ func SignEncryptedWithHeader(alg Alg, key PrivateKey, encrypt InjectFunc, claims
 //   - customHeader: Optional custom header fields (nil for standard header only)
 //   - opts: SignOption slice for applying standard claims
 //
-// **Processing Pipeline**:
+// Processing Pipeline:
 //  1. SignOption Processing: Collects standard claims from all SignOptions
 //  2. Claim Merging: Merges original claims with standard claims using Merge
 //  3. Payload Marshaling: Converts final claims to JSON using Marshal
 //  4. Optional Encryption: Applies encrypt function if provided
 //  5. Token Encoding: Creates final JWT using encodeToken
 //
-// **SignOption Handling**:
+// SignOption Handling:
 //   - Processes all non-nil SignOptions in order
 //   - Accumulates standard claims into a single Claims struct
 //   - Merges accumulated claims with provided claims
 //   - Later SignOptions can override earlier ones for same claim fields
 //
-// **Error Propagation**: Returns errors from:
+// Error Propagation: Returns errors from:
 //   - Claim merging failures (invalid JSON structures)
 //   - Marshaling failures (non-serializable claims)
 //   - Encryption failures (encrypt function errors)
 //   - Token encoding failures (algorithm/key issues, header problems)
 //
-// **Internal Usage**: This function is not exported and serves as the
+// Internal Usage: This function is not exported and serves as the
 // implementation detail for the public Sign* functions. It provides
 // consistency across all signing variants while allowing specific
 // customizations through parameters.
 //
-// **Encryption Integration**: When encrypt is non-nil, it's applied after
+// Encryption Integration: When encrypt is non-nil, it's applied after
 // marshaling but before base64url encoding, allowing the encryption function
 // to work with the raw JSON payload.
 func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHeader any, opts ...SignOption) ([]byte, error) {
@@ -406,28 +412,28 @@ func signToken(alg Alg, key PrivateKey, encrypt InjectFunc, claims any, customHe
 // types to implement standard claim application logic. SignOptions are processed
 // during token signing to automatically set common JWT claims without manual management.
 //
-// **Interface Contract**: Implementers must provide an ApplyClaims method that
+// Interface Contract: Implementers must provide an ApplyClaims method that
 // modifies the provided Claims struct to set appropriate standard claim values.
 // The method should be idempotent and handle nil or zero values gracefully.
 //
-// **Built-in Implementations**:
+// Built-in Implementations:
 //   - MaxAge(duration): Sets exp and iat claims for token expiration
 //   - NoMaxAge: Removes exp and iat claims (no expiration)
 //   - Audience: Sets aud claim for intended recipients
 //   - Claims: Applies any standard claims from a Claims struct
 //   - SignOptionFunc: Function wrapper for custom claim logic
 //
-// **Usage Pattern**: SignOptions are passed as variadic parameters to Sign
+// Usage Pattern: SignOptions are passed as variadic parameters to Sign
 // functions and are processed in order. Later options can override earlier
 // ones if they set the same claims, enabling override patterns.
 //
-// **Design Benefits**:
+// Design Benefits:
 //   - Composable claim management
 //   - Type-safe standard claim application
 //   - Reusable claim configuration
 //   - Clean separation of concerns between custom and standard claims
 //
-// **Implementation Guidelines**:
+// Implementation Guidelines:
 //   - Only modify non-zero fields unless explicitly clearing values
 //   - Handle concurrent access if the implementation will be shared
 //   - Avoid side effects beyond modifying the provided Claims struct
@@ -472,16 +478,16 @@ type SignOption interface {
 	// based on the SignOption's configuration. Implementations should
 	// modify the destination Claims struct to include their claim values.
 	//
-	// **Parameters**:
+	// Parameters:
 	//   - dest: Pointer to Claims struct to modify with standard claims
 	//
-	// **Implementation Notes**:
+	// Implementation Notes:
 	//   - Should only set meaningful (non-zero) values unless explicitly clearing
 	//   - Must handle nil destination gracefully (though framework prevents this)
 	//   - Should be idempotent and free of side effects
 	//   - Can override existing values in destination if appropriate
 	//
-	// **Threading**: Implementations should be thread-safe if the SignOption
+	// Threading: Implementations should be thread-safe if the SignOption
 	// instance will be shared across goroutines.
 	ApplyClaims(*Claims)
 }
@@ -492,17 +498,17 @@ type SignOption interface {
 // function literals or existing functions, eliminating the need to define new
 // types for simple claim application logic.
 //
-// **Function Signature**: The function receives a pointer to a Claims struct
+// Function Signature: The function receives a pointer to a Claims struct
 // and should modify it to apply the desired standard claims. The function
 // should follow the same guidelines as other SignOption implementations.
 //
-// **Use Cases**:
+// Use Cases:
 //   - Quick inline SignOption creation with function literals
 //   - Converting existing claim-setting functions to SignOptions
 //   - Dynamic claim logic based on runtime conditions
 //   - Conditional claim application
 //
-// **Benefits**:
+// Benefits:
 //   - Reduces boilerplate for simple SignOption implementations
 //   - Enables functional programming patterns for claim management
 //   - Allows capturing closure variables for dynamic behavior
@@ -557,17 +563,17 @@ type SignOptionFunc func(*Claims)
 // simply invoking the wrapped function with the provided Claims pointer.
 // It provides the bridge between functional and interface-based SignOption usage.
 //
-// **Parameters**:
+// Parameters:
 //   - c: Pointer to Claims struct to be modified by the function
 //
-// **Behavior**: Directly calls the wrapped function with the provided Claims
+// Behavior: Directly calls the wrapped function with the provided Claims
 // pointer, delegating all claim modification logic to the function implementation.
 //
-// **Error Handling**: Since the SignOption interface doesn't support error
+// Error Handling: Since the SignOption interface doesn't support error
 // returns, any error handling must be performed within the wrapped function,
 // typically through logging or panic for critical failures.
 //
-// **Thread Safety**: The thread safety of this method depends entirely on
+// Thread Safety: The thread safety of this method depends entirely on
 // the implementation of the wrapped function. Functions that only modify
 // the provided Claims struct are generally safe.
 //
