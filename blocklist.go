@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,11 +41,19 @@ var ErrBlocked = errors.New("jwt: token is blocked")
 //	// Invalidate a token (e.g., on logout)
 //	err = blocklist.InvalidateToken(token, verifiedToken.StandardClaims)
 type Blocklist struct {
-	Clock func() time.Time
 	// GetKey is a function which can be used how to extract
 	// the unique identifier for a token, by default
 	// it checks if the "jti" is not empty, if it's then the key is the token itself.
 	GetKey func(token []byte, claims Claims) string
+
+	// clockFn is what GC reads the current time from. Held in an atomic and reached
+	// through SetClock because the sweeper goroutine loads it on every tick, and the
+	// caller may replace it at any point.
+	//
+	// This was an exported Clock field, and no caller could set it without a data race
+	// once automatic garbage collection was on: NewBlocklist starts the sweeper before it
+	// returns, so there was no moment left in which the write was safe.
+	clockFn atomic.Pointer[func() time.Time]
 
 	entries map[string]int64 // key = token or its ID | value = expiration unix seconds (to remove expired).
 	// ^ we could make it a map[*VerifiedToken]struct{} too
@@ -104,10 +113,14 @@ func NewBlocklist(gcEvery time.Duration) *Blocklist {
 func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist {
 	b := &Blocklist{
 		entries: make(map[string]int64),
-		Clock:   Clock,
 		GetKey:  DefaultBlocklistKey,
 		stop:    make(chan struct{}),
 	}
+
+	// Take a copy of the package-level Clock now rather than reading it on every tick.
+	// The sweeper below outlives this call, and a test that swaps jwt.Clock while one is
+	// running would otherwise be racing it.
+	b.SetClock(Clock)
 
 	if gcEvery > 0 {
 		go b.runGC(ctx, gcEvery)
@@ -135,11 +148,29 @@ func (b *Blocklist) Close() error {
 	return nil
 }
 
+// SetClock sets the clock garbage collection reads the current time from, replacing the
+// package-level Clock for this blocklist alone. Pass nil to go back to it.
+//
+// This is a method rather than a field because automatic garbage collection reads the
+// clock from a goroutine of its own, started before NewBlocklist returns. Calling this at
+// any point is safe, including while that sweeper is mid-tick:
+//
+//	b := jwt.NewBlocklist(time.Hour)
+//	b.SetClock(func() time.Time { return time.Now().UTC() })
+func (b *Blocklist) SetClock(fn func() time.Time) {
+	if fn == nil {
+		b.clockFn.Store(nil)
+		return
+	}
+
+	b.clockFn.Store(&fn)
+}
+
 // clock reports the current time, falling back to the package-level Clock so that a
-// zero-value Blocklist works instead of panicking on a nil field.
+// zero-value Blocklist works instead of panicking on a nil function.
 func (b *Blocklist) clock() time.Time {
-	if b.Clock != nil {
-		return b.Clock()
+	if fn := b.clockFn.Load(); fn != nil {
+		return (*fn)()
 	}
 
 	return Clock()
@@ -375,7 +406,7 @@ func (b *Blocklist) runGC(ctx context.Context, every time.Duration) {
 
 // collect runs one GC pass and swallows a panic from it.
 //
-// GC calls Blocklist.Clock, which the caller may replace. A panic there would otherwise
+// GC calls the clock from SetClock, which the caller owns. A panic there would otherwise
 // travel up a goroutine nobody is recovering on and take the whole process down, which is
 // an unreasonable outcome for a cleanup tick. Skipping one pass is not.
 func (b *Blocklist) collect() {

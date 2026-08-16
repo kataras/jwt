@@ -78,7 +78,7 @@ func TestGCStillCollectsExpiredEntries(t *testing.T) {
 	}
 
 	// Move the blocklist's own clock past the token's expiry rather than sleeping.
-	b.Clock = func() time.Time { return time.Now().Add(time.Hour) }
+	b.SetClock(func() time.Time { return time.Now().Add(time.Hour) })
 
 	if removed := b.GC(); removed != 1 {
 		t.Fatalf("expected 1 expired entry to be collected, got %d", removed)
@@ -135,7 +135,7 @@ func TestInvalidateTokenDoesNotAliasTheCallerBuffer(t *testing.T) {
 
 func TestBlocklistZeroValueIsUsable(t *testing.T) {
 	// Nothing in the type says NewBlocklist is mandatory, and every method used to
-	// panic on the zero value: a nil GetKey, a nil Clock and a nil map.
+	// panic on the zero value: a nil GetKey, an unset clock and a nil map.
 	var b Blocklist
 
 	token, err := Sign(HS256, testSecret, map[string]any{"sub": "user", "jti": "zero-value"})
@@ -229,6 +229,11 @@ func TestBlocklistCloseStopsTheGoroutine(t *testing.T) {
 func TestBlocklistGCSurvivesAPanickingClock(t *testing.T) {
 	// GC calls a clock the caller owns. A panic there used to travel up the GC goroutine,
 	// which nothing recovers, and take the process with it.
+	//
+	// Installing a clock on a blocklist whose sweeper is already ticking is the shape that
+	// used to be a data race, back when the clock was an exported field and the write had
+	// nothing ordering it against the goroutine reading it. SetClock is why it is not one
+	// now, so this test is also what would catch a return to a plain field.
 	b := NewBlocklistContext(t.Context(), time.Millisecond)
 	t.Cleanup(func() {
 		if err := b.Close(); err != nil {
@@ -236,13 +241,28 @@ func TestBlocklistGCSurvivesAPanickingClock(t *testing.T) {
 		}
 	})
 
-	b.Clock = func() time.Time { panic("the clock broke") }
+	panicked := make(chan struct{}, 8)
+	b.SetClock(func() time.Time {
+		select {
+		case panicked <- struct{}{}:
+		default: // nobody is reading any more, and the panic below is the point.
+		}
 
-	// Give the ticker several chances to fire. If the panic escaped, the test binary dies
-	// here rather than failing.
-	time.Sleep(50 * time.Millisecond)
+		panic("the clock broke")
+	})
 
-	b.Clock = time.Now
+	// Three panics rather than one. If the panic escaped, the test binary dies here rather
+	// than failing; if it were merely killing the goroutine, one panic would still arrive
+	// and the test would pass while the sweeper was gone. Surviving is the claim.
+	for i := range 3 {
+		select {
+		case <-panicked:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("the sweeper stopped after %d panics, so the panic was not contained", i)
+		}
+	}
+
+	// And the blocklist is still usable.
 	if _, err := b.Count(); err != nil {
 		t.Fatal(err)
 	}

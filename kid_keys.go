@@ -788,7 +788,7 @@ func (keys Keys) ValidateHeader(alg string, headerDecoded []byte) (Alg, PublicKe
 // If both the key and the options specify a MaxAge, the caller's wins. The key's is
 // prepended to the option list, so anything passed to this call applies after it. That is
 // the useful way round, since a per-call override should beat a per-key default, and it is
-// the opposite of what this comment claimed until v1.0.0
+// the opposite of what this comment claimed until v0.2.0
 //
 // Example:
 //

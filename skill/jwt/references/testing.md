@@ -41,9 +41,13 @@ Because `Clock` is a shared package-level variable, tests that set it and run in
 that overrides `Clock` alongside one that does not restore it deterministically. Always restore
 the original in a `defer`, including on the failure path.
 
-`Blocklist` has its own `Clock func() time.Time` field, independent of the package-level variable
-(falling back to it when left `nil`); set the field directly on a `*jwt.Blocklist` under test
-instead of touching the global if you only need to control that one blocklist's notion of "now".
+`Blocklist` has its own clock, independent of the package-level variable (falling back to it when
+never set); call `(*jwt.Blocklist).SetClock` on the blocklist under test instead of touching the
+global if you only need to control that one blocklist's notion of "now". It is a method rather
+than a field because garbage collection reads the clock from a goroutine started inside
+`NewBlocklist`, so a plain field could not be assigned without racing that goroutine. `SetClock`
+is safe to call at any time, including while a sweep is running, and `nil` restores the
+package-level `Clock`.
 
 `jwt.KeySet` (`NewRemoteKeySet`/`NewCognitoKeySet`) starts a background refresh goroutine the same
 way `Blocklist` starts a GC goroutine: call `(*KeySet).Close()` (typically `defer`red right after

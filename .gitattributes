@@ -1,0 +1,20 @@
+# Shell scripts must be checked out with LF, whatever the platform.
+#
+# This repository is developed on Windows with core.autocrlf=true, which rewrites LF to
+# CRLF in the working tree and is supposed to rewrite it back on the way into a commit.
+# It does not always: scan-tells.sh was staged with CRLF on all 160 lines, which Git Bash
+# tolerates and every real Linux shell does not. The failure is
+# `$'\r': command not found` on line 2 and a syntax error a few lines later, and it only
+# ever appears for somebody else, on a machine the author does not have.
+*.sh text eol=lf
+
+# The generated assets. Marked binary so no end-of-line conversion is ever applied to
+# them: a PNG or a woff2 with two bytes rewritten is a corrupt file, not a diff.
+*.png binary
+*.pdf binary
+*.ico binary
+*.woff2 binary
+
+# SVG is text and benefits from real diffs, but it is generated here, so it is checked out
+# with LF to keep the bytes identical to what the generator wrote.
+*.svg text eol=lf

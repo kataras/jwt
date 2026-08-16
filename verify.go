@@ -785,7 +785,7 @@ var errPayloadNotJSON = errors.New("jwt: payload is not a type of JSON") // malf
 // the list. Placed last, Plain never runs at all: the validator ahead of it receives the
 // payload error, returns it, and the loop breaks.
 //
-// This comment said the opposite until v1.0.0, and the advice it gave produced exactly the
+// This comment said the opposite until v0.2.0, and the advice it gave produced exactly the
 // failure it was meant to prevent.
 var Plain = TokenValidatorFunc(func(token []byte, standardClaims Claims, err error) error {
 	if errors.Is(err, errPayloadNotJSON) {

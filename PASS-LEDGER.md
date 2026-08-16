@@ -9,7 +9,7 @@ committed, or keep them; they are yours.
 | Constraint | Source |
 | --- | --- |
 | Performance and memory come first. Code that reads badly but exists for speed stays. | Author, during planning |
-| Breaking changes are allowed. The pass cuts v1.0.0. | Author, during planning |
+| Breaking changes are allowed. The pass cuts v0.2.0. | Author, during planning |
 | The assistant stages with `git add` and never commits. | Author, during planning |
 | Consumers studied: `pnoe-core-go`, `pnoe-nut-go`, `iris-private`. | Author, during planning |
 
@@ -170,7 +170,7 @@ an assistant inventing a signature, and this pass changed several of them.
 | 16 | The book is its own module at `book/`, with three dependencies. | The library keeps none, and a nested module is excluded from the parent. gomarkdown, chroma and yaml are what a book generator needs; writing them by hand would be a worse use of the pages. | A contributor without those in their module cache needs network access to build the book. The rendered output is committed, so reading it does not. |
 | 17 | The chapter skeleton is enforced by the build, in `book/validate.go`. | The generator already parsed the H1, the contents block and the footer literally. A chapter that breaks the skeleton fails quietly: a missing Summary stops mid-thought, and a contents link whose anchor does not resolve simply goes nowhere. | A legitimate chapter shape that the validator does not know about cannot be built without changing the validator. That is the intended trade. |
 | 18 | Front and back matter carry no contents block, Summary or Further Reading. | A preface with a Summary is repeating itself in four hundred words. | If a preface ever needs one, the rule is one line in `validate.go`. |
-| 19 | No version anywhere in the book or on its cover. | The library's version changes with every release and the book does not. A number on the cover is wrong the week after it is printed, and nobody regenerates a PDF to fix one. | Somebody reading an old PDF cannot tell which release it describes. The chapters name behaviour rather than versions, except chapter 12, which lists what changed in v1.0.0 explicitly. |
+| 19 | No version anywhere in the book or on its cover. | The library's version changes with every release and the book does not. A number on the cover is wrong the week after it is printed, and nobody regenerates a PDF to fix one. | Somebody reading an old PDF cannot tell which release it describes. The chapters name behaviour rather than versions, except chapter 12, which lists what changed in v0.2.0 explicitly. |
 | 20 | Chapters were drafted by subagents and verified here. | Fourteen chapters of accurate prose is a lot of writing. Each agent was given the skeleton, the writing standard, and an instruction to check every signature against `go doc -all` rather than memory. | A drafting agent could still invent an API. Checked mechanically: every `jwt.X` named anywhere in the book exists in the package, and the build refuses a chapter whose contents anchors do not resolve. One agent's report also found a real defect in `Classify`, described below. |
 | 21 | Local agent configuration stays out of the repository; `skill/` is the tracked, published copy. | Author's call, recorded below. Everything a reader needs is in `skill/`, the book and the changelog, so nothing published depends on a file a clone will not have. | The automation that kept the skill mirror and the book output current does not travel, so both have to be rebuilt by hand. `book/README_EBOOK.md` lists what to watch. |
 | 22 | `_examples` gets its own `go.mod`. | `_examples/multiple-kids` imports `gopkg.in/yaml.v3` and had no module of its own, so it resolved against the library's zero-dependency module and simply did not build. Nothing in CI compiled it, so nobody noticed. | The examples now need their own `go mod tidy` when a dependency changes. That is the price of them being buildable at all. |
@@ -344,7 +344,7 @@ one decision", including the arithmetic for re-measuring if the page size ever c
 the instruction to look at a page with a long listing afterwards, because no check catches
 this class of mistake.
 
-## The release is v1.0.0
+## The release is v0.2.0
 
 Your call, replacing v0.2.0. Nineteen references across thirteen files were renumbered, and
 the changelog gained a date and a paragraph on what going to 1.0 commits to: the surface has

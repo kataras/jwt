@@ -149,7 +149,7 @@ func TestPlainMustComeFirst(t *testing.T) {
 	// Verify stops at the first validator that returns an error, so a validator only ever
 	// receives a non-nil incoming error when it is first. Plain exists to clear the
 	// payload-is-not-JSON error, so placed last it never runs. The doc comment recommended
-	// placing it last until v1.0.0.
+	// placing it last until v0.2.0.
 	token, err := Sign(HS256, testSecret, []byte("not json at all"))
 	if err != nil {
 		t.Fatal(err)

@@ -10,7 +10,7 @@ import (
 func main() {
 	// GenerateEdDSA returns PEM text, which is why both halves are []byte and not
 	// ed25519.PublicKey and ed25519.PrivateKey. Those were the declared return types
-	// until v1.0.0, and they compiled only because both are defined over []byte: feeding
+	// until v0.2.0, and they compiled only because both are defined over []byte: feeding
 	// the result straight to jwt.Sign failed the key-length check.
 	publicPEM, privatePEM, err := jwt.GenerateEdDSA()
 	if err != nil {

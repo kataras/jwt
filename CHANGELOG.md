@@ -3,16 +3,17 @@
 All notable changes to this project are recorded here. Versions follow
 [semantic versioning](https://semver.org), and dates are ISO 8601.
 
-## v1.0.0 - 2026-08-16
+## v0.2.0 - 2026-08-16
 
-The first release since v0.1.17, the first with breaking changes, and the first to claim a
-stable API. Going to 1.0 is the point of it: the surface below has been audited symbol by
-symbol against its own documentation, and what is here is what the package intends to keep.
-Under semantic versioning that also means the breaking changes listed next are the last ones
-until 2.0.
+The first release since v0.1.17, and much the largest. The whole exported surface was
+audited symbol by symbol against its own documentation, and the defects that came out of
+that are below.
 
-Most of them exist because the previous behaviour was wrong rather than merely different,
-and each is listed with what it did before.
+Read [Upgrading](#upgrading) before you take it. This release breaks things, which is what
+the minor bump is for: under semantic versioning a leading zero means the API is not yet
+stable, and going to 0.2.0 rather than 0.1.18 is the part that says so out loud. Most of the
+breaks exist because the previous behaviour was wrong rather than merely different, and each
+is listed with what it did before.
 
 Several of the defects below reported success while failing, which is the expensive kind: a
 revocation that returned `nil` and then evaporated, a build mode documented for years that
@@ -64,6 +65,13 @@ as text, which is what the lenient parser is for.
 **JWK members that do not apply to a key type are omitted.** An RSA key carried an empty
 `crv`, `x` and `y`; an EC key carried an empty `n` and `e`. RFC 7517 does not allow that and
 some consumers reject it.
+
+**`Blocklist.Clock` is unexported and `Blocklist.SetClock` replaces it.** Garbage collection
+read that field on every tick from a goroutine `NewBlocklist` starts before it returns, so
+there was no moment left in which a caller could assign it without a data race. `go test
+-race` reported one against this package's own suite. `SetClock` stores the function
+atomically and may be called at any time, including while a sweep is running. `GetKey` stays
+a field, because nothing in the package reads it from a goroutine of its own.
 
 ### Security
 
@@ -138,7 +146,7 @@ or `[]byte` value reading `{"broken"}` was spliced in and the result was a prope
 token whose payload is not JSON. Its error no longer formats the offending value either,
 which used to put claims into whatever the caller logged.
 
-**A panic in a caller-supplied `Clock` no longer kills the process.** `Blocklist`'s garbage
+**A panic in a caller-supplied clock no longer kills the process.** `Blocklist`'s garbage
 collection goroutine had no `recover`, and `NewBlocklist` passes `context.Background()`, so
 the goroutine and its ticker also lived for the life of the process. `Blocklist.Close` stops
 it.
@@ -196,6 +204,18 @@ contents of a live key. `InvalidateToken` copies it now; lookups keep the zero-c
 
 **`_examples/generate-ed25519` used `%w` in `log.Fatalf`,** which does not support it.
 
+**An EC JWK could carry a short `x` or `y`.** The coordinates came from `big.Int.Bytes()`,
+which returns the minimal big-endian encoding and so drops leading zero bytes. RFC 7518
+section 6.2.1.2 requires the full width of the curve, 32 bytes on P-256, 48 on P-384 and 66
+on P-521. Roughly one P-256 key in 256 has a leading zero in a coordinate and produced a JWK
+that other implementations reject. The coordinates are now read out of the SEC 1
+uncompressed point, which is already padded, and that also drops a use of
+`ecdsa.PublicKey.X` and `.Y`, deprecated in Go 1.26.
+
+**`Validators` had an unreachable branch.** `case TokenValidatorFunc` sat after
+`case TokenValidator` in the same type switch, and the func type satisfies the interface, so
+the earlier case always matched first.
+
 ### Added
 
 Taken from reading what three real consumers are forced to write around this package, ranked
@@ -247,7 +267,7 @@ key: a single logout blocked every session in the system.
 `IssuedAt` and `ExpiresAt`.
 
 **`Audience.Contains`, `MaxTokenSize`, `MaxJWKSSize`, `HTTPError`, `ErrTokenSize`,
-`ErrNotJSONObject`, `ErrKeySetEmpty`, `Blocklist.Close`.**
+`ErrNotJSONObject`, `ErrKeySetEmpty`, `Blocklist.Close`, `Blocklist.SetClock`.**
 
 ### Changed
 
@@ -255,7 +275,7 @@ key: a single logout blocked every session in the system.
 callers to type-assert. Its message carries the status code only; the body is on a field,
 because those bytes are chosen by a remote host and an error string ends up in a log.
 
-`Blocklist`'s zero value works: a nil `Clock`, a nil `GetKey` and a nil map are all handled.
+`Blocklist`'s zero value works: an unset clock, a nil `GetKey` and a nil map are all handled.
 
 CI runs `go vet` and a second test pass under `-tags safe`.
 

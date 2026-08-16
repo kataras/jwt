@@ -91,10 +91,10 @@ have already verified can use Decode plus UnverifiedToken.Enrich.
 
 Files: `enrich.go`, `token.go`, `kid_keys.go`, `enrich_test.go`, `enrich_security_test.go`
 
-## 5. `fix: stop losing revocations for tokens without an expiry`
+## 5. `fix!: stop losing revocations for tokens without an expiry`
 
 ```
-fix: stop losing revocations for tokens without an expiry
+fix!: stop losing revocations for tokens without an expiry
 
 InvalidateToken stored the claim's Expiry and returned nil. For a token with no "exp"
 that value is 0, which GC read as "expired in 1970" and deleted on the very next tick.
@@ -115,10 +115,15 @@ Alongside it, in the same file:
   Blocklist gained Close. NewBlocklist passes context.Background(), so its goroutine and
   ticker previously lived as long as the process.
 
-  A panic in a caller-supplied Clock no longer escapes the GC goroutine and kills the
+  A panic in a caller-supplied clock no longer escapes the GC goroutine and kills the
   process.
 
-  The zero value works: nil Clock, nil GetKey and a nil map are all handled.
+  BREAKING: Blocklist.Clock is unexported and SetClock replaces it. GC read the field on
+  every tick from a goroutine NewBlocklist starts before it returns, so no caller could
+  assign it without a data race, and the package's own test suite tripped -race on CI.
+  GetKey stays a field: no goroutine inside the package reads it.
+
+  The zero value works: an unset clock, nil GetKey and a nil map are all handled.
 
   ValidateToken uses errors.Is for ErrExpired.
 
@@ -468,7 +473,7 @@ against the spine, which is how a book avoids two chapter sevens.
 
 Chapter 12 is the honest list of this library's sharp edges: the names that read the wrong
 way round, the defaults that are quieter than you want, the fast paths that carry a hazard,
-and everything that changed in v1.0.0.
+and everything that changed in v0.2.0.
 
 There is no version anywhere in the book. The library's changes with every release and the
 book does not.
@@ -503,7 +508,7 @@ Files: `skill/human-writing/**`, `README.md`
 ```
 docs: add the changelog and the pass notes
 
-CHANGELOG.md covers v1.0.0, grouped Breaking, Security, Fixed, Added, Changed and
+CHANGELOG.md covers v0.2.0, grouped Breaking, Security, Fixed, Added, Changed and
 Documentation, with each entry leading with what was wrong rather than which file moved.
 
 PASS-LEDGER.md and COMMIT-PLAN.md are working notes: every decision taken on the author's

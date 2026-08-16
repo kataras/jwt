@@ -16,7 +16,7 @@ on. The rest are live, and you should know about them before they find you.
 - [Merge splices JSON and can emit a duplicate key](#merge-splices-json-and-can-emit-a-duplicate-key)
 - [The unsafe string conversion](#the-unsafe-string-conversion)
 - [What Enrich used to be](#what-enrich-used-to-be)
-- [Behaviour that changed in v1.0.0](#behaviour-that-changed-in-v100)
+- [Behaviour that changed in v0.2.0](#behaviour-that-changed-in-v020)
 - [Summary](#summary)
 - [Further Reading](#further-reading)
 
@@ -221,7 +221,7 @@ the bytes, copy it.
 This one is worth knowing about even though it is fixed, because it explains the shape of
 the current API and because you may still have code written against the old one.
 
-`Enrich` adds claims to a token by re-signing it. Until v1.0.0 it took the signing
+`Enrich` adds claims to a token by re-signing it. Until v0.2.0 it took the signing
 algorithm from the header of the token it was given, spliced that token's payload into the
 new one, reused the header verbatim, and verified nothing at all. The signature it produced
 was made with your private key.
@@ -242,7 +242,7 @@ want them back, `Decode` followed by `UnverifiedToken.Enrich` skips the second c
 leaves the safety argument with you. That method builds a fresh header from `alg` rather
 than copying the one it was handed, which is why a `kid` on its input is dropped.
 
-## Behaviour that changed in v1.0.0
+## Behaviour that changed in v0.2.0
 
 If you are upgrading, these change the bytes on the wire or the errors you get back.
 
@@ -273,7 +273,7 @@ complain, of which `MaxAge` collapsing to no expiry and `LoadHMAC` turning a pat
 secret are the two that have cost people real time. Fast paths that carry a hazard,
 specifically the unsafe string conversion and the raw JSON splice in `Merge`, both of which
 are deliberate and both of which have a rule attached. And a set of behaviour changes in
-v1.0.0, most of which exist because the previous behaviour was wrong rather than merely
+v0.2.0, most of which exist because the previous behaviour was wrong rather than merely
 different.
 
 None of this is an argument against the package. It is the argument for reading this

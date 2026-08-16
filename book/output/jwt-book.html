@@ -684,7 +684,7 @@ th {
         <li><a href="#ch-12-sharp-edges-merge-splices-json-and-can-emit-a-duplicate-key">Merge splices JSON and can emit a duplicate key</a></li>
         <li><a href="#ch-12-sharp-edges-the-unsafe-string-conversion">The unsafe string conversion</a></li>
         <li><a href="#ch-12-sharp-edges-what-enrich-used-to-be">What Enrich used to be</a></li>
-        <li><a href="#ch-12-sharp-edges-behaviour-that-changed-in-v1-0-0">Behaviour that changed in v1.0.0</a></li>
+        <li><a href="#ch-12-sharp-edges-behaviour-that-changed-in-v0-2-0">Behaviour that changed in v0.2.0</a></li>
       </ul>
     </li>
     <li class="toc-chapter">
@@ -2745,7 +2745,7 @@ of which this is the interesting one:</p>
 }
 </code></pre>
 
-<p>Lowercase, because that is what the RFC says. It returned <code>&quot;NONE&quot;</code> until v1.0.0, which no
+<p>Lowercase, because that is what the RFC says. It returned <code>&quot;NONE&quot;</code> until v0.2.0, which no
 other implementation recognises, so tokens produced here were not valid unsecured JWTs
 anywhere else and conforming tokens naming <code>none</code> were never accepted here. Both directions
 were broken, which is a small argument for byte-exact golden tests. <code>Sign</code> returns
@@ -3898,7 +3898,7 @@ verification is over, and nothing downstream can overturn that decision.</p>
 Write it in your own anyway: it is correct where it runs, and whoever reorders the chain next
 year will not read your code first.</p>
 
-<p>The package&rsquo;s own documentation got this wrong until v1.0.0. The doc comment on <code>Plain</code> said
+<p>The package&rsquo;s own documentation got this wrong until v0.2.0. The doc comment on <code>Plain</code> said
 to place it last, &ldquo;so it can catch JSON errors that other validators might depend on&rdquo;. Run
 <code>jwt.Verify(jwt.HS256, key, plain, jwt.Expected{Issuer: &quot;us&quot;}, jwt.Plain)</code> over a non-JSON
 payload and the result is <code>jwt: payload is not a type of JSON</code>: <code>Expected</code> returned the error
@@ -4211,7 +4211,7 @@ so far, and returning the new error. <code>Verify</code> runs them in order, han
 result, and breaks at the first non-nil error, so a validator only ever receives a non-nil
 error when it is first in the list. Rescuing validators (<code>Skew</code>, <code>Future</code>, <code>Plain</code>) must come
 first or they do nothing, and no validator can undo an earlier failure. That rule is why the
-package&rsquo;s own advice to place <code>Plain</code> last was wrong, and why it changed in v1.0.0.</p>
+package&rsquo;s own advice to place <code>Plain</code> last was wrong, and why it changed in v0.2.0.</p>
 
 <p><code>Expected</code> checks each field only when it is set, and its audience check is membership per RFC
 7519 section 4.1.3, so extra audiences and a different order both pass. A zero-value <code>Expected</code>
@@ -4386,9 +4386,12 @@ returned <code>nil</code>, the entry sat in the map, and <code>ValidateToken</co
 A revocation that reports success and does nothing is worse than one that fails, so
 <code>InvalidateToken</code> now refuses an empty key and says which two things to do about it.</p>
 
-<p><code>GetKey</code> and <code>Clock</code> are exported fields read outside the mutex, so set them before the
-blocklist is in use, not while requests are arriving. Both have fallbacks inside the type, so
-a zero-value <code>Blocklist</code> works rather than panicking on a nil field.</p>
+<p><code>GetKey</code> is an exported field read outside the mutex, so set it before the blocklist is in
+use, not while requests are arriving. The clock is different. Garbage collection reads it on
+every tick from a goroutine <code>NewBlocklist</code> starts before it returns, so a field could never
+be assigned without racing that goroutine, and it goes in through <code>SetClock</code> instead, which
+is safe to call at any time. Both fall back inside the type, so a zero-value <code>Blocklist</code>
+works rather than panicking.</p>
 <h2 id="ch-09-revoking-tokens-tokens-with-no-expiry">Tokens with no expiry</h2>
 
 <p>An entry is stored with the token&rsquo;s expiry, and swept once that time passes. A token with no
@@ -5536,7 +5539,7 @@ the bytes, copy it.</p>
 <p>This one is worth knowing about even though it is fixed, because it explains the shape of
 the current API and because you may still have code written against the old one.</p>
 
-<p><code>Enrich</code> adds claims to a token by re-signing it. Until v1.0.0 it took the signing
+<p><code>Enrich</code> adds claims to a token by re-signing it. Until v0.2.0 it took the signing
 algorithm from the header of the token it was given, spliced that token&rsquo;s payload into the
 new one, reused the header verbatim, and verified nothing at all. The signature it produced
 was made with your private key.</p>
@@ -5554,7 +5557,7 @@ re-signing, and refuses the unsecured algorithm outright:</p>
 want them back, <code>Decode</code> followed by <code>UnverifiedToken.Enrich</code> skips the second check and
 leaves the safety argument with you. That method builds a fresh header from <code>alg</code> rather
 than copying the one it was handed, which is why a <code>kid</code> on its input is dropped.</p>
-<h2 id="ch-12-sharp-edges-behaviour-that-changed-in-v1-0-0">Behaviour that changed in v1.0.0</h2>
+<h2 id="ch-12-sharp-edges-behaviour-that-changed-in-v0-2-0">Behaviour that changed in v0.2.0</h2>
 
 <p>If you are upgrading, these change the bytes on the wire or the errors you get back.</p>
 
@@ -5652,7 +5655,7 @@ complain, of which <code>MaxAge</code> collapsing to no expiry and <code>LoadHMA
 secret are the two that have cost people real time. Fast paths that carry a hazard,
 specifically the unsafe string conversion and the raw JSON splice in <code>Merge</code>, both of which
 are deliberate and both of which have a rule attached. And a set of behaviour changes in
-v1.0.0, most of which exist because the previous behaviour was wrong rather than merely
+v0.2.0, most of which exist because the previous behaviour was wrong rather than merely
 different.</p>
 
 <p>None of this is an argument against the package. It is the argument for reading this
@@ -5731,10 +5734,16 @@ past, and that version is parallel-safe. Reach for the clock when the code under
 computes a timestamp rather than reads one, which is what <code>MaxAge</code>, <code>SignPair</code> and the
 leeway validators do.</p>
 
-<p><code>Blocklist</code> is the counter-example: its clock is a field, so two blocklists in two parallel
-tests hold two clocks and never notice each other. <code>NewBlocklist(0)</code> starts one with no
-background collector, assigning <code>b.Clock</code> moves it an hour forward, and <code>b.GC()</code> then
-collects exactly the entries that expired in between. Prefer that shape in your own code.</p>
+<p><code>Blocklist</code> is the counter-example: its clock is per-instance, so two blocklists in two
+parallel tests hold two clocks and never notice each other. <code>NewBlocklist(0)</code> starts one with
+no background collector, <code>b.SetClock</code> moves it an hour forward, and <code>b.GC()</code> then collects
+exactly the entries that expired in between. Prefer that shape in your own code.</p>
+
+<p><code>SetClock</code> is a method rather than a field for a reason worth copying. Automatic garbage
+collection reads the clock from a goroutine the constructor starts before it returns, so an
+exported field had no safe moment left for the assignment. The library shipped that field
+once and its own suite tripped <code>-race</code> on it. Any struct that hands a caller a knob and then
+reads it from a goroutine of its own has the same problem.</p>
 <h2 id="ch-13-testing-keys-for-tests">Keys for tests</h2>
 
 <p>The repository keeps a fixed set of key pairs under <code>_testfiles/</code>: RSA, RSA-PSS, ECDSA and

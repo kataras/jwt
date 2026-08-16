@@ -49,6 +49,11 @@ jobs:
     - name: Build the examples
       run: cd _examples && go build ./... && go vet ./...
 
+    # Compiles the benchmarks and the chart generator that draws the README's graph. The
+    # benchmarks themselves are not run here: a shared runner's timings are noise.
+    - name: Build the benchmarks
+      run: cd _benchmarks && go build ./... && go vet ./...
+
     - name: Build the brand generator
       run: cd brand && go build ./... && go vet ./...
 

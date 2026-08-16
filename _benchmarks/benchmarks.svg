@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="456" viewBox="0 0 900 456" role="img" aria-label="Time per operation, nanoseconds, lower is better">
+<title>Time per operation, nanoseconds, lower is better</title>
+<style>text{font-family:system-ui, -apple-system, 'Segoe UI', sans-serif}
+.surface{fill:#fcfcfb;stroke:rgba(11,11,11,0.10)}
+.title{fill:#0b0b0b;font-size:15px;font-weight:600}
+.subtitle{fill:#898781;font-size:12px}
+.group{fill:#0b0b0b;font-size:12px;font-weight:600;letter-spacing:0.04em}
+.name{fill:#0b0b0b;font-size:12.5px}
+.value{fill:#52514e;font-size:12px}
+.legend{fill:#52514e;font-size:11.5px}
+.footer{fill:#898781;font-size:11px}
+.baseline{stroke:#c3c2b7;stroke-width:1}
+.s0{fill:#0D5EAF}.s1{fill:#EB6834}.s2{fill:#1BAF7A}
+@media (prefers-color-scheme: dark){
+.surface{fill:#1a1a19;stroke:rgba(255,255,255,0.10)}
+.title{fill:#ffffff}
+.group{fill:#ffffff}
+.name{fill:#ffffff}
+.value{fill:#c3c2b7}
+.legend{fill:#c3c2b7}
+.footer{fill:#898781}
+.baseline{stroke:#383835}
+.s0{fill:#4E9BE0}.s1{fill:#F0834F}.s2{fill:#3ECF9A}
+}</style>
+<rect class="surface" x="0.5" y="0.5" width="899" height="455" rx="8"/>
+<text class="title" x="20" y="30">Time per operation</text>
+<text class="subtitle" x="20" y="49">nanoseconds, lower is better</text>
+<text class="legend" x="833.3" y="30">go-jose</text>
+<rect class="s2" x="817.3" y="21" width="10" height="10" rx="3"/>
+<text class="legend" x="732.6" y="30">golang-jwt</text>
+<rect class="s1" x="716.6" y="21" width="10" height="10" rx="3"/>
+<text class="legend" x="625.2" y="30">kataras/jwt</text>
+<rect class="s0" x="609.2" y="21" width="10" height="10" rx="3"/>
+<text class="group" x="20" y="87.0">SIGN A TOKEN</text>
+<text class="name" text-anchor="end" x="190" y="118.25">kataras/jwt (struct)</text>
+<path class="s0" d="M200.0,106.0 h133.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-133.9 z"/>
+<text class="value" x="345.9" y="118.25">2,521 ns</text>
+<text class="name" text-anchor="end" x="190" y="146.25">kataras/jwt (map)</text>
+<path class="s0" d="M200.0,134.0 h147.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-147.9 z"/>
+<text class="value" x="359.9" y="146.25">2,777 ns</text>
+<text class="name" text-anchor="end" x="190" y="174.25">golang-jwt (struct 2)</text>
+<path class="s1" d="M200.0,162.0 h183.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-183.9 z"/>
+<text class="value" x="395.9" y="174.25">3,435 ns</text>
+<text class="name" text-anchor="end" x="190" y="202.25">golang-jwt (map)</text>
+<path class="s1" d="M200.0,190.0 h203.3 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-203.3 z"/>
+<text class="value" x="415.3" y="202.25">3,790 ns</text>
+<text class="name" text-anchor="end" x="190" y="230.25">golang-jwt (struct)</text>
+<path class="s1" d="M200.0,218.0 h214.8 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-214.8 z"/>
+<text class="value" x="426.8" y="230.25">4,000 ns</text>
+<text class="name" text-anchor="end" x="190" y="258.25">go-jose (map)</text>
+<path class="s2" d="M200.0,246.0 h372.6 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-372.6 z"/>
+<text class="value" x="584.6" y="258.25">6,884 ns</text>
+<text class="name" text-anchor="end" x="190" y="286.25">go-jose (struct)</text>
+<path class="s2" d="M200.0,274.0 h556.0 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-556.0 z"/>
+<text class="value" x="768.0" y="286.25">10,237 ns</text>
+<line class="baseline" x1="200.5" y1="96.0" x2="200.5" y2="298.0"/>
+<text class="group" x="20" y="319.0">VERIFY A TOKEN</text>
+<text class="name" text-anchor="end" x="190" y="350.25">kataras/jwt</text>
+<path class="s0" d="M200.0,338.0 h162.7 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-162.7 z"/>
+<text class="value" x="374.7" y="350.25">3,048 ns</text>
+<text class="name" text-anchor="end" x="190" y="378.25">golang-jwt</text>
+<path class="s1" d="M200.0,366.0 h313.2 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-313.2 z"/>
+<text class="value" x="525.2" y="378.25">5,799 ns</text>
+<text class="name" text-anchor="end" x="190" y="406.25">go-jose</text>
+<path class="s2" d="M200.0,394.0 h513.7 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-513.7 z"/>
+<text class="value" x="725.7" y="406.25">9,464 ns</text>
+<line class="baseline" x1="200.5" y1="328.0" x2="200.5" y2="418.0"/>
+<text class="footer" x="20" y="440.0">windows/arm64  ·  Snapdragon X1E80100, 12 cores  ·  go1.26.5</text>
+</svg>

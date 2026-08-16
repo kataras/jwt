@@ -340,7 +340,7 @@ func TestMixedRegistryPublishesAndExports(t *testing.T) {
 
 func TestSignTokenCallerOptionWins(t *testing.T) {
 	// The key's MaxAge is prepended, so a caller-supplied one applies afterwards and wins.
-	// The doc comment claimed the opposite until v1.0.0.
+	// The doc comment claimed the opposite until v0.2.0.
 	keys := make(Keys)
 	keys["k"] = &Key{ID: "k", Alg: HS256, Public: testSecret, Private: testSecret, MaxAge: 10 * time.Hour}
 

@@ -71,10 +71,16 @@ past, and that version is parallel-safe. Reach for the clock when the code under
 computes a timestamp rather than reads one, which is what `MaxAge`, `SignPair` and the
 leeway validators do.
 
-`Blocklist` is the counter-example: its clock is a field, so two blocklists in two parallel
-tests hold two clocks and never notice each other. `NewBlocklist(0)` starts one with no
-background collector, assigning `b.Clock` moves it an hour forward, and `b.GC()` then
-collects exactly the entries that expired in between. Prefer that shape in your own code.
+`Blocklist` is the counter-example: its clock is per-instance, so two blocklists in two
+parallel tests hold two clocks and never notice each other. `NewBlocklist(0)` starts one with
+no background collector, `b.SetClock` moves it an hour forward, and `b.GC()` then collects
+exactly the entries that expired in between. Prefer that shape in your own code.
+
+`SetClock` is a method rather than a field for a reason worth copying. Automatic garbage
+collection reads the clock from a goroutine the constructor starts before it returns, so an
+exported field had no safe moment left for the assignment. The library shipped that field
+once and its own suite tripped `-race` on it. Any struct that hands a caller a knob and then
+reads it from a goroutine of its own has the same problem.
 
 ## Keys for tests
 

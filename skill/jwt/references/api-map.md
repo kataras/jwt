@@ -240,10 +240,11 @@ Full signatures and composition rules are in `validators.md`; the essentials:
 | `jwt.Skew` | `func Skew(d time.Duration) TokenValidatorFunc` | Tolerates both `"nbf"` and `"iat"` clock skew up to `d` |
 | `jwt.RequireExpiry` | `var RequireExpiry TokenValidatorFunc` | Rejects a token with no `"exp"` at all |
 | `jwt.Validators` | `func Validators(values ...any) []TokenValidator` | Flattens a mix of `TokenValidator`, `TokenValidatorFunc`, plain matching funcs, and slices of either, dropping nils |
-| `jwt.Blocklist` | `struct { Clock func() time.Time; GetKey func(token []byte, claims Claims) string; ... }` (implements `TokenValidator`) | In-memory revocation list |
+| `jwt.Blocklist` | `struct { GetKey func(token []byte, claims Claims) string; ... }` (implements `TokenValidator`) | In-memory revocation list; the clock is set through `SetClock`, not a field |
 | `jwt.NewBlocklist` | `func NewBlocklist(gcEvery time.Duration) *Blocklist` | `gcEvery == 0` disables automatic GC |
 | `jwt.NewBlocklistContext` | `func NewBlocklistContext(ctx context.Context, gcEvery time.Duration) *Blocklist` | Same, GC goroutine stops when `ctx` is done |
 | `(*Blocklist).Close` | `func (b *Blocklist) Close() error` | Stops the GC goroutine; safe to call more than once; always returns `nil` |
+| `(*Blocklist).SetClock` | `func (b *Blocklist) SetClock(fn func() time.Time)` | Per-blocklist clock for GC; safe to call while the GC goroutine runs; `nil` restores the package-level `Clock` |
 | `(*Blocklist).InvalidateToken` | `func (b *Blocklist) InvalidateToken(token []byte, c Claims) error` | |
 | `(*Blocklist).Has` / `Del` / `Count` / `GC` | `func (b *Blocklist) Has(key string) (bool, error)`; `Del(key string) error`; `Count() (int64, error)`; `GC() int` | |
 | `jwt.DefaultBlocklistKey` | `func DefaultBlocklistKey(token []byte, c Claims) string` | `c.ID` if non-empty, else the raw token bytes as a string |

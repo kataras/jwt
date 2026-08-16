@@ -262,7 +262,7 @@ func (a *algNONE) Name() string {
 }
 ```
 
-Lowercase, because that is what the RFC says. It returned `"NONE"` until v1.0.0, which no
+Lowercase, because that is what the RFC says. It returned `"NONE"` until v0.2.0, which no
 other implementation recognises, so tokens produced here were not valid unsecured JWTs
 anywhere else and conforming tokens naming `none` were never accepted here. Both directions
 were broken, which is a small argument for byte-exact golden tests. `Sign` returns

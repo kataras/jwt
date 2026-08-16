@@ -137,9 +137,12 @@ returned `nil`, the entry sat in the map, and `ValidateToken` let the token stra
 A revocation that reports success and does nothing is worse than one that fails, so
 `InvalidateToken` now refuses an empty key and says which two things to do about it.
 
-`GetKey` and `Clock` are exported fields read outside the mutex, so set them before the
-blocklist is in use, not while requests are arriving. Both have fallbacks inside the type, so
-a zero-value `Blocklist` works rather than panicking on a nil field.
+`GetKey` is an exported field read outside the mutex, so set it before the blocklist is in
+use, not while requests are arriving. The clock is different. Garbage collection reads it on
+every tick from a goroutine `NewBlocklist` starts before it returns, so a field could never
+be assigned without racing that goroutine, and it goes in through `SetClock` instead, which
+is safe to call at any time. Both fall back inside the type, so a zero-value `Blocklist`
+works rather than panicking.
 
 ## Tokens with no expiry
 

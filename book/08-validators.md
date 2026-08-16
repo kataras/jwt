@@ -112,7 +112,7 @@ verification is over, and nothing downstream can overturn that decision.
 Write it in your own anyway: it is correct where it runs, and whoever reorders the chain next
 year will not read your code first.
 
-The package's own documentation got this wrong until v1.0.0. The doc comment on `Plain` said
+The package's own documentation got this wrong until v0.2.0. The doc comment on `Plain` said
 to place it last, "so it can catch JSON errors that other validators might depend on". Run
 `jwt.Verify(jwt.HS256, key, plain, jwt.Expected{Issuer: "us"}, jwt.Plain)` over a non-JSON
 payload and the result is `jwt: payload is not a type of JSON`: `Expected` returned the error
@@ -373,7 +373,7 @@ so far, and returning the new error. `Verify` runs them in order, hands each one
 result, and breaks at the first non-nil error, so a validator only ever receives a non-nil
 error when it is first in the list. Rescuing validators (`Skew`, `Future`, `Plain`) must come
 first or they do nothing, and no validator can undo an earlier failure. That rule is why the
-package's own advice to place `Plain` last was wrong, and why it changed in v1.0.0.
+package's own advice to place `Plain` last was wrong, and why it changed in v0.2.0.
 
 `Expected` checks each field only when it is set, and its audience check is membership per RFC
 7519 section 4.1.3, so extra audiences and a different order both pass. A zero-value `Expected`

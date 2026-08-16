@@ -8,9 +8,46 @@ Zero-dependency, lightweight and fast [JWT](https://jwt.io/#libraries-io) and JW
 
 <br clear="left"/>
 
-[![Benchmarks Total Repetitions - higher is better](https://iris-go.com/images/jwt/benchmarks.png)](_benchmarks)
+[![Time per operation against golang-jwt and go-jose, lower is better](_benchmarks/benchmarks.svg)](_benchmarks)
 
 Please [star](https://github.com/kataras/jwt/stargazers) this open source project to attract more developers so that together we can improve it even more!
+
+> **Ask AI about jwt.** Google's free [Code Wiki for jwt](https://codewiki.google/github.com/kataras/jwt) is generated from this repository and stays in sync with it, commit by commit. Browse the architecture with diagrams, or ask its chat plain-language questions about the codebase and get answers grounded in the actual source. For an assistant that writes jwt code with you, [Plexon AI](https://plexon.ai), the desktop assistant built by the author of jwt, ships the [jwt skill](skill/) built in; see [AI Tools for jwt](#ai-tools-for-jwt) below.
+
+## The Book
+
+A fourteen chapter book on this library lives in [`book/`](book/), rendered to one
+self-contained HTML file and printed to PDF.
+
+It is not a reference. `go doc` is the reference, and it is generated from the source so it
+cannot drift. The book is the part `go doc` cannot give you: the order to do things in, why
+a default is what it is, and the failure that made somebody choose it. Chapter 12 is the
+honest list of this library's sharp edges.
+
+**[Read the PDF](book/output/jwt-book.pdf)** (121 pages), or start with the
+[preface](book/README.md) and read the chapters as Markdown:
+
+| | Chapter | What it covers |
+| --- | --- | --- |
+| | [Preface](book/README.md) | Who the book is for, and how its code was checked |
+| 1 | [What a Token Is](book/01-what-a-token-is.md) | The three segments, base64url, and what a signature actually proves |
+| 2 | [Signing and Verifying](book/02-signing-and-verifying.md) | `Sign` and `Verify`, and why the algorithm is an argument |
+| 3 | [Claims](book/03-claims.md) | Standard and custom claims, sign options, `Merge` |
+| 4 | [Expiry and Time](book/04-expiry-and-time.md) | `exp`, `nbf`, `iat`, `MaxAge`, and clock skew |
+| 5 | [Choosing an Algorithm](book/05-choosing-an-algorithm.md) | HMAC, RSA, RSA-PSS, ECDSA, EdDSA, and who can mint tokens |
+| 6 | [Keys and Rotation](book/06-keys-and-rotation.md) | The `kid` registry, key configuration, and a worked rotation |
+| 7 | [JWKS](book/07-jwks.md) | Publishing a key set, consuming one, and `KeySet` |
+| 8 | [Validators](book/08-validators.md) | The chaining rule, `Expected`, and writing your own |
+| 9 | [Revoking Tokens](book/09-revoking-tokens.md) | Blocklists, `jti`, and a distributed backend |
+| 10 | [Tokens over HTTP](book/10-tokens-over-http.md) | Extraction, middleware, and access and refresh pairs |
+| 11 | [Encrypting the Payload](book/11-encrypting-the-payload.md) | AES-GCM, and when the answer is not encryption |
+| 12 | [Sharp Edges](book/12-sharp-edges.md) | The surprising defaults and the fast paths that carry a hazard |
+| 13 | [Testing](book/13-testing.md) | Controlling the clock, faking the network, golden tests |
+| 14 | [Performance](book/14-performance.md) | Where the time goes, and what buys the speed |
+| | [Epilogue](book/epilogue.md) | The pattern behind most of the defects found here |
+
+Rebuild it with `cd book && go run .`, or `go run . -format html` for a version that needs
+no browser. See [book/README_EBOOK.md](book/README_EBOOK.md).
 
 ## Installation
 
@@ -51,7 +88,6 @@ Import as `import "github.com/kataras/jwt"` and use it as `jwt.XXX`.
     * [Custom Validations](_examples/custom-validations/main.go)
     * [Advanced: Iris Middleware](https://github.com/kataras/iris/tree/master/middleware/jwt)
     * [Advanced: Redis Blocklist](https://github.com/kataras/iris/tree/master/middleware/jwt/blocklist/redis/blocklist.go)
-* [The Book](#the-book)
 * [AI Tools](#ai-tools-for-jwt)
 * [References](#references)
 * [License](#license)
@@ -563,38 +599,6 @@ func main(){
 ```
 
 Read more about GCM at: https://en.wikipedia.org/wiki/Galois/Counter_Mode
-
-## The Book
-
-A fourteen chapter book on this library lives in [`book/`](book/), rendered to one
-self-contained HTML file and printed to PDF: **[jwt-book.pdf](book/output/jwt-book.pdf)**.
-
-It is not a reference. `go doc` is the reference, and it is generated from the source so it
-cannot drift. The book is the part `go doc` cannot give you: the order to do things in, why
-a default is what it is, and the failure that made somebody choose it. Chapter 12 is the
-honest list of this library's sharp edges.
-
-| | Chapter | What it covers |
-| --- | --- | --- |
-| | [Preface](book/README.md) | Who the book is for, and how its code was checked |
-| 1 | [What a Token Is](book/01-what-a-token-is.md) | The three segments, base64url, and what a signature actually proves |
-| 2 | [Signing and Verifying](book/02-signing-and-verifying.md) | `Sign` and `Verify`, and why the algorithm is an argument |
-| 3 | [Claims](book/03-claims.md) | Standard and custom claims, sign options, `Merge` |
-| 4 | [Expiry and Time](book/04-expiry-and-time.md) | `exp`, `nbf`, `iat`, `MaxAge`, and clock skew |
-| 5 | [Choosing an Algorithm](book/05-choosing-an-algorithm.md) | HMAC, RSA, RSA-PSS, ECDSA, EdDSA, and who can mint tokens |
-| 6 | [Keys and Rotation](book/06-keys-and-rotation.md) | The `kid` registry, key configuration, and a worked rotation |
-| 7 | [JWKS](book/07-jwks.md) | Publishing a key set, consuming one, and `KeySet` |
-| 8 | [Validators](book/08-validators.md) | The chaining rule, `Expected`, and writing your own |
-| 9 | [Revoking Tokens](book/09-revoking-tokens.md) | Blocklists, `jti`, and a distributed backend |
-| 10 | [Tokens over HTTP](book/10-tokens-over-http.md) | Extraction, middleware, and access and refresh pairs |
-| 11 | [Encrypting the Payload](book/11-encrypting-the-payload.md) | AES-GCM, and when the answer is not encryption |
-| 12 | [Sharp Edges](book/12-sharp-edges.md) | The surprising defaults and the fast paths that carry a hazard |
-| 13 | [Testing](book/13-testing.md) | Controlling the clock, faking the network, golden tests |
-| 14 | [Performance](book/14-performance.md) | Where the time goes, and what buys the speed |
-| | [Epilogue](book/epilogue.md) | The pattern behind most of the defects found here |
-
-Rebuild it with `cd book && go run .`, or `go run . -format html` for a version that needs
-no browser. See [book/README_EBOOK.md](book/README_EBOOK.md).
 
 ## AI Tools for jwt
 
