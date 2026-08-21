@@ -56,8 +56,7 @@ func FetchAWSCognitoPublicKeys(region, userPoolID string) (Keys, error) {
 
 	keys, err := FetchPublicKeys(url)
 	if err != nil {
-		var httpErr *HTTPError
-		if errors.As(err, &httpErr) {
+		if httpErr, ok := errors.AsType[*HTTPError](err); ok {
 			var awsErr AWSCognitoError
 			if jsonErr := json.Unmarshal(httpErr.Body, &awsErr); jsonErr == nil {
 				awsErr.StatusCode = httpErr.StatusCode

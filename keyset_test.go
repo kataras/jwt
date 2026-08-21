@@ -301,25 +301,21 @@ func TestKeySetIsSafeUnderConcurrentUse(t *testing.T) {
 	// type rather than as a lock inside Keys.
 	var wg sync.WaitGroup
 	for range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range 200 {
 				if _, err := keySet.Verify(token); err != nil {
 					t.Error(err)
 					return
 				}
 			}
-		}()
+		})
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range 50 {
 			_ = keySet.Refresh()
 		}
-	}()
+	})
 
 	wg.Wait()
 }

@@ -33,14 +33,15 @@ type TokenPair struct {
 
 // NewTokenPair creates a TokenPair from raw access and refresh token bytes.
 //
-// The function automatically quotes the token bytes to create valid JSON string values.
-// This is useful when you have raw JWT tokens that need to be included in a JSON response.
+// The bytes are converted as they are. Nothing is quoted or escaped here, because the
+// fields are plain strings and encoding/json quotes them when it marshals the struct.
 //
 // Either token may be empty, and an empty one is left out of the JSON.
 //
-// That last part is new. The fields were json.RawMessage filled by BytesQuote, which
-// returns two quote characters for no input, so an empty token was never empty as far as
-// omitempty was concerned and the response carried "access_token":"" instead.
+// Both of those are new. The fields were json.RawMessage filled by BytesQuote, which built
+// a JSON string by concatenation and returned two quote characters for no input, so an
+// empty token was never empty as far as omitempty was concerned and the response carried
+// "access_token":"" instead.
 //
 // Example:
 //

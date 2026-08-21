@@ -19,16 +19,20 @@ jobs:
 
     strategy:
       matrix:
-        go_version: [1.26.x]
+        go_version: [1.27.x]
     steps:
 
+    # setup-go and checkout both moved to v7 for the same reason golangci-lint-action
+    # moved to v9 below: v6 and earlier run on Node 20, which GitHub has deprecated, and
+    # v7 of both migrated to Node 24. Ordinary major bumps otherwise; nothing about their
+    # own behavior changed for how this workflow uses them.
     - name: Set up Go 1.x
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go_version }}
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Vet
       run: go vet ./...
@@ -75,12 +79,15 @@ jobs:
     # Checkout comes first here, unlike the test job above, because setup-go keys its
     # module cache off go.sum and cannot find it before the tree exists.
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
+    # Pinned separately from the test job's matrix above, and the two pins move
+    # together. Dependabot does not touch this string; bumping the matrix without
+    # bumping this one leaves the linter checking a different Go version than the tests.
     - name: Set up Go 1.x
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
-        go-version: 1.26.x
+        go-version: 1.27.x
 
     # Pinned deliberately, and the two pins move together.
     #
@@ -97,10 +104,19 @@ jobs:
     # Dependabot watches `github-actions` in .github/dependabot.yml and will raise the
     # `uses:` line on its own. It does not know what the `version:` input below means, so
     # that one is the half that goes stale silently. Check it when the action moves.
+    #
+    # v2.12 was pinned when the module's own "go" directive was still 1.26. A released
+    # golangci-lint binary embeds the standard library of whatever Go SDK built it, and
+    # v2.12's was go1.26.2 (confirmed: `golangci-lint version`). Once go.mod said "go
+    # 1.27", that binary refused to run at all -- "the Go language version used to build
+    # golangci-lint is lower than the targeted Go version" -- not a lint diff, a hard
+    # failure of the whole job. v2.13.1 (built with go1.27.0) does not have this problem.
+    # Any future bump of the module's "go" directive needs the same check: does the
+    # pinned golangci-lint's own build version cover it.
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.12
+        version: v2.13
 
     # util.go and util_safe.go are mutually exclusive on the "safe" build tag, so the
     # default pass above never compiles util_safe.go at all. It went unbuilt long enough
@@ -108,7 +124,7 @@ jobs:
     - name: golangci-lint with the safe build tag
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.12
+        version: v2.13
         args: --build-tags safe
 
     # book/ and brand/ are separate modules, so a run at the repository root does not
@@ -119,11 +135,11 @@ jobs:
     - name: golangci-lint the book generator
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.12
+        version: v2.13
         working-directory: book
 
     - name: golangci-lint the brand generator
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.12
+        version: v2.13
         working-directory: brand

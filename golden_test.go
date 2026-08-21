@@ -217,8 +217,10 @@ func collectGolden(t *testing.T) []goldenEntry {
 		add("merge/"+c.name, string(merged))
 	}
 
-	// TokenPair never omits an empty token, because BytesQuote returns two quote bytes
-	// rather than nothing.
+	// An empty token is left out of the JSON entirely, which is what the both-empty entry
+	// pins. It was not: the fields were json.RawMessage filled by BytesQuote, which
+	// returned two quote characters for no input, so omitempty never fired and the
+	// response carried "access_token":"" whether or not a token had been issued.
 	for _, c := range []struct {
 		name           string
 		access, refres []byte

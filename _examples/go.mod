@@ -1,6 +1,6 @@
 module github.com/kataras/jwt/_examples
 
-go 1.26
+go 1.27
 
 // The examples are their own module so that a sample needing a YAML parser, or any other
 // dependency, cannot put one into the library's go.mod. The library has none and keeps

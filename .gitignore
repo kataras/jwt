@@ -6,10 +6,8 @@
 /_examples/feature-*
 cov.out
 
-# The generated mirror of skill/, written by .claude/hooks/sync-skill.mjs, and the hooks'
-# own state files. The hooks and settings.json next to them are tracked on purpose: they
-# are project infrastructure, and a clone without them silently loses the automation that
-# keeps the book and the skill mirror current.
+# Local agent configuration, all of it. The .claude entry below covers the directory; these
+# are kept so the intent survives if that entry is ever narrowed again.
 .claude/skills/
 .claude/.*-sync-state.json
 .claude/settings.local.json
@@ -24,3 +22,7 @@ canonical.txt
 .claude
 .plexon
 CLAUDE.md
+
+# Release notes are written to be pasted into the GitHub release form, not committed.
+# CHANGELOG.md is the copy that lives in the repository.
+RELEASE-NOTES-*.md

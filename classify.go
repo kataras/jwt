@@ -80,8 +80,7 @@ func Classify(err error) ErrorKind {
 	// than as one of this package's sentinels, and a payload that is not JSON arrives as
 	// an unexported one. Both are malformed tokens by any reading, and leaving them to
 	// the default meant Classify disagreed with its own documentation.
-	var corrupt base64.CorruptInputError
-	if errors.As(err, &corrupt) {
+	if _, ok := errors.AsType[base64.CorruptInputError](err); ok {
 		return KindMalformed
 	}
 

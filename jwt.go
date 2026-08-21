@@ -1,8 +1,10 @@
 package jwt
 
 import (
-	"bytes"
 	"encoding/json"
+	jsontext "encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
+	"errors"
 	"os"
 	"reflect"
 	"time"
@@ -198,15 +200,40 @@ var CompareHeader HeaderValidator = compareHeader
 //	}
 var ReadFile = os.ReadFile
 
+// marshalOptions reproduces today's json.Marshal (v1) output exactly, using
+// encoding/json/v2 directly for its lower allocation cost:
+//
+//   - Deterministic(true): sorted map keys, so a map[string]any claims value with more
+//     than one key signs the same bytes every run. Required, not cosmetic: without it
+//     testdata/golden.json and every signature over map claims would be irreproducible.
+//   - EscapeForHTML/EscapeForJS(true): matches v1's default escaping of <, >, &, U+2028
+//     and U+2029 inside strings.
+//   - AllowInvalidUTF8(true): v1 silently replaces invalid UTF-8 rather than erroring on
+//     Marshal; keep that leniency so a claim value that signs successfully today still
+//     does.
+//
+// Deliberately not included: OmitEmptyWithLegacySemantics. Claims.NotBefore/IssuedAt/
+// Expiry are tagged "omitzero" rather than "omitempty" for exactly this reason: under
+// bare v2 semantics, omitempty on an int64 does not omit a zero value, so an unset "exp"
+// would start being serialized as "exp":0 instead of left out.
+var marshalOptions = jsonv2.JoinOptions(
+	jsonv2.Deterministic(true),
+	jsontext.EscapeForHTML(true),
+	jsontext.EscapeForJS(true),
+	jsontext.AllowInvalidUTF8(true),
+)
+
 // Marshal defines the JSON marshaling function used for encoding JWT payloads.
 //
 // This package-level variable allows customization of how claims are serialized
 // to JSON before being included in JWT tokens. The default implementation handles
-// both raw byte slices and arbitrary Go values using the standard json.Marshal.
+// both raw byte slices and arbitrary Go values, using encoding/json/v2 with the
+// option set above to reproduce encoding/json's (v1) output exactly, at v2's cost.
 //
 // Default Behavior:
 //   - Raw []byte values are passed through unchanged (for pre-serialized JSON)
-//   - All other values are marshaled using standard json.Marshal
+//   - All other values are marshaled using encoding/json/v2, with options chosen to
+//     match json.Marshal's byte-for-byte output
 //   - Supports any type that implements json.Marshaler interface
 //
 // Customization Use Cases:
@@ -254,24 +281,27 @@ var Marshal = func(v any) ([]byte, error) {
 		return b, nil
 	}
 
-	return json.Marshal(v)
+	return jsonv2.Marshal(v, marshalOptions)
 }
 
 // Unmarshal defines the JSON unmarshaling function used for decoding JWT payloads.
 //
 // This package-level variable allows customization of how JWT payload JSON is
-// deserialized into Go data structures. The default implementation uses json.Decoder
-// with UseNumber() enabled to preserve numeric precision and avoid float64 conversion
-// issues common with JSON parsing.
+// deserialized into Go data structures. The default implementation uses
+// encoding/json/v2 with a numberUnmarshalers hook that reproduces what
+// json.Decoder.UseNumber() gave v1: numeric precision preserved when the
+// destination is `any`, rather than lost to a float64 conversion.
 //
 // Default Behavior (defaultUnmarshal):
-//   - Uses json.Decoder with UseNumber() to handle integers correctly
+//   - Uses encoding/json/v2 with a custom unmarshal hook for numbers into `any`
 //   - Prevents automatic conversion of all numbers to float64
 //   - Preserves numeric precision for large integers
 //   - Decodes JSON numbers as json.Number type when destination is any
+//   - Tolerates duplicate JSON object keys (Merge/Enrich can produce them) and
+//     case-differing standard claim names, matching today's behavior
 //
-// Why UseNumber() Matters:
-//   - Standard json.Unmarshal converts all numbers to float64
+// Why Numeric Precision Matters:
+//   - A destination-agnostic JSON decode converts all numbers to float64
 //   - Float64 cannot accurately represent large integers (>53 bits)
 //   - JWT claims like "iat", "exp", "nbf" are Unix timestamps (large integers)
 //   - User IDs and other identifiers may be large integers
@@ -389,10 +419,45 @@ func UnmarshalWithRequired(payload []byte, dest any) error {
 	return meetRequirements(reflect.ValueOf(dest))
 }
 
+// decodeOptions is used by every JSON payload decode in this package: the package-level
+// Unmarshal var (via unmarshalOptions below) and verify.go's two claims decodes.
+//
+//   - AllowDuplicateNames(true): required. Merge and Enrich can legitimately splice
+//     duplicate object keys (documented as an accepted interoperability hazard, not a
+//     bug, since Merge never reparses its own output). The decoder must keep reading the
+//     last occurrence, exactly as encoding/json (v1) does today.
+//   - AllowInvalidUTF8(true): symmetric with marshalOptions above.
+//   - MatchCaseInsensitiveNames(true): not new behavior — v1 has always case-folded
+//     struct field matching; this option just makes that explicit for v2. A token whose
+//     issuer capitalized a claim name differently, and that verified under Go 1.26, must
+//     keep verifying.
+var decodeOptions = jsonv2.JoinOptions(
+	jsontext.AllowDuplicateNames(true),
+	jsontext.AllowInvalidUTF8(true),
+	jsonv2.MatchCaseInsensitiveNames(true),
+)
+
+// numberUnmarshalers reproduces json.Decoder.UseNumber()'s behavior for a v2 decode into
+// an `any` destination. v2 has no built-in equivalent — a bare v2 decode of a JSON number
+// into `any` produces float64, which loses precision for exp/iat/nbf and large numeric
+// IDs above 2^53. This hook is the only mechanism v2 offers for the any-destination case.
+var numberUnmarshalers = jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(
+	func(dec *jsontext.Decoder, v *any) error {
+		if dec.PeekKind() == '0' { // jsontext.Kind for "number"
+			val, err := dec.ReadValue()
+			if err != nil {
+				return err
+			}
+			*v = json.Number(val)
+			return nil
+		}
+		return errors.ErrUnsupported // fall through to v2's default handling
+	}))
+
+var unmarshalOptions = jsonv2.JoinOptions(decodeOptions, numberUnmarshalers)
+
 func defaultUnmarshal(payload []byte, dest any) error {
-	dec := json.NewDecoder(bytes.NewReader(payload))
-	dec.UseNumber() // fixes the issue of setting float64 instead of int64 on maps.
-	return dec.Decode(&dest)
+	return jsonv2.Unmarshal(payload, &dest, unmarshalOptions)
 }
 
 // InjectFunc defines a function type for modifying JWT payload data during token processing.

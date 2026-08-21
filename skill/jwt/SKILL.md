@@ -54,7 +54,7 @@ func main() {
 ```
 
 - Module path: `github.com/kataras/jwt`
-- Go 1.26+, no third-party dependencies in the root module
+- Go 1.27+, no third-party dependencies in the root module
 
 ## Rules that prevent the common mistakes
 

@@ -17,7 +17,7 @@ step nobody runs is a repository with no book.
 
 | Requirement | Without it |
 | --- | --- |
-| Go 1.26 or newer | Nothing builds. |
+| Go 1.27 or newer | Nothing builds. |
 | A Chromium-family browser on `PATH` or at a standard install location | No PDF. The HTML is still written, and the generator says so and exits zero. |
 | `assets/paged.polyfill.js` | The book renders as one long scroll with no page numbers, no running headers and no page furniture in the PDF. |
 | `assets/inter-roman-latin.woff2` and `assets/inter-italic-latin.woff2` | The text falls back to the reader's own sans-serif and every line break moves. |

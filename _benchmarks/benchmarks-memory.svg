@@ -32,21 +32,21 @@
 <text class="legend" x="625.2" y="30">kataras/jwt</text>
 <rect class="s0" x="609.2" y="21" width="10" height="10" rx="3"/>
 <text class="group" x="20" y="87.0">SIGN A TOKEN</text>
-<text class="name" text-anchor="end" x="190" y="118.25">kataras/jwt (struct)</text>
-<path class="s0" d="M200.0,106.0 h127.1 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-127.1 z"/>
-<text class="value" x="339.1" y="118.25">1,392 B</text>
-<text class="name" text-anchor="end" x="190" y="146.25">kataras/jwt (map)</text>
-<path class="s0" d="M200.0,134.0 h140.0 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-140.0 z"/>
-<text class="value" x="352.0" y="146.25">1,528 B</text>
+<text class="name" text-anchor="end" x="190" y="118.25">kataras/jwt (map)</text>
+<path class="s0" d="M200.0,106.0 h131.8 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.8 z"/>
+<text class="value" x="343.8" y="118.25">1,441 B</text>
+<text class="name" text-anchor="end" x="190" y="146.25">kataras/jwt (struct)</text>
+<path class="s0" d="M200.0,134.0 h139.2 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-139.2 z"/>
+<text class="value" x="351.2" y="146.25">1,520 B</text>
 <text class="name" text-anchor="end" x="190" y="174.25">golang-jwt (struct 2)</text>
-<path class="s1" d="M200.0,162.0 h168.7 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-168.7 z"/>
-<text class="value" x="380.7" y="174.25">1,833 B</text>
+<path class="s1" d="M200.0,162.0 h168.0 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-168.0 z"/>
+<text class="value" x="380.0" y="174.25">1,826 B</text>
 <text class="name" text-anchor="end" x="190" y="202.25">golang-jwt (struct)</text>
-<path class="s1" d="M200.0,190.0 h176.2 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-176.2 z"/>
-<text class="value" x="388.2" y="202.25">1,913 B</text>
+<path class="s1" d="M200.0,190.0 h183.1 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-183.1 z"/>
+<text class="value" x="395.1" y="202.25">1,986 B</text>
 <text class="name" text-anchor="end" x="190" y="230.25">golang-jwt (map)</text>
-<path class="s1" d="M200.0,218.0 h219.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-219.9 z"/>
-<text class="value" x="431.9" y="230.25">2,377 B</text>
+<path class="s1" d="M200.0,218.0 h208.0 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-208.0 z"/>
+<text class="value" x="420.0" y="230.25">2,250 B</text>
 <text class="name" text-anchor="end" x="190" y="258.25">go-jose (map)</text>
 <path class="s2" d="M200.0,246.0 h427.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-427.9 z"/>
 <text class="value" x="639.9" y="258.25">4,584 B</text>
@@ -56,14 +56,14 @@
 <line class="baseline" x1="200.5" y1="96.0" x2="200.5" y2="298.0"/>
 <text class="group" x="20" y="319.0">VERIFY A TOKEN</text>
 <text class="name" text-anchor="end" x="190" y="350.25">kataras/jwt</text>
-<path class="s0" d="M200.0,338.0 h125.6 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-125.6 z"/>
-<text class="value" x="337.6" y="350.25">1,376 B</text>
+<path class="s0" d="M200.0,338.0 h87.2 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-87.2 z"/>
+<text class="value" x="299.2" y="350.25">968 B</text>
 <text class="name" text-anchor="end" x="190" y="378.25">golang-jwt</text>
-<path class="s1" d="M200.0,366.0 h286.9 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-286.9 z"/>
-<text class="value" x="498.9" y="378.25">3,088 B</text>
+<path class="s1" d="M200.0,366.0 h230.8 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-230.8 z"/>
+<text class="value" x="442.8" y="378.25">2,492 B</text>
 <text class="name" text-anchor="end" x="190" y="406.25">go-jose</text>
 <path class="s2" d="M200.0,394.0 h551.5 a4.0,4.0 0 0 1 4.0,4.0 v8.0 a4.0,4.0 0 0 1 -4.0,4.0 h-551.5 z"/>
 <text class="value" x="763.5" y="406.25">5,896 B</text>
 <line class="baseline" x1="200.5" y1="328.0" x2="200.5" y2="418.0"/>
-<text class="footer" x="20" y="440.0">windows/arm64  ·  Snapdragon X1E80100, 12 cores  ·  go1.26.5</text>
+<text class="footer" x="20" y="440.0">windows/arm64  ·  Snapdragon X1E80100, 12 cores  ·  go1.27.0</text>
 </svg>

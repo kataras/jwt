@@ -877,9 +877,11 @@ by removing padding rather than adding it:</p>
 
 <p>The obvious alternative, appending <code>=</code> characters until the length divides by four, is a
 trap, and this package fell into it for years. Chapter 12 explains what went wrong: the
-short version is that <code>bytes.Split</code> hands back a final segment that still owns the whole
-token&rsquo;s spare capacity, so appending to it writes past the end of the caller&rsquo;s buffer.
-Trimming has no such problem, needs no allocation, and turned out to be faster.</p>
+short version is that the functions splitting a token into its three parts (<code>bytes.Split</code>
+for a long time, <code>bytes.CutLast</code>/<code>bytes.Cut</code> since Go 1.27) hand back a final segment that
+still owns the whole token&rsquo;s spare capacity, so appending to it writes past the end of the
+caller&rsquo;s buffer. Trimming has no such problem, needs no allocation, and turned out to be
+faster.</p>
 <h2 id="ch-01-what-a-token-is-taking-a-token-apart-in-go">Taking a token apart in Go</h2>
 
 <p>You do not have to do any of that by hand. <code>Decode</code> parses a token without checking
@@ -1436,18 +1438,24 @@ ready-made one that reads <code>kid</code> and picks the key. Chapter 7 covers i
 		<span class="k">return</span> b, <span class="k">nil</span>
 	}
 
-	<span class="k">return</span> json.<span class="f">Marshal</span>(v)
+	<span class="k">return</span> jsonv2.<span class="f">Marshal</span>(v, marshalOptions)
 }
 </code></pre>
 
+<p><code>marshalOptions</code> runs on <code>encoding/json/v2</code> rather than <code>encoding/json</code>, chosen
+deliberately to reproduce <code>json.Marshal</code>&rsquo;s output byte for byte: sorted map keys, the same
+HTML-sensitive character escaping, and the same leniency toward invalid UTF-8. The switch
+to <code>encoding/json/v2</code> is a speed change, not a behavior change.</p>
+
 <p>Three cases follow from those five lines.</p>
 
-<p><strong>A struct.</strong> Tag the fields and <code>json.Marshal</code> handles it. Embed <code>jwt.Claims</code> to get the
-registered claims into the same object.</p>
+<p><strong>A struct.</strong> Tag the fields and it marshals like <code>json.Marshal</code> would. Embed <code>jwt.Claims</code>
+to get the registered claims into the same object.</p>
 
 <p><strong>A map.</strong> <code>jwt.Map</code> is <code>= map[string]any</code>, an alias, so any <code>map[string]any</code> works with no
-conversion. Key order in the payload is alphabetical, which is what <code>encoding/json</code> does
-with maps.</p>
+conversion. Key order in the payload is alphabetical, matching what <code>encoding/json</code> does
+with maps (<code>marshalOptions</code> asks <code>encoding/json/v2</code> for the same sorted order explicitly,
+since sorting is opt-in there rather than the default).</p>
 
 <p><strong>Raw bytes.</strong> A <code>[]byte</code> is returned unchanged and becomes the payload verbatim: the fast
 path for a payload you already hold, and unvalidated. This signs and hands out a token whose
@@ -1529,9 +1537,9 @@ your own tokens, and a parser that will accept a numeric <code>sub</code> but re
 
 <p>Here is the whole type from <code>claims.go</code>, tags included:</p>
 <pre class="code lang-go"><code><span class="k">type</span> Claims <span class="k">struct</span> {
-	NotBefore <span class="k">int64</span>    <span class="s">`json:&#34;nbf,omitempty&#34;`</span>
-	IssuedAt  <span class="k">int64</span>    <span class="s">`json:&#34;iat,omitempty&#34;`</span>
-	Expiry    <span class="k">int64</span>    <span class="s">`json:&#34;exp,omitempty&#34;`</span>
+	NotBefore <span class="k">int64</span>    <span class="s">`json:&#34;nbf,omitzero&#34;`</span>
+	IssuedAt  <span class="k">int64</span>    <span class="s">`json:&#34;iat,omitzero&#34;`</span>
+	Expiry    <span class="k">int64</span>    <span class="s">`json:&#34;exp,omitzero&#34;`</span>
 	ID        <span class="k">string</span>   <span class="s">`json:&#34;jti,omitempty&#34;`</span>
 	OriginID  <span class="k">string</span>   <span class="s">`json:&#34;origin_jti,omitempty&#34;`</span>
 	Issuer    <span class="k">string</span>   <span class="s">`json:&#34;iss,omitempty&#34;`</span>
@@ -1539,6 +1547,13 @@ your own tokens, and a parser that will accept a numeric <code>sub</code> but re
 	Audience  Audience <span class="s">`json:&#34;aud,omitempty&#34;`</span>
 }
 </code></pre>
+
+<p>The three timestamp fields are <code>omitzero</code>, not <code>omitempty</code>. Under the encoding/json this
+package used through Go 1.26 the two are the same for a plain <code>int64</code>: both omit the Go
+zero value. They stop agreeing once <code>Marshal</code> moves to <code>encoding/json/v2</code> (below), because
+v2&rsquo;s <code>omitempty</code> only omits a value that already encodes to an empty JSON value, and a
+numeric <code>0</code> is not one of those. <code>omitzero</code> was chosen deliberately to keep an unset <code>exp</code>
+absent from the payload rather than emitting <code>&quot;exp&quot;:0</code>.</p>
 
 <p>The Go names and the JSON names differ on purpose. The three-letter forms are what goes on
 the wire, because that is what RFC 7519 registered and what every other implementation looks
@@ -1649,9 +1664,11 @@ err = verified.<span class="f">Claims</span>(&amp;m)
 fmt.<span class="f">Printf</span>(<span class="s">&#34;%T\n&#34;</span>, m[<span class="s">&#34;iat&#34;</span>]) <span class="c">// json.Number</span>
 </code></pre>
 
-<p>Numbers come back as <code>json.Number</code>, not <code>float64</code>, because the default <code>Unmarshal</code> builds a
-<code>json.Decoder</code> and calls <code>UseNumber()</code> on it. Call <code>.Int64()</code> on the result rather than
-asserting to <code>float64</code>.</p>
+<p>Numbers come back as <code>json.Number</code>, not <code>float64</code>, because the default <code>Unmarshal</code> decodes
+through <code>encoding/json/v2</code> with a custom unmarshal hook that reproduces what
+<code>json.Decoder.UseNumber()</code> gave <code>encoding/json</code> (v1): a number decoded into an <code>any</code>
+destination stays a string-backed <code>json.Number</code> rather than losing precision to <code>float64</code>.
+Call <code>.Int64()</code> on the result rather than asserting to <code>float64</code>.</p>
 <h2 id="ch-03-claims-combining-custom-claims-with-standard-ones">Combining custom claims with standard ones</h2>
 
 <p>You have two ways to get registered claims into the same payload as your own.</p>
@@ -4857,8 +4874,10 @@ the refresh key is used once per session rather than once per request.</li>
 separately. This is the awkward part by hand: the two tokens want different lifetimes and
 one option list cannot say so.</li>
 <li><strong><code>GenerateID</code></strong> is <code>func() (string, error)</code> and produces the <code>jti</code> for each half,
-defaulting to 22 base64url characters, which is 128 bits. Replace it when something
-downstream needs a UUID or another recognisable format.</li>
+defaulting to a version 7 UUID (time-ordered, from the standard library&rsquo;s <code>uuid</code>
+package, 36 characters). Replace it when something downstream expects a different
+format, including the 22-character base64url identifier this package generated by
+default before v0.3.0.</li>
 <li><strong><code>Unlinked</code></strong> leaves the refresh token&rsquo;s <code>origin_jti</code> empty. The link is the default,
 because without it there is no way, given a revoked access token, to find the refresh token
 that replaces it.</li>
@@ -5957,9 +5976,12 @@ with the wrong key, and a token whose payload was edited after signing.</p>
 <h2 id="ch-13-testing-replacing-marshal-and-unmarshal">Replacing Marshal and Unmarshal</h2>
 
 <p>Serialization goes through two more package variables. <code>Marshal</code> is a function value that
-passes a <code>[]byte</code> straight through and calls <code>json.Marshal</code> on anything else; <code>Unmarshal</code>
-is <code>defaultUnmarshal</code>, a <code>json.Decoder</code> with <code>UseNumber</code> enabled. Replacing either follows
-the same save-and-restore discipline as <code>Clock</code> and carries the same parallelism warning.
+passes a <code>[]byte</code> straight through and calls <code>encoding/json/v2</code>&rsquo;s <code>Marshal</code> on anything
+else, with an option set chosen to match what <code>json.Marshal</code> produces; <code>Unmarshal</code> is
+<code>defaultUnmarshal</code>, an <code>encoding/json/v2</code> decode with a custom unmarshal hook that
+reproduces what <code>json.Decoder</code>&rsquo;s <code>UseNumber</code> gave the package before Go 1.27. Replacing
+either follows the same save-and-restore discipline as <code>Clock</code> and carries the same
+parallelism warning.
 The usual reasons are counting how many times claims were decoded, injecting a decode
 failure that is otherwise hard to provoke, or checking that <code>jwt.UnmarshalWithRequired</code>
 really does reject a payload missing a required field.</p>
@@ -6057,35 +6079,46 @@ with the price attached, and finishes with the parts that are not worth touching
 <h2 id="ch-14-performance-the-numbers-on-one-machine">The numbers on one machine</h2>
 
 <p>Every figure in this chapter was measured on a Snapdragon X X1E80100, twelve cores,
-Windows 11, Go 1.26.5, <code>goos: windows</code> and <code>goarch: arm64</code>. Yours will differ. The ratios
+Windows 11, Go 1.27.0, <code>goos: windows</code> and <code>goarch: arm64</code>. Yours will differ. The ratios
 travel better than the absolute times.</p>
+
+<p><strong>These figures moved since the previous edition (Go 1.26.5), for two independent
+reasons.</strong> <code>Verify</code>&rsquo;s allocation count dropped because this package&rsquo;s own code changed:
+<code>bytes.CutLast</code>/<code>bytes.Cut</code> replaced <code>bytes.Split</code> in the token-splitting path (Chapter 1),
+and the default <code>Marshal</code>/<code>Unmarshal</code> moved to <code>encoding/json/v2</code> (below). <code>Sign</code>&rsquo;s
+allocation count on a <code>map[string]any</code> payload rose slightly even though nothing this
+package does changed, because Go 1.27&rsquo;s own <code>encoding/json</code> is now implemented in terms of
+<code>encoding/json/v2</code> with a compatibility-option layer, and that layer costs a little more
+for a map-shaped marshal than the Go 1.26 implementation did. Moving <code>Sign</code>&rsquo;s own call
+site directly onto <code>encoding/json/v2</code> (below) recovered the speed but not the allocation
+count.</p>
 
 <p>The package&rsquo;s own benchmarks, from <code>go test -bench=. -benchmem -run=XXX</code> in the repository
 root:</p>
-<pre class="code lang-text"><code>BenchmarkSignWithMerge-12            455037     2425 ns/op    1520 B/op    20 allocs/op
-BenchmarkSignWithoutMerge-12         444027     2947 ns/op    1705 B/op    25 allocs/op
-BenchmarkMerge-12                   2047495    570.2 ns/op     432 B/op     8 allocs/op
-BenchmarkStructToMapJSON-12          574880     1967 ns/op    1040 B/op    28 allocs/op
-BenchmarkStructToMapReflection-12   1000000     1189 ns/op     744 B/op    15 allocs/op
-BenchmarkEnrich-12                   210120     6506 ns/op    3259 B/op    43 allocs/op
-BenchmarkEncodeToken-12              581425     2027 ns/op     912 B/op    15 allocs/op
+<pre class="code lang-text"><code>BenchmarkSignWithMerge-12            950584     1379 ns/op    1657 B/op    22 allocs/op
+BenchmarkSignWithoutMerge-12         558975     2274 ns/op    1586 B/op    30 allocs/op
+BenchmarkMerge-12                   1742534      746.0 ns/op   568 B/op    10 allocs/op
+BenchmarkStructToMapJSON-12          634286     1894 ns/op     762 B/op    28 allocs/op
+BenchmarkStructToMapReflection-12   1000000     1285 ns/op     624 B/op    20 allocs/op
+BenchmarkEnrich-12                   403982     3277 ns/op    2777 B/op    39 allocs/op
+BenchmarkEncodeToken-12             1000000     1107 ns/op     888 B/op    16 allocs/op
 </code></pre>
 
 <p>The comparison suite, from the same command in <code>_benchmarks</code>:</p>
-<pre class="code lang-text"><code>BenchmarkSign_Map-12               486244     2380 ns/op    1528 B/op    23 allocs/op
-BenchmarkSign_Struct-12            589917     2199 ns/op    1392 B/op    21 allocs/op
-BenchmarkSign_jwt_go_Map-12        359260     3511 ns/op    2377 B/op    37 allocs/op
-BenchmarkSign_jwt_go_Struct-12     445124     2934 ns/op    1913 B/op    27 allocs/op
-BenchmarkSign_jwt_go_Struct2-12    437682     2831 ns/op    1833 B/op    27 allocs/op
-BenchmarkSign_go_jose_Map-12       249398     5897 ns/op    4584 B/op    72 allocs/op
-BenchmarkSign_go_jose_Struct-12    171199     7982 ns/op    5944 B/op    93 allocs/op
-BenchmarkVerify-12                 469933     2681 ns/op    1376 B/op    18 allocs/op
-BenchmarkVerify_jwt_go-12          297790     4694 ns/op    3088 B/op    51 allocs/op
-BenchmarkVerify_go_jose-12         128449     8416 ns/op    5896 B/op    83 allocs/op
+<pre class="code lang-text"><code>BenchmarkSign_Map-12               694017     1868 ns/op    1441 B/op    27 allocs/op
+BenchmarkSign_Struct-12            754218     1566 ns/op    1520 B/op    23 allocs/op
+BenchmarkSign_jwt_go_Map-12        392374     2955 ns/op    2250 B/op    43 allocs/op
+BenchmarkSign_jwt_go_Struct-12     614936     2512 ns/op    1986 B/op    30 allocs/op
+BenchmarkSign_jwt_go_Struct2-12    667363     2185 ns/op    1826 B/op    30 allocs/op
+BenchmarkSign_go_jose_Map-12       345763     5158 ns/op    4584 B/op    72 allocs/op
+BenchmarkSign_go_jose_Struct-12    181594     6587 ns/op    5944 B/op    93 allocs/op
+BenchmarkVerify-12                1000000     1193 ns/op     968 B/op    12 allocs/op
+BenchmarkVerify_jwt_go-12          405441     3515 ns/op    2492 B/op    42 allocs/op
+BenchmarkVerify_go_jose-12         163896     6320 ns/op    5896 B/op    83 allocs/op
 </code></pre>
 
 <p>Running that second command again, on the same machine and the same binary, moved
-<code>BenchmarkSign_Map</code> from 2380 to 3723 ns/op and <code>BenchmarkVerify</code> from 2681 to 2818. The
+<code>BenchmarkSign_Map</code> from 1883 to 2092 ns/op and <code>BenchmarkVerify</code> from 1211 to 1167. The
 byte and allocation columns did not move by a single unit. <strong>Trust the allocation counts and
 treat the nanosecond figures as a range.</strong> A change that removes an allocation is a real
 change; a change that shaves five percent off one run is probably the scheduler.</p>
@@ -6114,32 +6147,32 @@ token the comparison suite uses:</p>
 <tbody>
 <tr>
 <td><code>Base64Decode</code> of one payload segment</td>
-<td>66 ns</td>
+<td>27 ns</td>
 <td>1</td>
 </tr>
 
 <tr>
 <td><code>Decode</code> of a whole token, all three segments</td>
-<td>314 ns</td>
-<td>5</td>
+<td>159 ns</td>
+<td>4</td>
 </tr>
 
 <tr>
 <td>HMAC-SHA256 over the signing input, fresh MAC per call</td>
-<td>1416 ns</td>
-<td>6</td>
+<td>425 ns</td>
+<td>7</td>
 </tr>
 
 <tr>
-<td><code>Unmarshal</code> of a 47-byte payload into <code>Claims</code></td>
-<td>1269 ns</td>
-<td>9</td>
+<td><code>Unmarshal</code> of a 56-byte payload into <code>Claims</code></td>
+<td>427 ns</td>
+<td>3</td>
 </tr>
 
 <tr>
 <td>The whole of <code>Verify</code></td>
-<td>2512 ns</td>
-<td>18</td>
+<td>1200 ns</td>
+<td>12</td>
 </tr>
 </tbody>
 </table>
@@ -6224,7 +6257,7 @@ keep the zero-copy form, because a lookup does not retain the string.
 every byte of it, and checks the revocation still matches.</p>
 
 <p><strong>Measure before you assume the tag is expensive.</strong> Running the comparison suite with
-<code>-tags safe</code> gave <code>BenchmarkVerify</code> at 2569 ns/op, 1376 B/op, 18 allocs/op, which is inside
+<code>-tags safe</code> gave <code>BenchmarkVerify</code> at 1020 ns/op, 968 B/op, 12 allocs/op, which is inside
 the run-to-run variation of the default build for this workload. If you cannot audit every
 caller that hands this package a reused buffer, build with <code>-tags safe</code> and spend the
 difference elsewhere.</p>
@@ -6241,9 +6274,9 @@ combined = bytes.<span class="f">Join</span>([][]<span class="k">byte</span>{[]<
 
 <p>Never unmarshalled, never re-marshalled. The repository benchmarks the three approaches
 side by side, which is how the decision was made in the first place: <code>BenchmarkMerge</code> at
-570 ns and 8 allocations, against 1967 ns and 28 allocations through a map, and 1189 ns and
-15 allocations through reflection. End to end, <code>BenchmarkSignWithMerge</code> runs at 2425 ns and
-20 allocations where <code>BenchmarkSignWithoutMerge</code> needs 2947 ns and 25.</p>
+746 ns and 10 allocations, against 1894 ns and 28 allocations through a map, and 1285 ns and
+20 allocations through reflection. End to end, <code>BenchmarkSignWithMerge</code> runs at 1379 ns and
+22 allocations where <code>BenchmarkSignWithoutMerge</code> needs 2274 ns and 30.</p>
 
 <p>The cost is duplicate keys. Merging <code>{&quot;role&quot;:&quot;admin&quot;}</code> with <code>{&quot;role&quot;:&quot;user&quot;}</code> produces
 <code>{&quot;role&quot;:&quot;admin&quot;,&quot;role&quot;:&quot;user&quot;}</code>. That is well-formed JSON, and RFC 8259 declines to say
@@ -6263,9 +6296,14 @@ byte test and produced a signed token whose payload was not JSON.</p>
 		<span class="k">return</span> b, <span class="k">nil</span>
 	}
 
-	<span class="k">return</span> json.<span class="f">Marshal</span>(v)
+	<span class="k">return</span> jsonv2.<span class="f">Marshal</span>(v, marshalOptions)
 }
 </code></pre>
+
+<p>Since Go 1.27 the non-<code>[]byte</code> case runs on <code>encoding/json/v2</code> rather than <code>encoding/json</code>,
+with an option set chosen to match <code>json.Marshal</code>&rsquo;s output byte for byte: sorted map keys,
+the same character escaping, the same leniency toward invalid UTF-8. The move to v2 buys
+speed without changing what gets signed.</p>
 
 <p><code>Merge</code> returns <code>[]byte</code>, <code>Sign</code> hands its claims to <code>Marshal</code>, and the payload therefore
 reaches the encoder without a second serialization. It also means you can cache a payload:
@@ -6290,11 +6328,13 @@ did that for years. What replaced it goes the other way:</p>
 }
 </code></pre>
 
-<p>Trimming rather than appending was a correctness fix first. <code>bytes.Split</code> does not cap the
-capacity of the last part it returns, so the signature segment of a token still owns the
-token&rsquo;s spare capacity, and appending to it wrote past the end of the caller&rsquo;s buffer. With
-a pooled HTTP read buffer, which is how most servers hand a token to this package, that is a
-write into memory the next request is about to use.</p>
+<p>Trimming rather than appending was a correctness fix first. The functions that split a
+token into its three parts (<code>bytes.Split</code> for a long time, <code>bytes.CutLast</code>/<code>bytes.Cut</code>
+since Go 1.27) do not cap the capacity of the last part they return, so the signature
+segment of a token still owns the token&rsquo;s spare capacity, and appending to it wrote past
+the end of the caller&rsquo;s buffer. With a pooled HTTP read buffer, which is how most servers
+hand a token to this package, that is a write into memory the next request is about to
+use.</p>
 
 <p>It was also faster, and by more than anyone expected. <code>bytes.TrimRight</code> returns a sub-slice
 and allocates nothing, <code>RawURLEncoding</code> needs no padding, and <code>DecodedLen</code> on the trimmed
@@ -6313,16 +6353,16 @@ nothing matches, so the tests do not run and their time stays out of the result.
 <code>b.ReportAllocs()</code> and put <code>b.ResetTimer()</code> after any setup, or the key you generated in the
 benchmark body ends up in the measurement.</p>
 
-<p>The counts to expect, on the small token these benchmarks use: 18 allocations to verify with
-HS256, 21 to sign a struct, 23 to sign a map. If yours are much higher, look at your claims
+<p>The counts to expect, on the small token these benchmarks use: 12 allocations to verify with
+HS256, 23 to sign a struct, 27 to sign a map. If yours are much higher, look at your claims
 type before you look at the package. A map costs more than a struct because <code>encoding/json</code>
 sorts the keys and boxes every value. A struct with twenty fields costs more than one with
 four. A <code>time.Time</code> field costs more than an <code>int64</code>.</p>
 
 <p>For comparing two versions of your own code, run each with <code>-count=10</code> and put the output
 through <code>benchstat</code>. A single pair of runs cannot tell a five percent change from noise, and
-this chapter&rsquo;s own second run is the proof: the same binary, the same machine, 2380 ns and
-then 3723 ns for the same benchmark.</p>
+this chapter&rsquo;s own second run is the proof: the same binary, the same machine, 1883 ns and
+then 2092 ns for the same benchmark.</p>
 <h2 id="ch-14-performance-what-not-to-optimise">What not to optimise</h2>
 
 <p>The signature is the floor, and with anything other than HMAC it is most of the building.
@@ -6340,35 +6380,35 @@ Verification of the same small token, by algorithm:</p>
 <tbody>
 <tr>
 <td>HS256</td>
-<td>2512 ns</td>
-<td>18</td>
+<td>915 ns</td>
+<td>11</td>
 </tr>
 
 <tr>
 <td>RS256</td>
-<td>38108 ns</td>
-<td>22</td>
+<td>27178 ns</td>
+<td>16</td>
 </tr>
 
 <tr>
 <td>EdDSA</td>
-<td>46887 ns</td>
-<td>12</td>
+<td>34546 ns</td>
+<td>5</td>
 </tr>
 
 <tr>
 <td>ES256</td>
-<td>54032 ns</td>
-<td>34</td>
+<td>43500 ns</td>
+<td>27</td>
 </tr>
 </tbody>
 </table>
-<p>Signing with RS256 measured 1522261 ns, a little over 1.5 milliseconds. That is the RSA
+<p>Signing with RS256 measured 1165527 ns, a little over 1.1 milliseconds. That is the RSA
 asymmetry doing its usual thing: verification uses a public exponent of 65537 and is cheap,
-signing uses the private exponent and is not, and the gap here is a factor of forty.</p>
+signing uses the private exponent and is not, and the gap here is a factor of forty-three.</p>
 
 <p>Read the RS256 row against the HS256 row. The package&rsquo;s own work is identical in both and
-runs on the order of a microsecond; the extra 35 microseconds is the RSA verification
+runs on the order of a microsecond; the extra 26 microseconds is the RSA verification
 itself, modular arithmetic in <code>crypto/rsa</code>. Shaving another allocation off the parsing path
 would move an RSA verification by well under one percent, and an RSA signing by roughly
 nothing.</p>
@@ -6376,8 +6416,8 @@ nothing.</p>
 <p>So do not tune the library for an RSA workload. Tune the number of RSA operations. Verify
 once per request rather than once per handler. Give access tokens a short life and a cheap
 algorithm and keep RSA for the refresh path. If you control both ends, EdDSA verification
-costs about the same as RS256 here while using twelve allocations instead of twenty-two, and
-EdDSA signing measured 23348 ns against RS256&rsquo;s 1522261, a factor of sixty-five.</p>
+costs about the same as RS256 here while using five allocations instead of sixteen, and
+EdDSA signing measured 14989 ns against RS256&rsquo;s 1165527, a factor of seventy-eight.</p>
 
 <p>The other thing not worth optimising is the constant-time comparison in the HMAC path. It is
 there so that a wrong signature takes the same time to reject as a nearly-right one, and
@@ -6400,30 +6440,30 @@ replacing it with <code>bytes.Equal</code> would buy nanoseconds and sell an ora
 <tbody>
 <tr>
 <td><code>kataras/jwt</code></td>
-<td>2681 ns</td>
-<td>1376</td>
-<td>18</td>
+<td>1193 ns</td>
+<td>968</td>
+<td>12</td>
 </tr>
 
 <tr>
 <td><code>golang-jwt/jwt</code></td>
-<td>4694 ns</td>
-<td>3088</td>
-<td>51</td>
+<td>3515 ns</td>
+<td>2492</td>
+<td>42</td>
 </tr>
 
 <tr>
 <td><code>go-jose/go-jose</code></td>
-<td>8416 ns</td>
+<td>6320 ns</td>
 <td>5896</td>
 <td>83</td>
 </tr>
 </tbody>
 </table>
-<p>The second run gave 2818, 5198 and 8624 for the same three. The timing ratio is not a fixed
+<p>The second run gave 1211, 3464 and 6919 for the same three. The timing ratio is not a fixed
 multiple and this book will not quote one. The allocation ratio held exactly across both
-runs, and that is the number worth carrying: a little over a third of <code>golang-jwt</code>&rsquo;s
-allocations and under a quarter of <code>go-jose</code>&rsquo;s.</p>
+runs, and that is the number worth carrying: a little over a quarter of <code>golang-jwt</code>&rsquo;s
+allocations and under a sixth of <code>go-jose</code>&rsquo;s.</p>
 
 <p>Two caveats belong next to those figures. <code>go-jose</code>&rsquo;s <code>ParseSigned</code> does not verify anything;
 the benchmark has to call <code>Claims</code> afterwards to force the signature check, so the two sides
@@ -6432,10 +6472,10 @@ because that is what the benchmark module pins. A current v5 would be a fairer c
 has not been measured here.</p>
 <h2 id="ch-14-performance-summary">Summary</h2>
 
-<p>Signing a struct with HS256 took about 2.2 microseconds and 21 allocations on the machine
-named above; verifying took about 2.7 microseconds and 18 allocations. Timings moved by up
-to a third between two runs of the same binary while allocation counts did not move at all,
-so allocations are the metric to hold a change to.</p>
+<p>Signing a struct with HS256 took about 1.6 microseconds and 23 allocations on the machine
+named above; verifying took about 1.2 microseconds and 12 allocations. Timings moved by
+roughly ten percent between two runs of the same binary while allocation counts did not
+move at all, so allocations are the metric to hold a change to.</p>
 
 <p>Inside a verification, base64 decoding is noise and the MAC and the JSON unmarshal are
 roughly equal halves of the cost. Four decisions buy the rest: a precomputed header table,
@@ -6445,8 +6485,8 @@ blocklist; a <code>Merge</code> that splices raw JSON and therefore emits duplic
 resolving them; and a <code>Base64Decode</code> that trims padding, which removed four allocations from
 every verification and fixed a write past the end of the caller&rsquo;s buffer at the same time.</p>
 
-<p>Above HMAC, the signature dominates everything else. RS256 verification measured 38
-microseconds against HS256&rsquo;s 2.5, and RS256 signing 1.5 milliseconds. Optimise the number of
+<p>Above HMAC, the signature dominates everything else. RS256 verification measured 27
+microseconds against HS256&rsquo;s 0.9, and RS256 signing 1.2 milliseconds. Optimise the number of
 those operations rather than the code around them.</p>
 <h2 id="ch-14-performance-further-reading">Further Reading</h2>
 

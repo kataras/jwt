@@ -93,7 +93,7 @@ func TestBlocklist(t *testing.T) {
 	// test automatic gc
 	ctx, cancel := context.WithCancel(context.Background())
 	b = NewBlocklistContext(ctx, 500*time.Millisecond)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err = b.InvalidateToken(MustGenerateRandom(92), Claims{Expiry: Clock().Add(time.Second).Unix()}); err != nil {
 			t.Fatal(err)
 		}

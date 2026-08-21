@@ -104,6 +104,45 @@ func TestCompareHeader(t *testing.T) {
 	}
 }
 
+// TestTokenFormRejectsWrongPartCount pins decodeToken and Decode's replacement of
+// bytes.Split(token, sep); len(parts) != 3 with bytes.CutLast+bytes.Cut. The two must
+// reject exactly the same malformed shapes: too few dots, and too many.
+func TestTokenFormRejectsWrongPartCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{"no dots", "abc"},
+		{"one dot", "a.b"},
+		{"three dots", "a.b.c.d"},
+		{"four dots", "a.b.c.d.e"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := []byte(tt.token)
+
+			if _, err := Verify(testAlg, testSecret, token); !errors.Is(err, ErrTokenForm) {
+				t.Fatalf("Verify(%q): expected ErrTokenForm but got: %v", tt.token, err)
+			}
+
+			if _, err := Decode(token); !errors.Is(err, ErrTokenForm) {
+				t.Fatalf("Decode(%q): expected ErrTokenForm but got: %v", tt.token, err)
+			}
+		})
+	}
+
+	// An empty token is rejected earlier, by Verify's own ErrMissing check, before it
+	// ever reaches the CutLast/Cut parsing this test otherwise pins. Decode has no such
+	// upfront check, so an empty token reaches CutLast directly and is rejected there.
+	if _, err := Verify(testAlg, testSecret, []byte("")); !errors.Is(err, ErrMissing) {
+		t.Fatalf("Verify(\"\"): expected ErrMissing but got: %v", err)
+	}
+	if _, err := Decode([]byte("")); !errors.Is(err, ErrTokenForm) {
+		t.Fatalf("Decode(\"\"): expected ErrTokenForm but got: %v", err)
+	}
+}
+
 func TestDecodeWithoutVerify(t *testing.T) {
 	input := testToken
 	tok, err := Decode(input)

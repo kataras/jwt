@@ -8,7 +8,7 @@ encoding, in-memory state) except for the explicitly-network-facing pieces (`Fet
 setup, and is fast. There is no equivalent of pg's `pgtest`/`PG_CONNSTRING` here; nothing to skip,
 nothing to point at a running service for the ordinary test suite.
 
-CI (`.github/workflows/ci.yml`) runs, on Go 1.26.x, `go vet ./...`, then `go test -v --race
+CI (`.github/workflows/ci.yml`) runs, on Go 1.27.x, `go vet ./...`, then `go test -v --race
 ./...`, then a second full run with `go test --race -tags safe ./...`. Match that locally before
 calling a change to this package done:
 

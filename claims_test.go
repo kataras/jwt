@@ -8,6 +8,29 @@ import (
 	"time"
 )
 
+// TestClaimsOmitZeroByteIdentical pins the nbf/iat/exp tags at "omitzero" rather than
+// "omitempty". The two are byte-identical for a plain int64 field under encoding/json
+// today, but only omitzero keeps that true once Marshal moves to encoding/json/v2 with a
+// lean option set: v2's omitempty does not consider a numeric zero "empty", so a struct
+// still tagged omitempty would start emitting "exp":0 for an unset expiry.
+func TestClaimsOmitZeroByteIdentical(t *testing.T) {
+	empty, err := json.Marshal(Claims{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(empty), `{}`; got != want {
+		t.Fatalf("zero-value Claims{} = %s, want %s", got, want)
+	}
+
+	withID, err := json.Marshal(Claims{ID: "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(withID), `{"jti":"abc"}`; got != want {
+		t.Fatalf("Claims{ID: \"abc\"} = %s, want %s (nbf/iat/exp must stay omitted)", got, want)
+	}
+}
+
 func TestValidateClaims(t *testing.T) {
 	now := time.Now()
 	expiresAt := now.Add(time.Minute)
@@ -228,6 +251,43 @@ func TestMerge(t *testing.T) {
 				t.Errorf("Merge() = %v, want %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+// TestMergeSignVerifyRoundTripDuplicateKeys is the direct end-to-end regression test for
+// the json/v2 migration's duplicate-key decision: Merge splices raw JSON and can
+// legitimately produce a payload with a repeated key (pinned by the merge/duplicate-key
+// golden entry), and nothing before this test actually signed and verified a token
+// containing one. decodeOptions (jwt.go) sets jsontext.AllowDuplicateNames(true) on every
+// payload decode specifically so this keeps working under encoding/json/v2.
+func TestMergeSignVerifyRoundTripDuplicateKeys(t *testing.T) {
+	merged, err := Merge(map[string]any{"role": "admin"}, map[string]any{"role": "user"})
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	if got, want := string(merged), `{"role":"admin","role":"user"}`; got != want {
+		t.Fatalf("Merge() = %s, want %s", got, want)
+	}
+
+	key := []byte("secret")
+	token, err := Sign(HS256, key, merged)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+
+	verifiedToken, err := Verify(HS256, key, token)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+
+	var claims map[string]any
+	if err := verifiedToken.Claims(&claims); err != nil {
+		t.Fatalf("Claims: %v", err)
+	}
+
+	// Last occurrence wins, matching Go's own decoder behavior for duplicate object keys.
+	if got, want := claims["role"], "user"; got != want {
+		t.Fatalf("claims[\"role\"] = %v, want %v", got, want)
 	}
 }
 

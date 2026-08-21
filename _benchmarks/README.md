@@ -27,29 +27,29 @@ release checks are written against.
 | Processor | Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz |
 | RAM | 15.61 GB |
 | OS | Microsoft Windows 11 Home, ARM 64-bit |
-| Go | go1.26.5 windows/arm64 |
+| Go | go1.27.0 windows/arm64 |
 
 ### Sign
 
 ```sh
-BenchmarkSign_Map-12                      424600       2777 ns/op       1528 B/op       23 allocs/op
-BenchmarkSign_Struct-12                   550389       2521 ns/op       1392 B/op       21 allocs/op
+BenchmarkSign_Map-12                      694017       1868 ns/op       1441 B/op       27 allocs/op
+BenchmarkSign_Struct-12                   754218       1566 ns/op       1520 B/op       23 allocs/op
 
-BenchmarkSign_jwt_go_Map-12               393931       3790 ns/op       2377 B/op       37 allocs/op
-BenchmarkSign_jwt_go_Struct-12            269436       4000 ns/op       1913 B/op       27 allocs/op
-BenchmarkSign_jwt_go_Struct2-12           444030       3435 ns/op       1833 B/op       27 allocs/op
+BenchmarkSign_jwt_go_Map-12               392374       2955 ns/op       2250 B/op       43 allocs/op
+BenchmarkSign_jwt_go_Struct-12            614936       2512 ns/op       1986 B/op       30 allocs/op
+BenchmarkSign_jwt_go_Struct2-12           667363       2185 ns/op       1826 B/op       30 allocs/op
 
-BenchmarkSign_go_jose_Map-12              171348       6884 ns/op       4584 B/op       72 allocs/op
-BenchmarkSign_go_jose_Struct-12           141780      10237 ns/op       5944 B/op       93 allocs/op
+BenchmarkSign_go_jose_Map-12              345763       5158 ns/op       4584 B/op       72 allocs/op
+BenchmarkSign_go_jose_Struct-12           181594       6587 ns/op       5944 B/op       93 allocs/op
 ```
 
 ### Verify
 
 ```sh
-BenchmarkVerify-12                        352230       3048 ns/op       1376 B/op       18 allocs/op
+BenchmarkVerify-12                       1000000       1193 ns/op        968 B/op       12 allocs/op
 
-BenchmarkVerify_jwt_go-12                 272935       5799 ns/op       3088 B/op       51 allocs/op
-BenchmarkVerify_go_jose-12                144706       9464 ns/op       5896 B/op       83 allocs/op
+BenchmarkVerify_jwt_go-12                 405441       3515 ns/op       2492 B/op       42 allocs/op
+BenchmarkVerify_go_jose-12                163896       6320 ns/op       5896 B/op       83 allocs/op
 ```
 
 ## Running them

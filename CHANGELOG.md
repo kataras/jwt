@@ -3,6 +3,79 @@
 All notable changes to this project are recorded here. Versions follow
 [semantic versioning](https://semver.org), and dates are ISO 8601.
 
+## v0.3.0 - 2026-08-20
+
+The Go 1.27 release. Every change below follows from that toolchain bump, either because
+Go 1.27 is now required to build the package at all, or because it made something the
+package already did possible to do faster or more directly.
+
+### Breaking
+
+**The minimum Go version is 1.27.** `go.mod`'s `go` directive moved from 1.26 to 1.27,
+which `encoding/json/v2` and the standard library `uuid` package both require. A consumer
+on an older toolchain gets a build error, not a warning; bump your own `go` directive
+before bumping this dependency.
+
+**`SignPair`'s default `jti` is a version 7 UUID, not 22 base64url characters.** The
+default `GenerateID` used to return 128 bits of `crypto/rand` output as base64url text;
+it now returns `uuid.NewV7().String()` from the standard library, which is time-ordered
+and friendlier to a blocklist or any other index keyed on `jti`. A token already signed
+with the old format still verifies, since `jti` is opaque to everything but whoever reads
+it, but code that parses or length-checks the identifier itself will see 36 characters
+instead of 22. Set `PairOptions.GenerateID` to restore the previous format; the doc
+comment on the field shows the four-line replacement.
+
+### Added
+
+**`(*VerifiedToken).ClaimsAs[T]` and `(*UnverifiedToken).ClaimsAs[T]`,** the generic form
+of `Claims(dest any)`: `user, err := verifiedToken.ClaimsAs[UserClaims]()` in place of
+declaring a variable and passing its address. `Claims` itself is unchanged and stays the
+right call when decoding into an existing value.
+
+**`VerifyAs[T]`,** which combines `Verify` and `ClaimsAs[T]` for the common case where
+nothing else about the `*VerifiedToken` is needed: `claims, verifiedToken, err :=
+jwt.VerifyAs[UserClaims](alg, key, token)`.
+
+### Changed
+
+**The default `Marshal` and `Unmarshal` now run on `encoding/json/v2`.** Chosen option
+sets reproduce `encoding/json`'s (v1) output and decode behavior exactly: sorted map
+keys, the same character escaping, tolerance for invalid UTF-8, duplicate object keys
+(`Merge`/`Enrich` can legitimately produce them), case-differing standard claim names, and
+`json.Number` rather than `float64` for a number decoded into `any`. Nothing about what
+verifies or what gets signed changed; `testdata/golden.json` is byte-for-byte identical to
+before this release. What changed is speed: `BenchmarkVerify`, measured windows/arm64,
+went from 18 allocations and 1376 B on Go 1.26.5 to 12 allocations and 968 B on Go 1.27,
+partly from the json/v2 move and partly from the next item.
+
+**Token parsing uses `bytes.CutLast`/`bytes.Cut` instead of `bytes.Split`.** The compact
+form's three segments are found by cutting from the end (the signature separator) and then
+from the start of what remains (the header/payload separator), rather than allocating a
+`[][3]byte` slice and re-joining the header and payload for signature verification. Same
+malformed-input rejection as before (too few dots, too many); see
+`TestTokenFormRejectsWrongPartCount`.
+
+**The `nbf`, `iat` and `exp` tags on `Claims` are `omitzero`, not `omitempty`.** The two
+were equivalent for a plain `int64` under `encoding/json` (v1); they stop agreeing under
+`encoding/json/v2`'s leaner option set, where `omitempty` does not consider a numeric zero
+empty. This is a prerequisite for the `Marshal` change above, not a behavior change on its
+own: an unset `exp` was left out of the payload before this release and still is.
+
+**`go fix`'s Go 1.27 modernizers were applied:** `errors.AsType[E](err)` in place of the
+`var target E; errors.As(err, &target)` pattern in `classify.go` and
+`jwk_aws_cognito.go`, `sync.WaitGroup.Go` in place of manual `Add`/`Done`/`go func()` in
+`keyset_test.go`, and range-over-integer in place of a handful of counted `for` loops.
+None change behavior; all are the modernizer's own rewrite, reviewed and kept.
+
+### Upgrading
+
+Bump your own `go` directive to at least 1.27 before requiring this version. If anything
+reads `SignPair`'s generated `jti` and expects the old 22-character base64url shape,
+either update that check for a 36-character UUID or set `PairOptions.GenerateID` to keep
+generating the old format. Nothing else here needs a code change: the `Marshal`/`Unmarshal`
+and `Claims`/`Merge` behavior a caller could observe from outside the package is unchanged,
+and `ClaimsAs`/`VerifyAs` are additive.
+
 ## v0.2.0 - 2026-08-16
 
 The first release since v0.1.17, and much the largest. The whole exported surface was

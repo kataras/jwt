@@ -1,7 +1,7 @@
 package jwt
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 )
 
@@ -94,6 +94,29 @@ import (
 // for custom validation logic.
 func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error) {
 	return verifyToken(alg, key, nil, token, nil, validators...)
+}
+
+// VerifyAs is Verify followed by ClaimsAs[T]: it verifies the token and decodes its
+// claims into a T in one call, for the common case where the caller has nothing further
+// to do with the *VerifiedToken itself.
+//
+//	user, verifiedToken, err := jwt.VerifyAs[UserClaims](jwt.HS256, secretKey, tokenBytes)
+//	if err != nil {
+//	    return err
+//	}
+//
+// The *VerifiedToken is still returned, so callers that also need the raw Payload,
+// Header, or Signature are not forced to call Verify a second time.
+func VerifyAs[T any](alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (T, *VerifiedToken, error) {
+	var claims T
+
+	verifiedToken, err := Verify(alg, key, token, validators...)
+	if err != nil {
+		return claims, verifiedToken, err
+	}
+
+	claims, err = verifiedToken.ClaimsAs[T]()
+	return claims, verifiedToken, err
 }
 
 // VerifyEncrypted validates and decodes a JWT token with encrypted payload.
@@ -476,12 +499,16 @@ func verifyToken(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, heade
 		}
 	}
 
+	// decodeOptions (jwt.go), not the package-level Unmarshal: this is the fast path and
+	// doesn't need the "required" feature or the any-destination number hook, only the
+	// duplicate-key, invalid-UTF-8, and case-insensitive tolerance every payload decode
+	// needs.
 	var standardClaims Claims
-	standardClaimsErr := json.Unmarshal(payload, &standardClaims) // Use the standard one instead of the custom, no need to support "required" feature here.
+	standardClaimsErr := jsonv2.Unmarshal(payload, &standardClaims, decodeOptions) // Use the standard one instead of the custom, no need to support "required" feature here.
 	// Do not exist on this error now, the payload may not be a JSON one.
 	if standardClaimsErr != nil {
 		var secondChange claimsSecondChance // try again with a different structure, which always converted to the standard jwt claims.
-		if err = json.Unmarshal(payload, &secondChange); err != nil {
+		if err = jsonv2.Unmarshal(payload, &secondChange, decodeOptions); err != nil {
 			err = errPayloadNotJSON // allow validators to catch this error.
 		} else {
 			// The conversion has its own failure modes: a timestamp no int64 can hold, or
@@ -702,6 +729,23 @@ type VerifiedToken struct {
 //   - Validate custom claims as needed (standard claims are pre-validated)
 func (t *VerifiedToken) Claims(dest any) error {
 	return Unmarshal(t.Payload, dest)
+}
+
+// ClaimsAs is the generic form of Claims: it allocates a T, unmarshals the verified
+// payload into it, and returns the value directly instead of asking the caller to
+// declare a variable and pass its address.
+//
+//	user, err := verifiedToken.ClaimsAs[UserClaims]()
+//	if err != nil {
+//	    return err
+//	}
+//
+// Prefer Claims when decoding into an existing value (a pointer field, a value obtained
+// elsewhere) or when T should be a pointer type; ClaimsAs always returns T by value.
+func (t *VerifiedToken) ClaimsAs[T any]() (T, error) {
+	var dest T
+	err := t.Claims(&dest)
+	return dest, err
 }
 
 // errPayloadNotJSON indicates that a JWT payload is not valid JSON.

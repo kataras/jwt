@@ -315,9 +315,12 @@ with the wrong key, and a token whose payload was edited after signing.
 ## Replacing Marshal and Unmarshal
 
 Serialization goes through two more package variables. `Marshal` is a function value that
-passes a `[]byte` straight through and calls `json.Marshal` on anything else; `Unmarshal`
-is `defaultUnmarshal`, a `json.Decoder` with `UseNumber` enabled. Replacing either follows
-the same save-and-restore discipline as `Clock` and carries the same parallelism warning.
+passes a `[]byte` straight through and calls `encoding/json/v2`'s `Marshal` on anything
+else, with an option set chosen to match what `json.Marshal` produces; `Unmarshal` is
+`defaultUnmarshal`, an `encoding/json/v2` decode with a custom unmarshal hook that
+reproduces what `json.Decoder`'s `UseNumber` gave the package before Go 1.27. Replacing
+either follows the same save-and-restore discipline as `Clock` and carries the same
+parallelism warning.
 The usual reasons are counting how many times claims were decoded, injecting a decode
 failure that is otherwise hard to provoke, or checking that `jwt.UnmarshalWithRequired`
 really does reject a payload missing a required field.

@@ -25,9 +25,9 @@ Here is the whole type from `claims.go`, tags included:
 
 ```go
 type Claims struct {
-	NotBefore int64    `json:"nbf,omitempty"`
-	IssuedAt  int64    `json:"iat,omitempty"`
-	Expiry    int64    `json:"exp,omitempty"`
+	NotBefore int64    `json:"nbf,omitzero"`
+	IssuedAt  int64    `json:"iat,omitzero"`
+	Expiry    int64    `json:"exp,omitzero"`
 	ID        string   `json:"jti,omitempty"`
 	OriginID  string   `json:"origin_jti,omitempty"`
 	Issuer    string   `json:"iss,omitempty"`
@@ -35,6 +35,13 @@ type Claims struct {
 	Audience  Audience `json:"aud,omitempty"`
 }
 ```
+
+The three timestamp fields are `omitzero`, not `omitempty`. Under the encoding/json this
+package used through Go 1.26 the two are the same for a plain `int64`: both omit the Go
+zero value. They stop agreeing once `Marshal` moves to `encoding/json/v2` (below), because
+v2's `omitempty` only omits a value that already encodes to an empty JSON value, and a
+numeric `0` is not one of those. `omitzero` was chosen deliberately to keep an unset `exp`
+absent from the payload rather than emitting `"exp":0`.
 
 The Go names and the JSON names differ on purpose. The three-letter forms are what goes on
 the wire, because that is what RFC 7519 registered and what every other implementation looks
@@ -104,9 +111,11 @@ err = verified.Claims(&m)
 fmt.Printf("%T\n", m["iat"]) // json.Number
 ```
 
-Numbers come back as `json.Number`, not `float64`, because the default `Unmarshal` builds a
-`json.Decoder` and calls `UseNumber()` on it. Call `.Int64()` on the result rather than
-asserting to `float64`.
+Numbers come back as `json.Number`, not `float64`, because the default `Unmarshal` decodes
+through `encoding/json/v2` with a custom unmarshal hook that reproduces what
+`json.Decoder.UseNumber()` gave `encoding/json` (v1): a number decoded into an `any`
+destination stays a string-backed `json.Number` rather than losing precision to `float64`.
+Call `.Int64()` on the result rather than asserting to `float64`.
 
 ## Combining custom claims with standard ones
 

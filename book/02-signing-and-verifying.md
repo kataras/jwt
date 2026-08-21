@@ -358,18 +358,24 @@ var Marshal = func(v any) ([]byte, error) {
 		return b, nil
 	}
 
-	return json.Marshal(v)
+	return jsonv2.Marshal(v, marshalOptions)
 }
 ```
 
+`marshalOptions` runs on `encoding/json/v2` rather than `encoding/json`, chosen
+deliberately to reproduce `json.Marshal`'s output byte for byte: sorted map keys, the same
+HTML-sensitive character escaping, and the same leniency toward invalid UTF-8. The switch
+to `encoding/json/v2` is a speed change, not a behavior change.
+
 Three cases follow from those five lines.
 
-**A struct.** Tag the fields and `json.Marshal` handles it. Embed `jwt.Claims` to get the
-registered claims into the same object.
+**A struct.** Tag the fields and it marshals like `json.Marshal` would. Embed `jwt.Claims`
+to get the registered claims into the same object.
 
 **A map.** `jwt.Map` is `= map[string]any`, an alias, so any `map[string]any` works with no
-conversion. Key order in the payload is alphabetical, which is what `encoding/json` does
-with maps.
+conversion. Key order in the payload is alphabetical, matching what `encoding/json` does
+with maps (`marshalOptions` asks `encoding/json/v2` for the same sorted order explicitly,
+since sorting is opt-in there rather than the default).
 
 **Raw bytes.** A `[]byte` is returned unchanged and becomes the payload verbatim: the fast
 path for a payload you already hold, and unvalidated. This signs and hands out a token whose

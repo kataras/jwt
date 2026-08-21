@@ -68,9 +68,11 @@ func Base64Decode(src []byte) ([]byte, error) {
 
 The obvious alternative, appending `=` characters until the length divides by four, is a
 trap, and this package fell into it for years. Chapter 12 explains what went wrong: the
-short version is that `bytes.Split` hands back a final segment that still owns the whole
-token's spare capacity, so appending to it writes past the end of the caller's buffer.
-Trimming has no such problem, needs no allocation, and turned out to be faster.
+short version is that the functions splitting a token into its three parts (`bytes.Split`
+for a long time, `bytes.CutLast`/`bytes.Cut` since Go 1.27) hand back a final segment that
+still owns the whole token's spare capacity, so appending to it writes past the end of the
+caller's buffer. Trimming has no such problem, needs no allocation, and turned out to be
+faster.
 
 ## Taking a token apart in Go
 

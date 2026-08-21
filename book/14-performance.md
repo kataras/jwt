@@ -25,39 +25,39 @@ with the price attached, and finishes with the parts that are not worth touching
 ## The numbers on one machine
 
 Every figure in this chapter was measured on a Snapdragon X X1E80100, twelve cores,
-Windows 11, Go 1.26.5, `goos: windows` and `goarch: arm64`. Yours will differ. The ratios
+Windows 11, Go 1.27.0, `goos: windows` and `goarch: arm64`. Yours will differ. The ratios
 travel better than the absolute times.
 
 The package's own benchmarks, from `go test -bench=. -benchmem -run=XXX` in the repository
 root:
 
 ```text
-BenchmarkSignWithMerge-12            455037     2425 ns/op    1520 B/op    20 allocs/op
-BenchmarkSignWithoutMerge-12         444027     2947 ns/op    1705 B/op    25 allocs/op
-BenchmarkMerge-12                   2047495    570.2 ns/op     432 B/op     8 allocs/op
-BenchmarkStructToMapJSON-12          574880     1967 ns/op    1040 B/op    28 allocs/op
-BenchmarkStructToMapReflection-12   1000000     1189 ns/op     744 B/op    15 allocs/op
-BenchmarkEnrich-12                   210120     6506 ns/op    3259 B/op    43 allocs/op
-BenchmarkEncodeToken-12              581425     2027 ns/op     912 B/op    15 allocs/op
+BenchmarkSignWithMerge-12            950584     1379 ns/op    1657 B/op    22 allocs/op
+BenchmarkSignWithoutMerge-12         558975     2274 ns/op    1586 B/op    30 allocs/op
+BenchmarkMerge-12                   1742534      746.0 ns/op   568 B/op    10 allocs/op
+BenchmarkStructToMapJSON-12          634286     1894 ns/op     762 B/op    28 allocs/op
+BenchmarkStructToMapReflection-12   1000000     1285 ns/op     624 B/op    20 allocs/op
+BenchmarkEnrich-12                   403982     3277 ns/op    2777 B/op    39 allocs/op
+BenchmarkEncodeToken-12             1000000     1107 ns/op     888 B/op    16 allocs/op
 ```
 
 The comparison suite, from the same command in `_benchmarks`:
 
 ```text
-BenchmarkSign_Map-12               486244     2380 ns/op    1528 B/op    23 allocs/op
-BenchmarkSign_Struct-12            589917     2199 ns/op    1392 B/op    21 allocs/op
-BenchmarkSign_jwt_go_Map-12        359260     3511 ns/op    2377 B/op    37 allocs/op
-BenchmarkSign_jwt_go_Struct-12     445124     2934 ns/op    1913 B/op    27 allocs/op
-BenchmarkSign_jwt_go_Struct2-12    437682     2831 ns/op    1833 B/op    27 allocs/op
-BenchmarkSign_go_jose_Map-12       249398     5897 ns/op    4584 B/op    72 allocs/op
-BenchmarkSign_go_jose_Struct-12    171199     7982 ns/op    5944 B/op    93 allocs/op
-BenchmarkVerify-12                 469933     2681 ns/op    1376 B/op    18 allocs/op
-BenchmarkVerify_jwt_go-12          297790     4694 ns/op    3088 B/op    51 allocs/op
-BenchmarkVerify_go_jose-12         128449     8416 ns/op    5896 B/op    83 allocs/op
+BenchmarkSign_Map-12               694017     1868 ns/op    1441 B/op    27 allocs/op
+BenchmarkSign_Struct-12            754218     1566 ns/op    1520 B/op    23 allocs/op
+BenchmarkSign_jwt_go_Map-12        392374     2955 ns/op    2250 B/op    43 allocs/op
+BenchmarkSign_jwt_go_Struct-12     614936     2512 ns/op    1986 B/op    30 allocs/op
+BenchmarkSign_jwt_go_Struct2-12    667363     2185 ns/op    1826 B/op    30 allocs/op
+BenchmarkSign_go_jose_Map-12       345763     5158 ns/op    4584 B/op    72 allocs/op
+BenchmarkSign_go_jose_Struct-12    181594     6587 ns/op    5944 B/op    93 allocs/op
+BenchmarkVerify-12                1000000     1193 ns/op     968 B/op    12 allocs/op
+BenchmarkVerify_jwt_go-12          405441     3515 ns/op    2492 B/op    42 allocs/op
+BenchmarkVerify_go_jose-12         163896     6320 ns/op    5896 B/op    83 allocs/op
 ```
 
 Running that second command again, on the same machine and the same binary, moved
-`BenchmarkSign_Map` from 2380 to 3723 ns/op and `BenchmarkVerify` from 2681 to 2818. The
+`BenchmarkSign_Map` from 1883 to 2092 ns/op and `BenchmarkVerify` from 1211 to 1167. The
 byte and allocation columns did not move by a single unit. **Trust the allocation counts and
 treat the nanosecond figures as a range.** A change that removes an allocation is a real
 change; a change that shaves five percent off one run is probably the scheduler.
@@ -77,11 +77,11 @@ token the comparison suite uses:
 
 | Piece | Time | Allocations |
 | --- | --- | --- |
-| `Base64Decode` of one payload segment | 66 ns | 1 |
-| `Decode` of a whole token, all three segments | 314 ns | 5 |
-| HMAC-SHA256 over the signing input, fresh MAC per call | 1416 ns | 6 |
-| `Unmarshal` of a 47-byte payload into `Claims` | 1269 ns | 9 |
-| The whole of `Verify` | 2512 ns | 18 |
+| `Base64Decode` of one payload segment | 27 ns | 1 |
+| `Decode` of a whole token, all three segments | 159 ns | 4 |
+| HMAC-SHA256 over the signing input, fresh MAC per call | 425 ns | 7 |
+| `Unmarshal` of a 56-byte payload into `Claims` | 427 ns | 3 |
+| The whole of `Verify` | 1200 ns | 12 |
 
 Those parts add up to more than the whole, which is the honest result and worth saying
 plainly: a microbenchmark of a 66-nanosecond function is measuring its own loop as much as
@@ -176,7 +176,7 @@ keep the zero-copy form, because a lookup does not retain the string.
 every byte of it, and checks the revocation still matches.
 
 **Measure before you assume the tag is expensive.** Running the comparison suite with
-`-tags safe` gave `BenchmarkVerify` at 2569 ns/op, 1376 B/op, 18 allocs/op, which is inside
+`-tags safe` gave `BenchmarkVerify` at 1020 ns/op, 968 B/op, 12 allocs/op, which is inside
 the run-to-run variation of the default build for this workload. If you cannot audit every
 caller that hands this package a reused buffer, build with `-tags safe` and spend the
 difference elsewhere.
@@ -196,9 +196,9 @@ combined = bytes.Join([][]byte{[]byte("{"), bytes.Join(parts, []byte(",")), []by
 
 Never unmarshalled, never re-marshalled. The repository benchmarks the three approaches
 side by side, which is how the decision was made in the first place: `BenchmarkMerge` at
-570 ns and 8 allocations, against 1967 ns and 28 allocations through a map, and 1189 ns and
-15 allocations through reflection. End to end, `BenchmarkSignWithMerge` runs at 2425 ns and
-20 allocations where `BenchmarkSignWithoutMerge` needs 2947 ns and 25.
+746 ns and 10 allocations, against 1894 ns and 28 allocations through a map, and 1285 ns and
+20 allocations through reflection. End to end, `BenchmarkSignWithMerge` runs at 1379 ns and
+22 allocations where `BenchmarkSignWithoutMerge` needs 2274 ns and 30.
 
 The cost is duplicate keys. Merging `{"role":"admin"}` with `{"role":"user"}` produces
 `{"role":"admin","role":"user"}`. That is well-formed JSON, and RFC 8259 declines to say
@@ -221,9 +221,14 @@ var Marshal = func(v any) ([]byte, error) {
 		return b, nil
 	}
 
-	return json.Marshal(v)
+	return jsonv2.Marshal(v, marshalOptions)
 }
 ```
+
+Since Go 1.27 the non-`[]byte` case runs on `encoding/json/v2` rather than `encoding/json`,
+with an option set chosen to match `json.Marshal`'s output byte for byte: sorted map keys,
+the same character escaping, the same leniency toward invalid UTF-8. The move to v2 buys
+speed without changing what gets signed.
 
 `Merge` returns `[]byte`, `Sign` hands its claims to `Marshal`, and the payload therefore
 reaches the encoder without a second serialization. It also means you can cache a payload:
@@ -251,11 +256,13 @@ func Base64Decode(src []byte) ([]byte, error) {
 }
 ```
 
-Trimming rather than appending was a correctness fix first. `bytes.Split` does not cap the
-capacity of the last part it returns, so the signature segment of a token still owns the
-token's spare capacity, and appending to it wrote past the end of the caller's buffer. With
-a pooled HTTP read buffer, which is how most servers hand a token to this package, that is a
-write into memory the next request is about to use.
+Trimming rather than appending was a correctness fix first. The functions that split a
+token into its three parts (`bytes.Split` for a long time, `bytes.CutLast`/`bytes.Cut`
+since Go 1.27) do not cap the capacity of the last part they return, so the signature
+segment of a token still owns the token's spare capacity, and appending to it wrote past
+the end of the caller's buffer. With a pooled HTTP read buffer, which is how most servers
+hand a token to this package, that is a write into memory the next request is about to
+use.
 
 It was also faster, and by more than anyone expected. `bytes.TrimRight` returns a sub-slice
 and allocates nothing, `RawURLEncoding` needs no padding, and `DecodedLen` on the trimmed
@@ -277,16 +284,16 @@ nothing matches, so the tests do not run and their time stays out of the result.
 `b.ReportAllocs()` and put `b.ResetTimer()` after any setup, or the key you generated in the
 benchmark body ends up in the measurement.
 
-The counts to expect, on the small token these benchmarks use: 18 allocations to verify with
-HS256, 21 to sign a struct, 23 to sign a map. If yours are much higher, look at your claims
+The counts to expect, on the small token these benchmarks use: 12 allocations to verify with
+HS256, 23 to sign a struct, 27 to sign a map. If yours are much higher, look at your claims
 type before you look at the package. A map costs more than a struct because `encoding/json`
 sorts the keys and boxes every value. A struct with twenty fields costs more than one with
 four. A `time.Time` field costs more than an `int64`.
 
 For comparing two versions of your own code, run each with `-count=10` and put the output
 through `benchstat`. A single pair of runs cannot tell a five percent change from noise, and
-this chapter's own second run is the proof: the same binary, the same machine, 2380 ns and
-then 3723 ns for the same benchmark.
+this chapter's own second run is the proof: the same binary, the same machine, 1883 ns and
+then 2092 ns for the same benchmark.
 
 ## What not to optimise
 
@@ -295,17 +302,17 @@ Verification of the same small token, by algorithm:
 
 | Algorithm | Verify | Allocations |
 | --- | --- | --- |
-| HS256 | 2512 ns | 18 |
-| RS256 | 38108 ns | 22 |
-| EdDSA | 46887 ns | 12 |
-| ES256 | 54032 ns | 34 |
+| HS256 | 915 ns | 11 |
+| RS256 | 27178 ns | 16 |
+| EdDSA | 34546 ns | 5 |
+| ES256 | 43500 ns | 27 |
 
-Signing with RS256 measured 1522261 ns, a little over 1.5 milliseconds. That is the RSA
+Signing with RS256 measured 1165527 ns, a little over 1.1 milliseconds. That is the RSA
 asymmetry doing its usual thing: verification uses a public exponent of 65537 and is cheap,
-signing uses the private exponent and is not, and the gap here is a factor of forty.
+signing uses the private exponent and is not, and the gap here is a factor of forty-three.
 
 Read the RS256 row against the HS256 row. The package's own work is identical in both and
-runs on the order of a microsecond; the extra 35 microseconds is the RSA verification
+runs on the order of a microsecond; the extra 26 microseconds is the RSA verification
 itself, modular arithmetic in `crypto/rsa`. Shaving another allocation off the parsing path
 would move an RSA verification by well under one percent, and an RSA signing by roughly
 nothing.
@@ -313,8 +320,8 @@ nothing.
 So do not tune the library for an RSA workload. Tune the number of RSA operations. Verify
 once per request rather than once per handler. Give access tokens a short life and a cheap
 algorithm and keep RSA for the refresh path. If you control both ends, EdDSA verification
-costs about the same as RS256 here while using twelve allocations instead of twenty-two, and
-EdDSA signing measured 23348 ns against RS256's 1522261, a factor of sixty-five.
+costs about the same as RS256 here while using five allocations instead of sixteen, and
+EdDSA signing measured 14989 ns against RS256's 1165527, a factor of seventy-eight.
 
 The other thing not worth optimising is the constant-time comparison in the HMAC path. It is
 there so that a wrong signature takes the same time to reject as a nearly-right one, and
@@ -327,14 +334,14 @@ replacing it with `bytes.Equal` would buy nanoseconds and sell an oracle.
 
 | Package | Verify | Bytes | Allocations |
 | --- | --- | --- | --- |
-| `kataras/jwt` | 2681 ns | 1376 | 18 |
-| `golang-jwt/jwt` | 4694 ns | 3088 | 51 |
-| `go-jose/go-jose` | 8416 ns | 5896 | 83 |
+| `kataras/jwt` | 1193 ns | 968 | 12 |
+| `golang-jwt/jwt` | 3515 ns | 2492 | 42 |
+| `go-jose/go-jose` | 6320 ns | 5896 | 83 |
 
-The second run gave 2818, 5198 and 8624 for the same three. The timing ratio is not a fixed
+The second run gave 1211, 3464 and 6919 for the same three. The timing ratio is not a fixed
 multiple and this book will not quote one. The allocation ratio held exactly across both
-runs, and that is the number worth carrying: a little over a third of `golang-jwt`'s
-allocations and under a quarter of `go-jose`'s.
+runs, and that is the number worth carrying: a little over a quarter of `golang-jwt`'s
+allocations and under a sixth of `go-jose`'s.
 
 Two caveats belong next to those figures. `go-jose`'s `ParseSigned` does not verify anything;
 the benchmark has to call `Claims` afterwards to force the signature check, so the two sides
@@ -344,10 +351,10 @@ has not been measured here.
 
 ## Summary
 
-Signing a struct with HS256 took about 2.2 microseconds and 21 allocations on the machine
-named above; verifying took about 2.7 microseconds and 18 allocations. Timings moved by up
-to a third between two runs of the same binary while allocation counts did not move at all,
-so allocations are the metric to hold a change to.
+Signing a struct with HS256 took about 1.6 microseconds and 23 allocations on the machine
+named above; verifying took about 1.2 microseconds and 12 allocations. Timings moved by
+roughly ten percent between two runs of the same binary while allocation counts did not
+move at all, so allocations are the metric to hold a change to.
 
 Inside a verification, base64 decoding is noise and the MAC and the JSON unmarshal are
 roughly equal halves of the cost. Four decisions buy the rest: a precomputed header table,
@@ -357,8 +364,8 @@ blocklist; a `Merge` that splices raw JSON and therefore emits duplicate keys ra
 resolving them; and a `Base64Decode` that trims padding, which removed four allocations from
 every verification and fixed a write past the end of the caller's buffer at the same time.
 
-Above HMAC, the signature dominates everything else. RS256 verification measured 38
-microseconds against HS256's 2.5, and RS256 signing 1.5 milliseconds. Optimise the number of
+Above HMAC, the signature dominates everything else. RS256 verification measured 27
+microseconds against HS256's 0.9, and RS256 signing 1.2 milliseconds. Optimise the number of
 those operations rather than the code around them.
 
 ## Further Reading

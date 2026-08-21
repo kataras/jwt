@@ -168,14 +168,20 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 		return nil, nil, nil, ErrTokenSize
 	}
 
-	parts := bytes.Split(token, sep)
-	if len(parts) != 3 {
+	// CutLast splits at the last dot (the signature separator), then Cut splits what
+	// remains at the first dot (the header/payload separator). A payload containing a
+	// further dot after that first cut means the token had more than three parts, which
+	// bytes.Split's len(parts) != 3 check used to catch; checking payload here catches it
+	// the same way, since header can never itself contain the leftover dot in that case.
+	headerPayload, signature, ok := bytes.CutLast(token, sep)
+	if !ok {
 		return nil, nil, nil, ErrTokenForm
 	}
 
-	header := parts[0]
-	payload := parts[1]
-	signature := parts[2]
+	header, payload, ok := bytes.Cut(headerPayload, sep)
+	if !ok || bytes.IndexByte(payload, '.') >= 0 {
+		return nil, nil, nil, ErrTokenForm
+	}
 
 	headerDecoded, err := Base64Decode(header)
 	if err != nil {
@@ -219,8 +225,10 @@ func decodeToken(alg Alg, key PublicKey, token []byte, compareHeaderFunc HeaderV
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// validate signature.
-	headerPayload := joinParts(header, payload)
+
+	// validate signature. headerPayload is already header+"."+payload as they sat in the
+	// original token, so no re-join is needed here: CutLast/Cut return slices of the
+	// original slice, not copies.
 	if err := alg.Verify(key, headerPayload, signatureDecoded); err != nil {
 		return nil, nil, nil, err
 	}
@@ -604,14 +612,15 @@ func Decode(token []byte) (*UnverifiedToken, error) {
 		return nil, ErrTokenSize
 	}
 
-	parts := bytes.Split(token, sep)
-	if len(parts) != 3 {
+	headerPayload, signature, ok := bytes.CutLast(token, sep)
+	if !ok {
 		return nil, ErrTokenForm
 	}
 
-	header := parts[0]
-	payload := parts[1]
-	signature := parts[2]
+	header, payload, ok := bytes.Cut(headerPayload, sep)
+	if !ok || bytes.IndexByte(payload, '.') >= 0 {
+		return nil, ErrTokenForm
+	}
 
 	headerDecoded, err := Base64Decode(header)
 	if err != nil {
@@ -741,6 +750,20 @@ type UnverifiedToken struct {
 //	fmt.Printf("Expires: %v\n", registered.ExpiresAt)
 func (t *UnverifiedToken) Claims(dest any) error {
 	return Unmarshal(t.Payload, dest)
+}
+
+// ClaimsAs is the generic form of Claims: it allocates a T, unmarshals the (unverified)
+// payload into it, and returns the value directly instead of asking the caller to declare
+// a variable and pass its address.
+//
+//	claims, err := unverified.ClaimsAs[jwt.Map]()
+//
+// The same SECURITY WARNING on UnverifiedToken applies: nothing about this method
+// verifies the signature.
+func (t *UnverifiedToken) ClaimsAs[T any]() (T, error) {
+	var dest T
+	err := t.Claims(&dest)
+	return dest, err
 }
 
 type headerWithAlg struct {

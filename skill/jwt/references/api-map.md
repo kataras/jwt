@@ -24,11 +24,13 @@ JSON object, or anything `json.Marshal`-able. A raw, non-JSON `claims` value (pl
 | Symbol | Signature | Purpose |
 | --- | --- | --- |
 | `jwt.Verify` | `func Verify(alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (*VerifiedToken, error)` | Check the token's header against `alg`, verify the signature with `key`, parse and time-validate standard claims, run `validators` in order |
+| `jwt.VerifyAs` | `func VerifyAs[T any](alg Alg, key PublicKey, token []byte, validators ...TokenValidator) (T, *VerifiedToken, error)` | `Verify` followed by `ClaimsAs[T]`; returns the decoded claims and the `*VerifiedToken` together |
 | `jwt.VerifyEncrypted` | `func VerifyEncrypted(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, validators ...TokenValidator) (*VerifiedToken, error)` | Same, decrypting the payload with `decrypt` after signature verification and before parsing claims |
 | `jwt.VerifyWithHeaderValidator` | `func VerifyWithHeaderValidator(alg Alg, key PublicKey, token []byte, headerValidator HeaderValidator, validators ...TokenValidator) (*VerifiedToken, error)` | Same, using `headerValidator` instead of the package-level `CompareHeader`; pass `alg`/`key` as `nil` to let the validator supply both (this is how `Keys.VerifyToken` selects a key by `kid`) |
 | `jwt.VerifyEncryptedWithHeaderValidator` | `func VerifyEncryptedWithHeaderValidator(alg Alg, key PublicKey, decrypt InjectFunc, token []byte, headerValidator HeaderValidator, validators ...TokenValidator) (*VerifiedToken, error)` | Both of the above combined |
 | `jwt.VerifiedToken` | `struct { Token, Header, Payload, Signature []byte; StandardClaims Claims }` | Returned on success; `Header`/`Payload`/`Signature` are base64url-decoded, `Payload` is post-decryption if applicable |
 | `(*VerifiedToken).Claims` | `func (t *VerifiedToken) Claims(dest any) error` | Unmarshal `Payload` into `dest` via the package-level `Unmarshal` var |
+| `(*VerifiedToken).ClaimsAs` | `func (t *VerifiedToken) ClaimsAs[T any]() (T, error)` | Generic form of `Claims`; allocates a `T`, decodes into it, returns it by value |
 | `jwt.Plain` | `var Plain TokenValidatorFunc` | Pass as a validator to accept a token whose payload is not JSON; `Claims()`/`StandardClaims` are unusable afterward, read `Payload` directly |
 
 `Verify` returns `ErrMissing` for an empty/nil `token` before attempting to parse anything.
@@ -37,7 +39,7 @@ JSON object, or anything `json.Marshal`-able. A raw, non-JSON `claims` value (pl
 
 | Symbol | Signature | Purpose |
 | --- | --- | --- |
-| `jwt.Claims` | `struct { NotBefore, IssuedAt, Expiry int64 "json:\"nbf,omitempty\"/\"iat,omitempty\"/\"exp,omitempty\""; ID, OriginID string "jti"/"origin_jti"; Issuer, Subject string "iss"/"sub"; Audience Audience "aud" }` | The registered claims; implements `SignOption` (`ApplyClaims` copies only its non-zero fields into the destination) |
+| `jwt.Claims` | `struct { NotBefore, IssuedAt, Expiry int64 "json:\"nbf,omitzero\"/\"iat,omitzero\"/\"exp,omitzero\""; ID, OriginID string "jti"/"origin_jti"; Issuer, Subject string "iss"/"sub"; Audience Audience "aud" }` | The registered claims; implements `SignOption` (`ApplyClaims` copies only its non-zero fields into the destination). The three timestamp fields are `omitzero`, not `omitempty`: required once `Marshal` moved to `encoding/json/v2`, since v2's `omitempty` does not consider a numeric zero empty |
 | `(Claims).Age` | `func (c Claims) Age() time.Duration` | `Expiry - IssuedAt`, the designed lifetime, not remaining time |
 | `(Claims).ExpiresAt` | `func (c Claims) ExpiresAt() time.Time` | `time.Unix(c.Expiry, 0)` |
 | `(Claims).Timeleft` | `func (c Claims) Timeleft() time.Duration` | `Expiry - Clock().Unix()`; negative once expired |
@@ -60,8 +62,8 @@ JSON object, or anything `json.Marshal`-able. A raw, non-JSON `claims` value (pl
 | `jwt.Merge` | `func Merge(values ...any) ([]byte, error)` | Splices N JSON objects (struct, map, `[]byte`, `string`, or `json.Marshaler`) into one; later duplicate keys win; what `Sign` uses internally to combine `claims` with the accumulated `SignOption` result |
 | `jwt.ErrNotJSONObject` | `var ErrNotJSONObject error` | From `Merge` when a value does not marshal to a JSON object |
 | `jwt.Clock` | `var Clock func() time.Time = time.Now` | Every expiry/nbf/iat check and every `MaxAge`/`Leeway`/`Skew` calculation reads this; override for deterministic tests, restore afterward |
-| `jwt.Marshal` | `var Marshal func(v any) ([]byte, error)` | Used to encode the payload; default passes `[]byte` through untouched, otherwise `json.Marshal` |
-| `jwt.Unmarshal` | `var Unmarshal func(data []byte, v any) error = defaultUnmarshal` | Used by `VerifiedToken.Claims`/`UnverifiedToken.Claims`; default decodes with `json.Decoder.UseNumber()` |
+| `jwt.Marshal` | `var Marshal func(v any) ([]byte, error)` | Used to encode the payload; default passes `[]byte` through untouched, otherwise `encoding/json/v2` with an option set chosen to reproduce `json.Marshal`'s (v1) byte-for-byte output |
+| `jwt.Unmarshal` | `var Unmarshal func(data []byte, v any) error = defaultUnmarshal` | Used by `VerifiedToken.Claims`/`UnverifiedToken.Claims` (and their `ClaimsAs[T]` wrappers); default decodes with `encoding/json/v2` plus a custom unmarshal hook that reproduces `json.Decoder.UseNumber()` for an `any` destination (numbers stay `json.Number`, not `float64`), and tolerates duplicate keys and case-differing standard claim names, matching v1's own behavior |
 | `jwt.UnmarshalWithRequired` | `func UnmarshalWithRequired(payload []byte, dest any) error` | Drop-in replacement for `Unmarshal` that also enforces `json:"field,required"` tags on `dest`, recursing into embedded structs |
 | `jwt.HasRequiredJSONTag` | `func HasRequiredJSONTag(field reflect.StructField) bool` | True if an exported field's `json` tag contains `,required` |
 | `jwt.ErrMissingKey` | `var ErrMissingKey error` | From `UnmarshalWithRequired` when a required field is zero-valued or absent |
@@ -193,7 +195,7 @@ for AWS Cognito specifically.
 | `jwt.NewTokenPair` | `func NewTokenPair(accessToken, refreshToken []byte) TokenPair` | Wraps two already-signed tokens; an empty argument is left out of the JSON |
 | `jwt.SignedPair` | `struct { AccessToken, RefreshToken []byte; AccessClaims, RefreshClaims Claims }` | Result of signing a linked pair |
 | `(SignedPair).TokenPair` | `func (p SignedPair) TokenPair() TokenPair` | Converts to the response shape |
-| `jwt.PairOptions` | `struct { AccessKID, RefreshKID string; AccessOptions, RefreshOptions []SignOption; GenerateID func() (string, error); Unlinked bool }` | `RefreshKID` defaults to `AccessKID` when empty (package-level `SignPair` ignores both); `GenerateID` defaults to 128 bits of base64url randomness; `Unlinked` skips setting the refresh token's `"origin_jti"` |
+| `jwt.PairOptions` | `struct { AccessKID, RefreshKID string; AccessOptions, RefreshOptions []SignOption; GenerateID func() (string, error); Unlinked bool }` | `RefreshKID` defaults to `AccessKID` when empty (package-level `SignPair` ignores both); `GenerateID` defaults to a version 7 UUID (time-ordered, from the stdlib `uuid` package); `Unlinked` skips setting the refresh token's `"origin_jti"` |
 | `jwt.SignPair` | `func SignPair(alg Alg, key PrivateKey, claims any, opts PairOptions) (SignedPair, error)` | Signs both halves with one key; generates and links `"jti"`/`"origin_jti"` unless `Unlinked` |
 | `(Keys).SignPair` | `func (keys Keys) SignPair(claims any, opts PairOptions) (SignedPair, error)` | Same, routed through the registry so each half can use its own `kid`; requires `opts.AccessKID` |
 
@@ -212,6 +214,7 @@ for AWS Cognito specifically.
 | `jwt.Decode` | `func Decode(token []byte) (*UnverifiedToken, error)` | Splits and base64url-decodes the three segments; performs no signature check and no claims validation whatsoever |
 | `jwt.UnverifiedToken` | `struct { Header, Payload, Signature []byte }` | |
 | `(*UnverifiedToken).Claims` | `func (t *UnverifiedToken) Claims(dest any) error` | Unmarshal the (unverified) payload |
+| `(*UnverifiedToken).ClaimsAs` | `func (t *UnverifiedToken) ClaimsAs[T any]() (T, error)` | Generic form of `Claims`; same SECURITY WARNING applies |
 | `(*UnverifiedToken).Alg` | `func (t *UnverifiedToken) Alg() (Alg, error)` | Reads `"alg"` from the header and resolves it against the built-in algorithm list; errors for a custom `Alg` not in that list |
 | `(*UnverifiedToken).Kid` | `func (t *UnverifiedToken) Kid() (string, error)` | Reads `"kid"` from the header |
 

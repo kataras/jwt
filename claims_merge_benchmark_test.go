@@ -154,7 +154,7 @@ func structToMapReflection(i any) (Map, error) {
 	m := make(map[string]any, n)
 
 	typ := v.Type()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fieldTyp := typ.Field(i)
 		if fieldTyp.PkgPath != "" {
 			continue

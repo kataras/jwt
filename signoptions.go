@@ -15,7 +15,7 @@ import "time"
 //	    jwt.MaxAge(15*time.Minute),
 //	    jwt.Issuer("auth.example.com"),
 //	    jwt.Subject(user.ID),
-//	    jwt.ID(uuid.NewString()),
+//	    jwt.ID(uuid.NewV7().String()),
 //	)
 
 // ID sets the "jti" claim, the token's unique identifier.

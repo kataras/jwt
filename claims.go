@@ -126,17 +126,17 @@ type Claims struct {
 	// NotBefore represents the "nbf" (not before) claim as Unix timestamp.
 	// Defines the earliest time the token is considered valid. Tokens cannot
 	// be accepted before this time to prevent premature usage.
-	NotBefore int64 `json:"nbf,omitempty"`
+	NotBefore int64 `json:"nbf,omitzero"`
 
 	// IssuedAt represents the "iat" (issued at) claim as Unix timestamp.
 	// Records when the token was created. Used for age validation and
 	// detecting tokens issued in the future.
-	IssuedAt int64 `json:"iat,omitempty"`
+	IssuedAt int64 `json:"iat,omitzero"`
 
 	// Expiry represents the "exp" (expiration) claim as Unix timestamp.
 	// Defines when the token becomes invalid. Critical for security
 	// as it limits token lifetime and prevents indefinite usage.
-	Expiry int64 `json:"exp,omitempty"`
+	Expiry int64 `json:"exp,omitzero"`
 
 	// ID represents the "jti" (JWT ID) claim.
 	// Unique identifier for this token, useful for tracking, blacklisting,

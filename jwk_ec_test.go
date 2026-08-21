@@ -30,7 +30,7 @@ func TestGenerateJWKECFixedWidthCoordinates(t *testing.T) {
 			// byte in a coordinate, so a run this short will not reliably hit the
 			// short-encoding case on its own. TestGenerateJWKECLeadingZeroCoordinate
 			// below covers that deterministically.
-			for i := 0; i < 32; i++ {
+			for range 32 {
 				privateKey, err := ecdsa.GenerateKey(tt.curve, rand.Reader)
 				if err != nil {
 					t.Fatalf("generate %s key: %v", tt.crv, err)

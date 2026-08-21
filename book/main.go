@@ -12,7 +12,7 @@
 //
 // What a maintainer has to supply:
 //
-//   - Go 1.26 or newer.
+//   - Go 1.27 or newer.
 //   - A Chromium-family browser, for the PDF only. Without one, -format html still works.
 //   - assets/paged.polyfill.js, which paginates the HTML into pages with running headers
 //     and a real page count. Without it the HTML renders as one long scroll and the PDF

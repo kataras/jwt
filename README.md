@@ -51,7 +51,7 @@ no browser. See [book/README_EBOOK.md](book/README_EBOOK.md).
 
 ## Installation
 
-The only requirement is the [Go Programming Language](https://go.dev/dl/).
+The only requirement is [Go](https://go.dev/dl/) 1.27 or newer.
 
 ```sh
 $ go get github.com/kataras/jwt@latest
@@ -137,6 +137,20 @@ func main() {
 
 	print(claims.Foo)
 }
+```
+
+`verifiedToken.Claims(&claims)` above has a generic form, `ClaimsAs[T]`, that returns the
+decoded value directly instead of taking a destination pointer:
+
+```go
+claims, err := verifiedToken.ClaimsAs[FooClaims]()
+```
+
+`jwt.VerifyAs[T]` combines `Verify` and `ClaimsAs[T]` into one call for the common case
+where nothing else about the `*VerifiedToken` is needed:
+
+```go
+claims, verifiedToken, err := jwt.VerifyAs[FooClaims](jwt.HS256, sharedKey, token)
 ```
 
 The package contains comments on each one of its exported functions, structures and variables, therefore, for a more detailed technical documentation please refer to [godocs](https://pkg.go.dev/github.com/kataras/jwt).
@@ -231,11 +245,11 @@ type Claims struct {
     // This claim sets the exact moment from which this JWT is considered valid.
     // The current time (see `Clock` package-level variable)
     // must be equal to or later than this date and time.
-    NotBefore int64 `json:"nbf,omitempty"`
+    NotBefore int64 `json:"nbf,omitzero"`
 
     // A number representing a specific date and time (in the same
     // format as exp and nbf) at which this JWT was issued.
-    IssuedAt int64 `json:"iat,omitempty"`
+    IssuedAt int64 `json:"iat,omitzero"`
 
     // A number representing a specific date and time in the
     // format “seconds since epoch” as defined by POSIX6.
@@ -244,7 +258,7 @@ type Claims struct {
     // allow for a certain skew between clocks
     // (by considering this JWT to be valid for a few minutes
     // after the expiration date, modify the `Clock` variable).
-    Expiry int64 `json:"exp,omitempty"`
+    Expiry int64 `json:"exp,omitzero"`
 
     // A string representing a unique identifier for this JWT.
     // This claim may be used to differentiate JWTs with
