@@ -823,6 +823,23 @@ func convertJWKToPublicKeyEC(jwk *JWK) (*ecdsa.PublicKey, error) {
 		return nil, fmt.Errorf("invalid key type: expected EC")
 	}
 
+	// Determine the elliptic curve and the fixed width of one coordinate,
+	// which is ceil(BitSize/8) for each of these curves.
+	var (
+		curve elliptic.Curve
+		size  int
+	)
+	switch jwk.Crv {
+	case "P-256":
+		curve, size = elliptic.P256(), 32
+	case "P-384":
+		curve, size = elliptic.P384(), 48
+	case "P-521":
+		curve, size = elliptic.P521(), 66
+	default:
+		return nil, fmt.Errorf("unsupported elliptic curve")
+	}
+
 	// Decode x and y coordinates
 	xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
 	if err != nil {
@@ -834,28 +851,24 @@ func convertJWKToPublicKeyEC(jwk *JWK) (*ecdsa.PublicKey, error) {
 		return nil, fmt.Errorf("failed to decode y-coordinate")
 	}
 
-	// Convert x and y to big.Int
-	x := new(big.Int).SetBytes(xBytes)
-	y := new(big.Int).SetBytes(yBytes)
-
-	// Determine the elliptic curve
-	var curve elliptic.Curve
-	switch jwk.Crv {
-	case "P-256":
-		curve = elliptic.P256()
-	case "P-384":
-		curve = elliptic.P384()
-	case "P-521":
-		curve = elliptic.P521()
-	default:
-		return nil, fmt.Errorf("unsupported elliptic curve")
+	if len(xBytes) > size || len(yBytes) > size {
+		return nil, fmt.Errorf("invalid coordinate length for curve %s", jwk.Crv)
 	}
 
-	// Reconstruct the public key
-	publicKey := &ecdsa.PublicKey{
-		Curve: curve,
-		X:     x,
-		Y:     y,
+	// Rebuild the SEC 1 uncompressed point, 0x04 || X || Y, and let crypto/ecdsa
+	// parse it. RFC 7518 section 6.2.1.2 asks for both coordinates at the full
+	// width of the curve, but a producer that encodes them minimally emits a short
+	// one for roughly one key in 256 on P-256, so left-pad rather than reject.
+	point := make([]byte, 1+2*size)
+	point[0] = 4
+	copy(point[1+size-len(xBytes):], xBytes)
+	copy(point[1+2*size-len(yBytes):], yBytes)
+
+	// ParseUncompressedPublicKey rejects a point that is not on the curve, which
+	// the raw X and Y assignment it replaces did not.
+	publicKey, err := ecdsa.ParseUncompressedPublicKey(curve, point)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s public key: %w", jwk.Crv, err)
 	}
 
 	return publicKey, nil

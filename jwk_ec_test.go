@@ -101,6 +101,81 @@ func TestGenerateJWKECLeadingZeroCoordinate(t *testing.T) {
 	}
 }
 
+// TestConvertJWKToPublicKeyECRejectsOffCurvePoint pins what parsing the coordinates
+// through crypto/ecdsa buys over assigning them to the deprecated X and Y fields: a
+// pair of integers that is not a point on the curve is refused rather than turned into
+// an ecdsa.PublicKey that every later operation misbehaves on.
+func TestConvertJWKToPublicKeyECRejectsOffCurvePoint(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jwk, err := GenerateJWK("k", "ES256", &privateKey.PublicKey)
+	if err != nil {
+		t.Fatalf("GenerateJWK: %v", err)
+	}
+
+	// Flip the low bit of y. x is still a real coordinate and the widths are still
+	// right, so nothing but the curve equation can tell this apart from a real key.
+	y, err := base64.RawURLEncoding.DecodeString(jwk.Y)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y[len(y)-1] ^= 0x01
+	jwk.Y = base64.RawURLEncoding.EncodeToString(y)
+
+	if _, err := convertJWKToPublicKeyEC(jwk); err == nil {
+		t.Fatal("a point that is not on P-256 was accepted")
+	}
+}
+
+// TestConvertJWKToPublicKeyECAcceptsShortCoordinate covers the other half of the
+// coordinate handling: RFC 7518 asks for the full width of the curve, but a producer
+// that encodes minimally emits a short "x" for roughly one P-256 key in 256, and those
+// JWKs have to keep parsing.
+func TestConvertJWKToPublicKeyECAcceptsShortCoordinate(t *testing.T) {
+	// The same P-256 point as TestGenerateJWKECLeadingZeroCoordinate, whose x begins
+	// with a zero byte.
+	const uncompressed = "04" +
+		"000c34640140796806b4aca20b4605a149f658c3ffbb7e1c0c0f7799c5143cb6" +
+		"33fa2119479f4ccb0c202c419d5c2166f535e5d1d56f1d68d0fb4d9eb93b04bd"
+
+	point, err := hex.DecodeString(uncompressed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	publicKey, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// x without its leading zero byte, which is what big.Int.Bytes() would have emitted.
+	jwk := &JWK{
+		Kty: "EC",
+		Crv: "P-256",
+		X:   base64.RawURLEncoding.EncodeToString(point[2:33]),
+		Y:   base64.RawURLEncoding.EncodeToString(point[33:]),
+	}
+
+	back, err := convertJWKToPublicKeyEC(jwk)
+	if err != nil {
+		t.Fatalf("a minimally encoded x was rejected: %v", err)
+	}
+
+	if !publicKey.Equal(back) {
+		t.Fatal("the left-padded x parsed to a different key")
+	}
+
+	// A coordinate wider than the curve is a different matter: nothing legitimate
+	// produces one, and left-padding cannot make sense of it.
+	jwk.X = base64.RawURLEncoding.EncodeToString(append([]byte{0x00}, point[1:33]...))
+	if _, err := convertJWKToPublicKeyEC(jwk); err == nil {
+		t.Fatal("a 33-byte x was accepted for P-256")
+	}
+}
+
 // assertCoordinate decodes a base64url JWK coordinate and reports it unless its
 // length differs from want.
 func assertCoordinate(t *testing.T, name, encoded string, want int) []byte {

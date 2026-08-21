@@ -6082,17 +6082,6 @@ with the price attached, and finishes with the parts that are not worth touching
 Windows 11, Go 1.27.0, <code>goos: windows</code> and <code>goarch: arm64</code>. Yours will differ. The ratios
 travel better than the absolute times.</p>
 
-<p><strong>These figures moved since the previous edition (Go 1.26.5), for two independent
-reasons.</strong> <code>Verify</code>&rsquo;s allocation count dropped because this package&rsquo;s own code changed:
-<code>bytes.CutLast</code>/<code>bytes.Cut</code> replaced <code>bytes.Split</code> in the token-splitting path (Chapter 1),
-and the default <code>Marshal</code>/<code>Unmarshal</code> moved to <code>encoding/json/v2</code> (below). <code>Sign</code>&rsquo;s
-allocation count on a <code>map[string]any</code> payload rose slightly even though nothing this
-package does changed, because Go 1.27&rsquo;s own <code>encoding/json</code> is now implemented in terms of
-<code>encoding/json/v2</code> with a compatibility-option layer, and that layer costs a little more
-for a map-shaped marshal than the Go 1.26 implementation did. Moving <code>Sign</code>&rsquo;s own call
-site directly onto <code>encoding/json/v2</code> (below) recovered the speed but not the allocation
-count.</p>
-
 <p>The package&rsquo;s own benchmarks, from <code>go test -bench=. -benchmem -run=XXX</code> in the repository
 root:</p>
 <pre class="code lang-text"><code>BenchmarkSignWithMerge-12            950584     1379 ns/op    1657 B/op    22 allocs/op

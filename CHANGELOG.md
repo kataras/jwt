@@ -67,6 +67,16 @@ own: an unset `exp` was left out of the payload before this release and still is
 `keyset_test.go`, and range-over-integer in place of a handful of counted `for` loops.
 None change behavior; all are the modernizer's own rewrite, reviewed and kept.
 
+**An EC JWK is parsed with `ecdsa.ParseUncompressedPublicKey` rather than by assigning
+`X` and `Y`.** Go 1.26 deprecated both fields, so the old code was an SA1019 lint failure
+under this toolchain, and the replacement is better than a silenced warning:
+`convertJWKToPublicKey` now rebuilds the SEC 1 uncompressed point and hands it to
+`crypto/ecdsa`, which **rejects a point that is not on the curve**. A malformed or hostile
+JWKS entry that used to become an `*ecdsa.PublicKey` and fail later, unpredictably, now
+fails at the point it is read. A coordinate encoded minimally rather than at the full width
+RFC 7518 asks for is still accepted, left-padded as before; one wider than the curve is
+refused. See `TestConvertJWKToPublicKeyECRejectsOffCurvePoint`.
+
 ### Upgrading
 
 Bump your own `go` directive to at least 1.27 before requiring this version. If anything
