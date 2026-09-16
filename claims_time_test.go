@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -123,6 +124,54 @@ func TestRequireExpiry(t *testing.T) {
 
 	if _, err = Verify(HS256, testSecret, withExpiry, RequireExpiry); err != nil {
 		t.Fatalf("a token with an expiry must pass: %v", err)
+	}
+}
+
+func TestAudienceRejectsInvalidTypes(t *testing.T) {
+	// Per RFC 7519 §4.1.3 the "aud" claim is a string or an array of strings.
+	// A number, boolean or object used to match no case in Audience.UnmarshalJSON
+	// and was accepted silently with the audience discarded -- more permissive than
+	// encoding/json, dropping a security-relevant claim on the floor. See issue #6.
+	for _, payload := range []string{
+		`{"aud":1234}`,
+		`{"aud":true}`,
+		`{"aud":{"x":1}}`,
+	} {
+		var claims Claims
+		err := json.Unmarshal([]byte(payload), &claims)
+		if err == nil {
+			t.Fatalf("%s: expected an error but it parsed with audience %#v", payload, claims.Audience)
+		}
+		if !errors.Is(err, ErrTokenForm) {
+			t.Fatalf("%s: expected ErrTokenForm but got: %v", payload, err)
+		}
+	}
+}
+
+func TestAudienceValidFormsStillAccepted(t *testing.T) {
+	for _, tc := range []struct {
+		payload string
+		want    Audience
+	}{
+		{`{"aud":"api"}`, Audience{"api"}},
+		{`{"aud":["api","web"]}`, Audience{"api", "web"}},
+		{`{"aud":null}`, nil},   // explicit null -> absent audience
+		{`{"sub":"user"}`, nil}, // omitted -> absent audience
+	} {
+		var claims Claims
+		if err := json.Unmarshal([]byte(tc.payload), &claims); err != nil {
+			t.Fatalf("%s: unexpected error: %v", tc.payload, err)
+		}
+
+		got := claims.Audience
+		if len(got) != len(tc.want) {
+			t.Fatalf("%s: expected audience %#v but got %#v", tc.payload, tc.want, got)
+		}
+		for i := range tc.want {
+			if got[i] != tc.want[i] {
+				t.Fatalf("%s: expected audience %#v but got %#v", tc.payload, tc.want, got)
+			}
+		}
 	}
 }
 

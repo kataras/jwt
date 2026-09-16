@@ -348,7 +348,12 @@ func (aud *Audience) UnmarshalJSON(data []byte) (err error) {
 		case '[': // it's an array of strings.
 			var audStrings []string
 			err = json.Unmarshal(data, &audStrings)
-			*aud = audStrings
+			if err == nil {
+				*aud = audStrings
+			}
+		case 'n': // it's null, treat as an absent audience.
+		default: // any other JSON type (number, boolean, object) is not a valid audience.
+			err = fmt.Errorf("%w: aud: must be a string or an array of strings", ErrTokenForm)
 		}
 	}
 
